@@ -7,6 +7,7 @@ from app.models.strava_credentials import StravaCredentials
 from app.models.strava_activity import StravaActivity
 from app.models.strava_sync_queue import StravaSyncQueue
 from app.models.sleep_extraction import SleepExtraction
+from app.models.athlete_profile import AthleteProfile
 
 __all__ = [
     "User",
@@ -18,4 +19,5 @@ __all__ = [
     "StravaActivity",
     "StravaSyncQueue",
     "SleepExtraction",
+    "AthleteProfile",
 ]

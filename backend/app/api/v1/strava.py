@@ -11,13 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
+from app.models.athlete_profile import AthleteProfile
 from app.models.strava_activity import StravaActivity
 from app.models.strava_credentials import StravaCredentials
 from app.models.strava_sync_queue import StravaSyncQueue
 from app.models.user import User
 from app.services.crypto import decrypt_value, encrypt_value
-from app.services.strava_client import exchange_code, strava_can_make_request
+from app.services.strava_client import exchange_code, get_current_athlete, strava_can_make_request
 from app.services.strava_sync import run_sync_or_enqueue, sync_user_strava_activities
+from app.services.tss import compute_activity_tss
 
 router = APIRouter(prefix="/strava", tags=["strava"])
 
@@ -108,6 +110,38 @@ async def strava_callback(
             )
         )
     await session.flush()
+    # Fetch full athlete profile from Strava and upsert athlete_profile (if rate limit allows)
+    if strava_can_make_request():
+        try:
+            athlete_data = await get_current_athlete(access_token)
+            if athlete_data:
+                r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
+                profile = r.scalar_one_or_none()
+                now = datetime.now(timezone.utc)
+                if profile:
+                    profile.strava_weight_kg = athlete_data.get("weight")
+                    profile.strava_ftp = athlete_data.get("ftp")
+                    profile.strava_firstname = athlete_data.get("firstname")
+                    profile.strava_lastname = athlete_data.get("lastname")
+                    profile.strava_profile_url = athlete_data.get("profile") or athlete_data.get("profile_medium")
+                    profile.strava_sex = athlete_data.get("sex")
+                    profile.strava_updated_at = now
+                else:
+                    session.add(
+                        AthleteProfile(
+                            user_id=uid,
+                            strava_weight_kg=athlete_data.get("weight"),
+                            strava_ftp=athlete_data.get("ftp"),
+                            strava_firstname=athlete_data.get("firstname"),
+                            strava_lastname=athlete_data.get("lastname"),
+                            strava_profile_url=athlete_data.get("profile") or athlete_data.get("profile_medium"),
+                            strava_sex=athlete_data.get("sex"),
+                            strava_updated_at=now,
+                        )
+                    )
+                await session.flush()
+        except Exception as e:
+            logging.warning("Failed to fetch Strava athlete profile: %s", e)
     status = await run_sync_or_enqueue(session, uid)
     await session.commit()
     html = (
@@ -129,6 +163,16 @@ async def unlink_strava(
     await session.execute(delete(StravaActivity).where(StravaActivity.user_id == uid))
     await session.execute(delete(StravaSyncQueue).where(StravaSyncQueue.user_id == uid))
     await session.execute(delete(StravaCredentials).where(StravaCredentials.user_id == uid))
+    r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
+    profile = r.scalar_one_or_none()
+    if profile:
+        profile.strava_weight_kg = None
+        profile.strava_ftp = None
+        profile.strava_firstname = None
+        profile.strava_lastname = None
+        profile.strava_profile_url = None
+        profile.strava_sex = None
+        profile.strava_updated_at = None
     await session.commit()
     return {"status": "unlinked"}
 
@@ -150,6 +194,13 @@ async def trigger_sync(
     return {"status": "syncing"}
 
 
+def _effective_ftp_from_profile(profile: AthleteProfile | None) -> float | None:
+    if not profile:
+        return None
+    v = profile.ftp if profile.ftp is not None else profile.strava_ftp
+    return float(v) if v is not None else None
+
+
 @router.get("/activities")
 async def get_activities(
     session: Annotated[AsyncSession, Depends(get_db)],
@@ -157,10 +208,13 @@ async def get_activities(
     from_date: date | None = None,
     to_date: date | None = None,
 ) -> list[dict]:
-    """Return activities from DB (default last 14 days). No Strava API call."""
+    """Return activities from DB (default last 14 days). TSS is computed (power/suffer_score/duration)."""
     uid = user.id
     to_date = to_date or date.today()
     from_date = from_date or (to_date - timedelta(days=14))
+    r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
+    profile = r.scalar_one_or_none()
+    ftp = _effective_ftp_from_profile(profile)
     r = await session.execute(
         select(StravaActivity)
         .where(
@@ -175,13 +229,14 @@ async def get_activities(
     for a in rows:
         start_iso = a.start_date.isoformat() if a.start_date else None
         distance_km = round(a.distance_m / 1000, 1) if a.distance_m is not None else None
+        tss = compute_activity_tss(a, ftp)
         out.append({
             "id": str(a.strava_id),
             "name": a.name,
             "start_date": start_iso,
             "duration_sec": a.moving_time_sec,
             "distance_km": distance_km,
-            "tss": a.suffer_score,
+            "tss": tss,
             "type": a.type,
         })
     return out
@@ -197,25 +252,28 @@ async def get_fitness(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict | None:
-    """Compute CTL/ATL/TSB from Strava activities (TSS = suffer_score). Formula: TrainingPeaks/Intervals EMA."""
+    """Compute CTL/ATL/TSB from Strava activities (custom TSS: power/suffer_score/duration). Formula: TrainingPeaks/Intervals EMA."""
     uid = user.id
     to_date = date.today()
     from_date = to_date - timedelta(days=90)
+    r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
+    profile = r.scalar_one_or_none()
+    ftp = _effective_ftp_from_profile(profile)
     r = await session.execute(
-        select(StravaActivity.start_date, StravaActivity.suffer_score).where(
+        select(StravaActivity).where(
             StravaActivity.user_id == uid,
             StravaActivity.start_date >= datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc),
             StravaActivity.start_date < datetime.combine(to_date + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc),
-            StravaActivity.suffer_score.isnot(None),
         )
     )
-    rows = r.all()
-    # TSS by date (sum if multiple activities per day)
+    activities = r.scalars().all()
+    # TSS by date (sum if multiple activities per day), using computed TSS
     tss_by_date: dict[date, float] = {}
-    for start_dt, tss in rows:
-        if start_dt and tss is not None:
-            d = start_dt.date() if hasattr(start_dt, "date") else start_dt
-            tss_by_date[d] = tss_by_date.get(d, 0.0) + float(tss)
+    for a in activities:
+        if a.start_date:
+            d = a.start_date.date() if hasattr(a.start_date, "date") else a.start_date
+            tss = compute_activity_tss(a, ftp)
+            tss_by_date[d] = tss_by_date.get(d, 0.0) + tss
     if not tss_by_date:
         return None
     # Run EMA over every day from first activity to today (TSS=0 on rest days) so CTL/ATL decay

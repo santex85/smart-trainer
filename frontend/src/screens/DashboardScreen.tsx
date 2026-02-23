@@ -251,6 +251,7 @@ export function DashboardScreen({
   onOpenStrava,
   onOpenStravaActivity,
   onOpenWellness,
+  onOpenAthleteProfile,
   refreshNutritionTrigger = 0,
   refreshStravaTrigger = 0,
 }: {
@@ -261,6 +262,7 @@ export function DashboardScreen({
   onOpenStrava?: () => void;
   onOpenStravaActivity?: () => void;
   onOpenWellness?: () => void;
+  onOpenAthleteProfile?: () => void;
   refreshNutritionTrigger?: number;
   refreshStravaTrigger?: number;
 }) {
@@ -555,6 +557,11 @@ export function DashboardScreen({
           {onOpenWellness && (
             <TouchableOpacity style={styles.chatLink} onPress={onOpenWellness}>
               <Text style={styles.chatLinkText}>Wellness →</Text>
+            </TouchableOpacity>
+          )}
+          {onOpenAthleteProfile && (
+            <TouchableOpacity style={styles.chatLink} onPress={onOpenAthleteProfile}>
+              <Text style={styles.chatLinkText}>Athlete profile →</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.chatLink} onPress={onOpenChat}>

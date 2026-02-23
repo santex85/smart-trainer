@@ -379,6 +379,41 @@ export async function getStravaFitness(): Promise<StravaFitness | null> {
   return api<StravaFitness | null>("/api/v1/strava/fitness");
 }
 
+export interface AthleteProfileResponse {
+  weight_kg: number | null;
+  weight_source: string | null;
+  ftp: number | null;
+  ftp_source: string | null;
+  height_cm: number | null;
+  birth_year: number | null;
+  strava_firstname: string | null;
+  strava_lastname: string | null;
+  strava_profile_url: string | null;
+  strava_sex: string | null;
+  strava_updated_at: string | null;
+  display_name: string;
+}
+
+export async function getAthleteProfile(): Promise<AthleteProfileResponse> {
+  return api<AthleteProfileResponse>("/api/v1/athlete-profile");
+}
+
+export async function updateAthleteProfile(body: {
+  weight_kg?: number | null;
+  height_cm?: number | null;
+  birth_year?: number | null;
+  ftp?: number | null;
+}): Promise<AthleteProfileResponse> {
+  return api<AthleteProfileResponse>("/api/v1/athlete-profile", {
+    method: "PATCH",
+    body,
+  });
+}
+
+export async function refreshAthleteProfileFromStrava(): Promise<AthleteProfileResponse> {
+  return api<AthleteProfileResponse>("/api/v1/athlete-profile/refresh-strava", { method: "POST" });
+}
+
 export async function getChatHistory(limit = 50): Promise<ChatMessage[]> {
   return api<ChatMessage[]>(`/api/v1/chat/history?limit=${limit}`);
 }

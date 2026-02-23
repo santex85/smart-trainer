@@ -14,6 +14,7 @@ import { ChatScreen } from "./src/screens/ChatScreen";
 import { StravaLinkScreen } from "./src/screens/StravaLinkScreen";
 import { StravaActivityScreen } from "./src/screens/StravaActivityScreen";
 import { WellnessScreen } from "./src/screens/WellnessScreen";
+import { AthleteProfileScreen } from "./src/screens/AthleteProfileScreen";
 import type { AuthUser } from "./src/api/client";
 
 const Stack = createNativeStackNavigator();
@@ -126,6 +127,7 @@ export default function App() {
                   onOpenStrava={() => setStravaModalVisible(true)}
                   onOpenStravaActivity={() => navigation.navigate("StravaActivity")}
                   onOpenWellness={() => navigation.navigate("Wellness")}
+                  onOpenAthleteProfile={() => navigation.navigate("AthleteProfile")}
                   refreshNutritionTrigger={refreshNutritionTrigger}
                   refreshStravaTrigger={refreshStravaTrigger}
                 />
@@ -139,6 +141,11 @@ export default function App() {
             <Stack.Screen name="Wellness">
               {({ navigation }) => (
                 <WellnessScreen onClose={() => navigation.goBack()} />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="AthleteProfile">
+              {({ navigation }) => (
+                <AthleteProfileScreen onClose={() => navigation.goBack()} />
               )}
             </Stack.Screen>
           </Stack.Navigator>

@@ -149,3 +149,18 @@ async def get_all_activities_paginated(
             break
         page += 1
     return all_activities
+
+
+async def get_current_athlete(access_token: str) -> dict[str, Any]:
+    """Fetch current athlete profile (GET /athlete). Counts toward rate limit."""
+    if not strava_can_make_request():
+        raise RuntimeError("Strava rate limit threshold reached; enqueue sync.")
+    strava_record_request()
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.get(
+            f"{STRAVA_API_BASE}/athlete",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        r.raise_for_status()
+        data = r.json()
+        return data if isinstance(data, dict) else {}
