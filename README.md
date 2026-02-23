@@ -27,6 +27,10 @@ Cross-platform AI sports coach: nutrition from plate photos (Gemini), Intervals.
 
 Make targets: `make build`, `make up`, `make down`, `make logs`, `make migrate`, `make shell-backend`, `make ps`, `make logs-backend`, `make logs-frontend`, `make logs-db`.
 
+### Production deploy (167.71.74.220)
+
+See [docs/DEPLOY.md](docs/DEPLOY.md): Phase 0 (server analysis and cleanup), then git clone, `.env` from `.env.production.example`, Caddy HTTPS, Strava callback.
+
 ### Backend (local)
 
 ```bash

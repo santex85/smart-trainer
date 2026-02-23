@@ -1,0 +1,5 @@
+# Production: set DOMAIN in .env (e.g. trainer.example.com).
+# Caddy will obtain a Let's Encrypt certificate and proxy to frontend.
+{$DOMAIN} {
+  reverse_proxy frontend:80
+}
