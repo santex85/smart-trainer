@@ -47,6 +47,21 @@ function isWeb(): boolean {
   return Platform.OS === "web";
 }
 
+/** On native, gallery can return ph:// or content:// URIs that FormData { uri } doesn't handle. Convert to Blob via XHR. */
+function uriToBlobNative(uri: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onload = () => {
+      if (xhr.response instanceof Blob) resolve(xhr.response);
+      else reject(new Error("Expected blob response"));
+    };
+    xhr.onerror = () => reject(new TypeError("Network request failed"));
+    xhr.responseType = "blob";
+    xhr.open("GET", uri, true);
+    xhr.send(null);
+  });
+}
+
 export async function uploadPhoto(file: { uri: string; name?: string; type?: string }, mealType?: string): Promise<NutritionResult> {
   devLog(`uploadPhoto: start uri=${file.uri?.slice(0, 60)}… platform=${Platform.OS}`);
   const form = new FormData();
@@ -61,12 +76,9 @@ export async function uploadPhoto(file: { uri: string; name?: string; type?: str
       throw e;
     }
   } else {
-    devLog("uploadPhoto: native path, appending { uri, name, type } for RN");
-    form.append("file", {
-      uri: file.uri,
-      name: file.name || "photo.jpg",
-      type: file.type || "image/jpeg",
-    } as unknown as Blob);
+    devLog("uploadPhoto: native, converting uri to blob (works for gallery ph:// and camera file://)");
+    const blob = await uriToBlobNative(file.uri);
+    form.append("file", blob, file.name || "photo.jpg");
   }
   if (mealType) form.append("meal_type", mealType);
   const url = `${API_BASE}/api/v1/nutrition/analyze`;
@@ -116,12 +128,10 @@ export async function uploadPhotoForAnalysis(
       throw e;
     }
   } else {
-    // React Native: FormData expects { uri, name, type } so the native layer reads the file from the device
-    form.append("file", {
-      uri: file.uri,
-      name: file.name || "photo.jpg",
-      type: file.type || "image/jpeg",
-    } as unknown as Blob);
+    // Native: gallery returns ph:// or content:// URIs; convert to Blob so upload works from both camera and gallery
+    devLog("uploadPhotoForAnalysis: native, converting uri to blob");
+    const blob = await uriToBlobNative(file.uri);
+    form.append("file", blob, file.name || "photo.jpg");
   }
   if (mealType) form.append("meal_type", mealType);
   const url = `${API_BASE}/api/v1/photo/analyze`;
