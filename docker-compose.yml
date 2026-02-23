@@ -53,8 +53,7 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - backend
-    ports:
-      - "80:80"
+    # Ports: use docker-compose.override.yml for local (80:80), or docker-compose.prod.yml for prod (127.0.0.1:8080:80)
 
 volumes:
   postgres_data:

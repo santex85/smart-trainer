@@ -1,0 +1,5 @@
+# Local dev: expose frontend on port 80. Not used when running with -f docker-compose.prod.yml.
+services:
+  frontend:
+    ports:
+      - "80:80"
