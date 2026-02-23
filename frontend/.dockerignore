@@ -1,0 +1,10 @@
+node_modules
+.expo
+.git
+*.md
+dist
+web-build
+.env
+.env.*
+!.env.example
+npm-debug.log*

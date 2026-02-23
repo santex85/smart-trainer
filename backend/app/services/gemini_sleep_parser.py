@@ -1,0 +1,105 @@
+"""
+Extract sleep metrics from image (screenshot/chart) using Gemini.
+"""
+import json
+import logging
+import re
+
+import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
+from app.config import settings
+from app.schemas.sleep_extraction import SleepExtractionResult
+
+GENERATION_CONFIG = {
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "max_output_tokens": 4096,
+    "response_mime_type": "application/json",
+}
+
+SAFETY_SETTINGS = {
+    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+}
+
+SLEEP_EXTRACT_PROMPT = """You are a sleep data extraction system. This image is a screenshot from a sleep tracker (e.g. Russian: Сон, Время сна, Показатель сна, Фазы сна, Факторы влияющие на показатели сна). Interface can be in any language. Extract EVERY number, label, and graph. Do NOT round: use exact decimals (7h 54m = 7.9, 7h 9m = 7.15).
+
+Return a JSON object with only these optional fields (null for missing):
+
+Basic:
+- date: string YYYY-MM-DD ("23/2" → current year 02-23)
+- sleep_hours, sleep_minutes: total sleep (exact decimal for hours)
+- actual_sleep_hours, actual_sleep_minutes: "Фактическое время сна" / actual sleep time
+- time_in_bed_min: total time in bed, minutes
+- quality_score: number 0-100 (main score e.g. 54)
+- score_delta: number (change vs previous, e.g. 27 or -27 if shown next to score)
+- efficiency_pct, rest_min
+- bedtime, wake_time: "HH:MM"
+- sleep_periods: array of strings, e.g. ["22:47 - 04:23", "04:54 - 07:12"] — every time range shown for sleep
+
+Phases (from numbers or from "Фазы сна" graph — estimate minutes from bar lengths: dark blue=deep, light blue/cyan=REM, orange=awake, other=light):
+- deep_sleep_min, rem_min, light_sleep_min, awake_min: minutes for each phase. If the graph has no numbers, estimate from the visual bar lengths (e.g. dark blue ~1/3 of total → deep_sleep_min ≈ total_min/3).
+
+Factors section ("Факторы, влияющие на показатели сна"): for each row, record the rating label into factor_ratings:
+- factor_ratings: object. Keys (use English): actual_sleep_time, deep_sleep, rem_sleep, rest, latency. Values: the exact label from the image (e.g. "Внимание", "Удовлетворительно", "Хорошо", "Отлично"). Example: {"actual_sleep_time": "Внимание", "deep_sleep": "Удовлетворительно", "rem_sleep": "Внимание", "rest": "Хорошо", "latency": "Отлично"}.
+
+Optional timeline from "Фазы сна" graph (estimate segment boundaries from the horizontal bars):
+- sleep_phases: array of objects [{"start":"HH:MM","end":"HH:MM","phase":"deep"|"rem"|"light"|"awake"}, ...]. Order by time. Estimate start/end from the graph axis (e.g. 22:40 to 04:30). Include as many segments as you can distinguish.
+
+Other:
+- latency_min, awakenings
+- source_app, raw_notes (any comment under score, e.g. "1 период короткого сна...")
+
+Rules: No rounding. Fill factor_ratings from the factors section; fill phase minutes from graph or text; add sleep_phases timeline if you can estimate segments. Output ONLY valid JSON, no markdown."""
+
+
+def _configure_genai() -> None:
+    if not settings.google_gemini_api_key:
+        raise ValueError("GOOGLE_GEMINI_API_KEY is not set")
+    genai.configure(api_key=settings.google_gemini_api_key)
+
+
+def extract_sleep_data(image_bytes: bytes) -> SleepExtractionResult:
+    """Parse image and return structured sleep extraction result."""
+    _configure_genai()
+    model = genai.GenerativeModel(
+        settings.gemini_model,
+        generation_config=GENERATION_CONFIG,
+        safety_settings=SAFETY_SETTINGS,
+    )
+    part = {"mime_type": "image/jpeg", "data": image_bytes}
+    contents = [SLEEP_EXTRACT_PROMPT, part]
+    response = model.generate_content(contents)
+    if not response or not response.text:
+        raise ValueError("Empty response from Gemini")
+    text = response.text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    data = _parse_sleep_json(text)
+    return SleepExtractionResult(**data)
+
+
+def _parse_sleep_json(text: str) -> dict:
+    """Parse JSON from Gemini, tolerating trailing commas and minor truncation."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # Remove trailing comma before } or ]
+    fixed = re.sub(r",\s*([}\]])", r"\1", text)
+    try:
+        return json.loads(fixed)
+    except json.JSONDecodeError:
+        pass
+    # If truncated (unterminated string or missing brace), try closing
+    trimmed = text.rstrip()
+    for suffix in ['" }', " null}", "}", " }"]:
+        try:
+            return json.loads(trimmed.rstrip(",").rstrip() + suffix)
+        except json.JSONDecodeError:
+            continue
+    logging.warning("gemini_sleep_parser: invalid JSON from Gemini (first 500 chars): %s", text[:500])
+    raise ValueError("Could not parse sleep data from image. Please try another photo.")
