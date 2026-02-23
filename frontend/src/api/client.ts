@@ -61,8 +61,12 @@ export async function uploadPhoto(file: { uri: string; name?: string; type?: str
       throw e;
     }
   } else {
-    devLog("uploadPhoto: native path, appending file object");
-    form.append("file", file as unknown as Blob);
+    devLog("uploadPhoto: native path, appending { uri, name, type } for RN");
+    form.append("file", {
+      uri: file.uri,
+      name: file.name || "photo.jpg",
+      type: file.type || "image/jpeg",
+    } as unknown as Blob);
   }
   if (mealType) form.append("meal_type", mealType);
   const url = `${API_BASE}/api/v1/nutrition/analyze`;
@@ -112,7 +116,12 @@ export async function uploadPhotoForAnalysis(
       throw e;
     }
   } else {
-    form.append("file", file as unknown as Blob);
+    // React Native: FormData expects { uri, name, type } so the native layer reads the file from the device
+    form.append("file", {
+      uri: file.uri,
+      name: file.name || "photo.jpg",
+      type: file.type || "image/jpeg",
+    } as unknown as Blob);
   }
   if (mealType) form.append("meal_type", mealType);
   const url = `${API_BASE}/api/v1/photo/analyze`;
