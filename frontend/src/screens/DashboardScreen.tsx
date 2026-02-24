@@ -21,11 +21,16 @@ import {
   updateNutritionEntry,
   deleteNutritionEntry,
   runOrchestrator,
+  getWellness,
+  createOrUpdateWellness,
+  getAthleteProfile,
+  updateAthleteProfile,
   type ActivityItem,
   type NutritionDayResponse,
   type NutritionDayEntry,
   type AuthUser,
   type StravaFitness,
+  type WellnessDay,
 } from "../api/client";
 
 const CALORIE_GOAL = 2200;
@@ -243,6 +248,113 @@ function EditFoodEntryModal({
   );
 }
 
+function EditWellnessModal({
+  date,
+  initialWellness,
+  initialWeight,
+  onClose,
+  onSaved,
+}: {
+  date: string;
+  initialWellness: WellnessDay | null;
+  initialWeight: number | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [sleepHours, setSleepHours] = useState(
+    initialWellness?.sleep_hours != null ? String(initialWellness.sleep_hours) : ""
+  );
+  const [rhr, setRhr] = useState(initialWellness?.rhr != null ? String(initialWellness.rhr) : "");
+  const [hrv, setHrv] = useState(initialWellness?.hrv != null ? String(initialWellness.hrv) : "");
+  const [weightKg, setWeightKg] = useState(initialWeight != null ? String(initialWeight) : "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    const sh = sleepHours.trim() ? parseFloat(sleepHours) : undefined;
+    const r = rhr.trim() ? parseFloat(rhr) : undefined;
+    const h = hrv.trim() ? parseFloat(hrv) : undefined;
+    const w = weightKg.trim() ? parseFloat(weightKg) : undefined;
+    if (sh !== undefined && (Number.isNaN(sh) || sh < 0 || sh > 24)) {
+      Alert.alert("Ошибка", "Сон: введите число от 0 до 24.");
+      return;
+    }
+    if (r !== undefined && (Number.isNaN(r) || r < 0 || r > 200)) {
+      Alert.alert("Ошибка", "RHR: введите число от 0 до 200.");
+      return;
+    }
+    if (h !== undefined && (Number.isNaN(h) || h < 0)) {
+      Alert.alert("Ошибка", "HRV: введите положительное число.");
+      return;
+    }
+    if (w !== undefined && (Number.isNaN(w) || w < 20 || w > 300)) {
+      Alert.alert("Ошибка", "Вес: введите число от 20 до 300 кг.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await createOrUpdateWellness({ date, sleep_hours: sh, rhr: r, hrv: h });
+      if (w !== undefined) await updateAthleteProfile({ weight_kg: w });
+      onSaved();
+      onClose();
+    } catch (e) {
+      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось сохранить.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible transparent animationType="fade">
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+          <Text style={styles.cardTitle}>Сон и здоровье ({date})</Text>
+          <Text style={styles.hint}>Данные учитываются ИИ при анализе и в чате.</Text>
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Сон (часы)"
+            placeholderTextColor="#64748b"
+            value={sleepHours}
+            onChangeText={setSleepHours}
+            keyboardType="decimal-pad"
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="RHR (уд/мин)"
+            placeholderTextColor="#64748b"
+            value={rhr}
+            onChangeText={setRhr}
+            keyboardType="decimal-pad"
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="HRV (мс)"
+            placeholderTextColor="#64748b"
+            value={hrv}
+            onChangeText={setHrv}
+            keyboardType="decimal-pad"
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Вес (кг)"
+            placeholderTextColor="#64748b"
+            value={weightKg}
+            onChangeText={setWeightKg}
+            keyboardType="decimal-pad"
+          />
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
+              <Text style={styles.modalBtnCancelText}>Отмена</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalBtnSave} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Сохранить</Text>}
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export function DashboardScreen({
   user,
   onLogout,
@@ -250,7 +362,6 @@ export function DashboardScreen({
   onOpenChat,
   onOpenStrava,
   onOpenStravaActivity,
-  onOpenWellness,
   onOpenAthleteProfile,
   refreshNutritionTrigger = 0,
   refreshStravaTrigger = 0,
@@ -261,7 +372,6 @@ export function DashboardScreen({
   onOpenChat: () => void;
   onOpenStrava?: () => void;
   onOpenStravaActivity?: () => void;
-  onOpenWellness?: () => void;
   onOpenAthleteProfile?: () => void;
   refreshNutritionTrigger?: number;
   refreshStravaTrigger?: number;
@@ -278,6 +388,9 @@ export function DashboardScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [fitnessData, setFitnessData] = useState<StravaFitness | null>(null);
+  const [wellnessToday, setWellnessToday] = useState<WellnessDay | null>(null);
+  const [athleteProfile, setAthleteProfile] = useState<{ weight_kg: number | null } | null>(null);
+  const [wellnessEditVisible, setWellnessEditVisible] = useState(false);
   const [lastAnalysisResult, setLastAnalysisResult] = useState<{
     decision: string;
     reason: string;
@@ -302,11 +415,13 @@ export function DashboardScreen({
     setNutritionLoadError(false);
     setActivitiesLoadError(false);
     try {
-      const [stravaStatus, aResult, nResult, fitness] = await Promise.all([
+      const [stravaStatus, aResult, nResult, fitness, wellnessList, profile] = await Promise.all([
         getStravaStatus().then((s) => s.linked).catch(() => false),
         getStravaActivities(activitiesStart, today).then((a) => ({ ok: true as const, data: a || [] })).catch(() => ({ ok: false as const, data: [] as ActivityItem[] })),
         getNutritionDay(nutritionDate).then((n) => ({ ok: true as const, data: n })).catch(() => ({ ok: false as const, data: null })),
         getStravaFitness().then((f) => f ?? null).catch(() => null),
+        getWellness(today, today).then((w) => (w && w.length > 0 ? w[0] : null)).catch(() => null),
+        getAthleteProfile().then((p) => ({ weight_kg: p.weight_kg })).catch(() => null),
       ]);
       setStravaLinked(stravaStatus);
       setActivities((aResult.ok ? aResult.data : []).sort((x, y) => (y.start_date || "").localeCompare(x.start_date || "")));
@@ -314,12 +429,16 @@ export function DashboardScreen({
       setNutritionDay(nResult.ok ? nResult.data : null);
       setNutritionLoadError(!nResult.ok);
       setFitnessData(fitness);
+      setWellnessToday(wellnessList);
+      setAthleteProfile(profile);
     } catch {
       setActivities([]);
       setActivitiesLoadError(true);
       setNutritionDay(null);
       setNutritionLoadError(true);
       setFitnessData(null);
+      setWellnessToday(null);
+      setAthleteProfile(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -452,6 +571,26 @@ export function DashboardScreen({
           </View>
 
           <View style={styles.card}>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.cardTitle}>Сон и здоровье</Text>
+              <TouchableOpacity onPress={() => setWellnessEditVisible(true)}>
+                <Text style={styles.intervalsLinkText}>Изменить</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.hint}>Сегодня. Данные хранятся в БД и учитываются ИИ при анализе и в чате.</Text>
+            {wellnessToday || athleteProfile?.weight_kg != null ? (
+              <Text style={styles.value}>
+                {wellnessToday?.sleep_hours != null ? `Сон ${wellnessToday.sleep_hours} ч` : "Сон —"}
+                {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
+                {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
+                {athleteProfile?.weight_kg != null ? ` · Вес ${athleteProfile.weight_kg} кг` : " · Вес —"}
+              </Text>
+            ) : (
+              <Text style={styles.placeholder}>Нажмите «Изменить», чтобы ввести сон, RHR, HRV и вес.</Text>
+            )}
+          </View>
+
+          <View style={styles.card}>
             <Text style={styles.cardTitle}>Fitness (CTL / ATL / TSB)</Text>
             <Text style={styles.hint}>TrainingPeaks-style from Strava TSS (last 90 days)</Text>
             {fitnessData ? (
@@ -477,6 +616,19 @@ export function DashboardScreen({
               onDeleted={() => {
                 setEntryToEdit(null);
                 loadNutritionForDate(nutritionDate);
+              }}
+            />
+          ) : null}
+
+          {wellnessEditVisible ? (
+            <EditWellnessModal
+              date={today}
+              initialWellness={wellnessToday}
+              initialWeight={athleteProfile?.weight_kg ?? null}
+              onClose={() => setWellnessEditVisible(false)}
+              onSaved={() => {
+                setWellnessEditVisible(false);
+                load();
               }}
             />
           ) : null}
@@ -554,11 +706,6 @@ export function DashboardScreen({
             )}
           </TouchableOpacity>
 
-          {onOpenWellness && (
-            <TouchableOpacity style={styles.chatLink} onPress={onOpenWellness}>
-              <Text style={styles.chatLinkText}>Wellness →</Text>
-            </TouchableOpacity>
-          )}
           {onOpenAthleteProfile && (
             <TouchableOpacity style={styles.chatLink} onPress={onOpenAthleteProfile}>
               <Text style={styles.chatLinkText}>Athlete profile →</Text>

@@ -13,7 +13,6 @@ import { CameraScreen } from "./src/screens/CameraScreen";
 import { ChatScreen } from "./src/screens/ChatScreen";
 import { StravaLinkScreen } from "./src/screens/StravaLinkScreen";
 import { StravaActivityScreen } from "./src/screens/StravaActivityScreen";
-import { WellnessScreen } from "./src/screens/WellnessScreen";
 import { AthleteProfileScreen } from "./src/screens/AthleteProfileScreen";
 import type { AuthUser } from "./src/api/client";
 
@@ -127,7 +126,6 @@ export default function App() {
                   onOpenChat={() => setChatVisible(true)}
                   onOpenStrava={() => setStravaModalVisible(true)}
                   onOpenStravaActivity={() => navigation.navigate("StravaActivity")}
-                  onOpenWellness={() => navigation.navigate("Wellness")}
                   onOpenAthleteProfile={() => navigation.navigate("AthleteProfile")}
                   refreshNutritionTrigger={refreshNutritionTrigger}
                   refreshStravaTrigger={refreshStravaTrigger}
@@ -137,11 +135,6 @@ export default function App() {
             <Stack.Screen name="StravaActivity">
               {({ navigation }) => (
                 <StravaActivityScreen onClose={() => navigation.goBack()} />
-              )}
-            </Stack.Screen>
-            <Stack.Screen name="Wellness">
-              {({ navigation }) => (
-                <WellnessScreen onClose={() => navigation.goBack()} />
               )}
             </Stack.Screen>
             <Stack.Screen name="AthleteProfile">
