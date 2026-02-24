@@ -28,6 +28,7 @@ export default function App() {
   const [stravaModalVisible, setStravaModalVisible] = useState(false);
   const [refreshNutritionTrigger, setRefreshNutritionTrigger] = useState(0);
   const [refreshStravaTrigger, setRefreshStravaTrigger] = useState(0);
+  const [refreshSleepTrigger, setRefreshSleepTrigger] = useState(0);
 
   useEffect(() => {
     setOnUnauthorized(() => {
@@ -153,7 +154,17 @@ export default function App() {
 
         {cameraVisible && (
           <View style={styles.modal}>
-            <CameraScreen onClose={closeCamera} onSaved={() => {}} />
+            <CameraScreen
+              onClose={closeCamera}
+              onSaved={() => {
+                setRefreshNutritionTrigger((t) => t + 1);
+                setCameraVisible(false);
+              }}
+              onSleepSaved={() => {
+                setRefreshSleepTrigger((t) => t + 1);
+                setCameraVisible(false);
+              }}
+            />
           </View>
         )}
 

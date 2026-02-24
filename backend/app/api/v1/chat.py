@@ -13,6 +13,7 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.chat_message import ChatMessage, MessageRole
 from app.models.food_log import FoodLog
+from app.models.sleep_extraction import SleepExtraction
 from app.models.strava_activity import StravaActivity
 from app.models.user import User
 from app.models.wellness_cache import WellnessCache
@@ -57,6 +58,33 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
         wellness_today = {"sleep_hours": w.sleep_hours, "rhr": w.rhr, "hrv": w.hrv}
         ctl_atl_tsb = {"ctl": w.ctl, "atl": w.atl, "tsb": w.tsb}
 
+    # Sleep extractions (from photos, last 30 days)
+    sleep_from = today - timedelta(days=30)
+    r = await session.execute(
+        select(SleepExtraction.created_at, SleepExtraction.extracted_data).where(
+            SleepExtraction.user_id == user_id,
+            SleepExtraction.created_at >= datetime.combine(sleep_from, datetime.min.time()).replace(tzinfo=timezone.utc),
+        ).order_by(SleepExtraction.created_at.desc()).limit(60)
+    )
+    sleep_entries = []
+    for created_at, data_json in r.all():
+        try:
+            data = json.loads(data_json) if isinstance(data_json, str) else data_json
+        except (json.JSONDecodeError, TypeError):
+            continue
+        created_date = created_at.date() if created_at and hasattr(created_at, "date") else None
+        sleep_entries.append({
+            "date": created_date.isoformat() if created_date else None,
+            "recorded_at": created_at.isoformat() if created_at else None,
+            "sleep_date": data.get("date"),
+            "sleep_hours": data.get("sleep_hours"),
+            "actual_sleep_hours": data.get("actual_sleep_hours"),
+            "quality_score": data.get("quality_score"),
+            "deep_sleep_min": data.get("deep_sleep_min"),
+            "rem_min": data.get("rem_min"),
+        })
+    sleep_summary = json.dumps(sleep_entries, default=str) if sleep_entries else "No sleep data from photos."
+
     # Recent Strava activities (last 14 days)
     from_date = today - timedelta(days=14)
     r = await session.execute(
@@ -85,6 +113,8 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
         json.dumps(wellness_today or {}),
         "## Load (CTL/ATL/TSB)",
         json.dumps(ctl_atl_tsb or {}),
+        "## Sleep (from photos, last 30 days)",
+        sleep_summary,
         "## Recent workouts (Strava, last 14 days)",
         json.dumps(workouts, default=str),
     ]

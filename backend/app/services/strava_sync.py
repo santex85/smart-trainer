@@ -87,6 +87,33 @@ async def sync_user_strava_activities(session: AsyncSession, user_id: int) -> No
     before_epoch = int(datetime.now(timezone.utc).timestamp())
     activities = await get_all_activities_paginated(access_token, after_epoch, before_epoch)
     logger.info("Strava sync: user_id=%s fetched %s activities", user_id, len(activities))
+    def _float(v: Any) -> float | None:
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
+        return None
+
+    def _int(v: Any) -> int | None:
+        if v is None:
+            return None
+        if isinstance(v, int):
+            return v
+        if isinstance(v, float):
+            return int(v)
+        return None
+
+    def _str(v: Any, max_len: int = 512) -> str | None:
+        if v is None:
+            return None
+        s = str(v).strip()
+        return s[:max_len] if s else None
+
+    def _bool(v: Any) -> bool | None:
+        if v is None:
+            return None
+        return bool(v)
+
     for item in activities:
         strava_id = item.get("id")
         if strava_id is None:
@@ -94,14 +121,31 @@ async def sync_user_strava_activities(session: AsyncSession, user_id: int) -> No
         start_date = _parse_start_date(item)
         if not start_date:
             continue
-        name = item.get("name")
-        moving_time = item.get("moving_time")
-        distance = item.get("distance")
-        suffer_score = item.get("suffer_score")
-        if suffer_score is not None and not isinstance(suffer_score, (int, float)):
-            suffer_score = None
-        act_type = item.get("type")
-        # Upsert: update if exists
+        name = _str(item.get("name"), 512)
+        description = _str(item.get("description"), 10000)
+        act_type = _str(item.get("type"), 64)
+        sport_type = _str(item.get("sport_type"), 64)
+        workout_type = _int(item.get("workout_type"))
+        moving_time = _int(item.get("moving_time"))
+        elapsed_time = _int(item.get("elapsed_time"))
+        distance = _float(item.get("distance"))
+        total_elevation_gain = _float(item.get("total_elevation_gain"))
+        elev_high = _float(item.get("elev_high"))
+        elev_low = _float(item.get("elev_low"))
+        average_speed = _float(item.get("average_speed"))
+        max_speed = _float(item.get("max_speed"))
+        average_heartrate = _float(item.get("average_heartrate"))
+        max_heartrate = _float(item.get("max_heartrate"))
+        average_watts = _float(item.get("average_watts"))
+        kilojoules = _float(item.get("kilojoules"))
+        suffer_score = _float(item.get("suffer_score"))
+        start_date_local = _str(item.get("start_date_local"), 64)
+        tz = _str(item.get("timezone"), 128)
+        trainer = _bool(item.get("trainer"))
+        commute = _bool(item.get("commute"))
+        manual = _bool(item.get("manual"))
+        private = _bool(item.get("private"))
+
         existing = await session.execute(
             select(StravaActivity).where(
                 StravaActivity.user_id == user_id,
@@ -111,11 +155,30 @@ async def sync_user_strava_activities(session: AsyncSession, user_id: int) -> No
         row = existing.scalar_one_or_none()
         if row:
             row.start_date = start_date
+            row.start_date_local = start_date_local
+            row.timezone = tz
             row.name = name
-            row.moving_time_sec = moving_time
-            row.distance_m = distance
-            row.suffer_score = float(suffer_score) if suffer_score is not None else None
+            row.description = description
             row.type = act_type
+            row.sport_type = sport_type
+            row.workout_type = workout_type
+            row.moving_time_sec = moving_time
+            row.elapsed_time_sec = elapsed_time
+            row.distance_m = distance
+            row.total_elevation_gain_m = total_elevation_gain
+            row.elev_high_m = elev_high
+            row.elev_low_m = elev_low
+            row.average_speed_m_s = average_speed
+            row.max_speed_m_s = max_speed
+            row.average_heartrate = average_heartrate
+            row.max_heartrate = max_heartrate
+            row.average_watts = average_watts
+            row.kilojoules = kilojoules
+            row.suffer_score = suffer_score
+            row.trainer = trainer
+            row.commute = commute
+            row.manual = manual
+            row.private = private
             row.raw = item
             row.synced_at = datetime.now(timezone.utc)
         else:
@@ -124,11 +187,30 @@ async def sync_user_strava_activities(session: AsyncSession, user_id: int) -> No
                     user_id=user_id,
                     strava_id=strava_id,
                     start_date=start_date,
+                    start_date_local=start_date_local,
+                    timezone=tz,
                     name=name,
-                    moving_time_sec=moving_time,
-                    distance_m=distance,
-                    suffer_score=float(suffer_score) if suffer_score is not None else None,
+                    description=description,
                     type=act_type,
+                    sport_type=sport_type,
+                    workout_type=workout_type,
+                    moving_time_sec=moving_time,
+                    elapsed_time_sec=elapsed_time,
+                    distance_m=distance,
+                    total_elevation_gain_m=total_elevation_gain,
+                    elev_high_m=elev_high,
+                    elev_low_m=elev_low,
+                    average_speed_m_s=average_speed,
+                    max_speed_m_s=max_speed,
+                    average_heartrate=average_heartrate,
+                    max_heartrate=max_heartrate,
+                    average_watts=average_watts,
+                    kilojoules=kilojoules,
+                    suffer_score=suffer_score,
+                    trainer=trainer,
+                    commute=commute,
+                    manual=manual,
+                    private=private,
                     raw=item,
                 )
             )
