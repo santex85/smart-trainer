@@ -179,17 +179,19 @@ async def list_sleep_extractions(
     user: Annotated[User, Depends(get_current_user)],
     from_date: date | None = Query(None, description="YYYY-MM-DD"),
     to_date: date | None = Query(None, description="YYYY-MM-DD"),
-    limit: int = Query(30, ge=1, le=90),
+    limit: int = Query(60, ge=1, le=90),
 ) -> list[dict]:
     """List sleep extractions (from photos) for dashboard. Returns created_at, sleep_date, sleep_hours, actual_sleep_hours."""
     uid = user.id
-    to_dt = datetime.combine(to_date or date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
-    from_dt = datetime.combine(from_date or (to_date or date.today()) - timedelta(days=limit), datetime.min.time()).replace(tzinfo=timezone.utc)
+    end_date = to_date or date.today()
+    start_date = from_date or (end_date - timedelta(days=limit))
+    from_dt = datetime.combine(start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+    to_dt = datetime.combine(end_date, datetime.max.time()).replace(tzinfo=timezone.utc)
     r = await session.execute(
         select(SleepExtraction.created_at, SleepExtraction.extracted_data).where(
             SleepExtraction.user_id == uid,
             SleepExtraction.created_at >= from_dt,
-            SleepExtraction.created_at <= to_dt + timedelta(days=1),
+            SleepExtraction.created_at <= to_dt,
         ).order_by(SleepExtraction.created_at.desc()).limit(limit)
     )
     out = []

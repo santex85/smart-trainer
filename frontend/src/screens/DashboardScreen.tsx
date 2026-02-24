@@ -424,16 +424,18 @@ export function DashboardScreen({
         getStravaActivities(activitiesStart, today).then((a) => ({ ok: true as const, data: a || [] })).catch(() => ({ ok: false as const, data: [] as ActivityItem[] })),
         getNutritionDay(nutritionDate).then((n) => ({ ok: true as const, data: n })).catch(() => ({ ok: false as const, data: null })),
         getStravaFitness().then((f) => f ?? null).catch(() => null),
-        getWellness(addDays(today, -1), addDays(today, 1)).then((w) => {
+        getWellness(addDays(today, -6), addDays(today, 1)).then((w) => {
           if (!w || w.length === 0) return null;
           const todayNorm = today.slice(0, 10);
-          return w.find((d) => String(d?.date ?? "").slice(0, 10) === todayNorm) ?? null;
+          const forToday = w.find((d) => String(d?.date ?? "").slice(0, 10) === todayNorm);
+          if (forToday) return forToday;
+          const withSleep = w.filter((d) => (d?.sleep_hours ?? 0) > 0).sort((a, b) => String(b?.date ?? "").localeCompare(String(a?.date ?? "")));
+          return withSleep[0] ?? null;
         }).catch(() => null),
-        getSleepExtractions(addDays(today, -29), today).then((list) => {
+        getSleepExtractions(addDays(today, -59), today).then((list) => {
           if (!list || list.length === 0) return null;
           const withHours = list.find((x) => (x.actual_sleep_hours ?? x.sleep_hours) != null);
           if (!withHours) return null;
-          const hours = withHours.actual_sleep_hours ?? withHours.sleep_hours;
           return { sleep_hours: withHours.sleep_hours, actual_sleep_hours: withHours.actual_sleep_hours, sleep_date: withHours.sleep_date ?? undefined };
         }).catch(() => null),
         getAthleteProfile().then((p) => ({ weight_kg: p.weight_kg })).catch(() => null),
@@ -596,14 +598,19 @@ export function DashboardScreen({
             </View>
             <Text style={styles.hint}>Сегодня. Данные хранятся в БД и учитываются ИИ при анализе и в чате.</Text>
             {(wellnessToday || sleepFromPhoto || athleteProfile?.weight_kg != null) ? (
-              <Text style={styles.value}>
-                {(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours) != null
-                  ? `Сон ${(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours)} ч`
-                  : "Сон —"}
-                {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
-                {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
-                {athleteProfile?.weight_kg != null ? ` · Вес ${athleteProfile.weight_kg} кг` : " · Вес —"}
-              </Text>
+              <>
+                <Text style={styles.value}>
+                  {(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours) != null
+                    ? `Сон ${(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours)} ч`
+                    : "Сон —"}
+                  {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
+                  {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
+                  {athleteProfile?.weight_kg != null ? ` · Вес ${athleteProfile.weight_kg} кг` : " · Вес —"}
+                </Text>
+                {(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours) == null && (
+                  <Text style={styles.hint}>Введите сон вручную (Изменить) или загрузите фото сна через камеру.</Text>
+                )}
+              </>
             ) : (
               <Text style={styles.placeholder}>Нажмите «Изменить», чтобы ввести сон, RHR, HRV и вес.</Text>
             )}
