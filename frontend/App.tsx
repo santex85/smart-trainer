@@ -129,6 +129,7 @@ export default function App() {
                   onOpenAthleteProfile={() => navigation.navigate("AthleteProfile")}
                   refreshNutritionTrigger={refreshNutritionTrigger}
                   refreshStravaTrigger={refreshStravaTrigger}
+                  refreshSleepTrigger={refreshSleepTrigger}
                 />
               )}
             </Stack.Screen>

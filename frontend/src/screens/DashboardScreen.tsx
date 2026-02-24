@@ -366,6 +366,7 @@ export function DashboardScreen({
   onOpenAthleteProfile,
   refreshNutritionTrigger = 0,
   refreshStravaTrigger = 0,
+  refreshSleepTrigger = 0,
 }: {
   user?: AuthUser | null;
   onLogout?: () => void;
@@ -376,6 +377,7 @@ export function DashboardScreen({
   onOpenAthleteProfile?: () => void;
   refreshNutritionTrigger?: number;
   refreshStravaTrigger?: number;
+  refreshSleepTrigger?: number;
 }) {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [activitiesLoadError, setActivitiesLoadError] = useState(false);
@@ -460,7 +462,7 @@ export function DashboardScreen({
 
   useEffect(() => {
     load();
-  }, [load, refreshNutritionTrigger, refreshStravaTrigger]);
+  }, [load, refreshNutritionTrigger, refreshStravaTrigger, refreshSleepTrigger]);
 
   const setNutritionDateAndLoad = useCallback(
     (dateStr: string) => {
