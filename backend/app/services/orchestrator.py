@@ -4,7 +4,7 @@ returns Go/Modify/Skip with optional modified plan. TZ: Level 1 (sleep, HRV, RHR
 cannot be overridden by Level 2 (TSS, CTL, ATL). Level 3: polarised intensity (Seiler).
 """
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 import google.generativeai as genai
@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.chat_message import ChatMessage, MessageRole
 from app.models.food_log import FoodLog
+from app.models.sleep_extraction import SleepExtraction
 from app.models.wellness_cache import WellnessCache
 from app.schemas.orchestrator import Decision, ModifiedPlanItem, OrchestratorResponse
 from app.services.intervals_client import create_event, update_event
@@ -126,7 +127,7 @@ async def run_daily_decision(
         food_sum["fat_g"] += row[2] or 0
         food_sum["carbs_g"] += row[3] or 0
 
-    # Wellness today
+    # Wellness today (from wellness_cache; if no sleep_hours, add from latest sleep_extraction)
     r = await session.execute(
         select(WellnessCache).where(
             WellnessCache.user_id == user_id,
@@ -143,6 +144,27 @@ async def run_daily_decision(
             "hrv": w.hrv,
         }
         ctl_atl_tsb = {"ctl": w.ctl, "atl": w.atl, "tsb": w.tsb}
+    if wellness_today is None:
+        wellness_today = {}
+    if wellness_today.get("sleep_hours") is None:
+        # Use latest sleep from photo extractions (last 3 days)
+        from_dt = datetime.combine(today - timedelta(days=3), datetime.min.time()).replace(tzinfo=timezone.utc)
+        r2 = await session.execute(
+            select(SleepExtraction.extracted_data).where(
+                SleepExtraction.user_id == user_id,
+                SleepExtraction.created_at >= from_dt,
+            ).order_by(SleepExtraction.created_at.desc()).limit(1)
+        )
+        row2 = r2.one_or_none()
+        if row2:
+            try:
+                data = json.loads(row2[0]) if isinstance(row2[0], str) else row2[0]
+                hours = data.get("actual_sleep_hours") or data.get("sleep_hours")
+                if hours is not None:
+                    wellness_today["sleep_hours"] = float(hours)
+                    wellness_today["sleep_source"] = "photo"
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass
 
     # Events today: fetch from API (we need credentials)
     events_today: list[dict] = []
