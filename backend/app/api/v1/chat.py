@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
+from app.models.athlete_profile import AthleteProfile
 from app.models.chat_message import ChatMessage, MessageRole
 from app.models.food_log import FoodLog
 from app.models.sleep_extraction import SleepExtraction
@@ -25,12 +26,40 @@ CHAT_SYSTEM = """You are a sports coach. You have the following context about th
 
 
 async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
-    """Build a text summary of athlete data: food today, wellness, load, recent Strava workouts."""
+    """Build a text summary of athlete data: profile, food, wellness, sleep, Strava. No passwords/tokens."""
     today = date.today()
 
-    # Food today
+    # Athlete profile (weight, height, age, ftp, display_name, sex) — no tokens
+    r_user = await session.execute(select(User.email).where(User.id == user_id))
+    user_row = r_user.one_or_none()
+    email = user_row[0] if user_row else None
+    r_prof = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == user_id))
+    profile = r_prof.scalar_one_or_none()
+    athlete = {}
+    if profile:
+        if profile.weight_kg is not None:
+            athlete["weight_kg"] = float(profile.weight_kg)
+        elif profile.strava_weight_kg is not None:
+            athlete["weight_kg"] = float(profile.strava_weight_kg)
+        if profile.height_cm is not None:
+            athlete["height_cm"] = float(profile.height_cm)
+        if profile.birth_year is not None:
+            athlete["birth_year"] = profile.birth_year
+            athlete["age_years"] = today.year - profile.birth_year
+        if profile.ftp is not None:
+            athlete["ftp"] = profile.ftp
+        elif profile.strava_ftp is not None:
+            athlete["ftp"] = profile.strava_ftp
+        if profile.strava_firstname or profile.strava_lastname:
+            athlete["display_name"] = " ".join(filter(None, [profile.strava_firstname, profile.strava_lastname])).strip()
+        if profile.strava_sex:
+            athlete["sex"] = profile.strava_sex
+    if not athlete.get("display_name") and email:
+        athlete["display_name"] = email
+
+    # Food today (sum and entries)
     r = await session.execute(
-        select(FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g).where(
+        select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type, FoodLog.timestamp).where(
             FoodLog.user_id == user_id,
             FoodLog.timestamp >= datetime.combine(today, datetime.min.time()),
             FoodLog.timestamp < datetime.combine(today + timedelta(days=1), datetime.min.time()),
@@ -38,11 +67,16 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
     )
     rows = r.all()
     food_sum = {"calories": 0.0, "protein_g": 0.0, "fat_g": 0.0, "carbs_g": 0.0}
+    food_entries = []
     for row in rows:
-        food_sum["calories"] += row[0] or 0
-        food_sum["protein_g"] += row[1] or 0
-        food_sum["fat_g"] += row[2] or 0
-        food_sum["carbs_g"] += row[3] or 0
+        food_sum["calories"] += row[2] or 0
+        food_sum["protein_g"] += row[3] or 0
+        food_sum["fat_g"] += row[4] or 0
+        food_sum["carbs_g"] += row[5] or 0
+        food_entries.append({
+            "name": row[0], "portion_grams": row[1], "calories": row[2], "protein_g": row[3], "fat_g": row[4], "carbs_g": row[5],
+            "meal_type": row[6], "timestamp": row[7].isoformat() if row[7] else None,
+        })
 
     # Wellness today (sleep, RHR, HRV) and load (CTL/ATL/TSB)
     r = await session.execute(
@@ -106,10 +140,31 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
         })
     sleep_summary = json.dumps(sleep_entries, default=str) if sleep_entries else "No sleep data from photos."
 
-    # Recent Strava activities (last 14 days)
+    # Wellness history (last 14 days)
+    wellness_from = today - timedelta(days=14)
+    r_well = await session.execute(
+        select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb).where(
+            WellnessCache.user_id == user_id,
+            WellnessCache.date >= wellness_from,
+            WellnessCache.date <= today,
+        ).order_by(WellnessCache.date.asc())
+    )
+    wellness_history = []
+    for row in r_well.all():
+        wellness_history.append({
+            "date": row[0].isoformat() if row[0] else None,
+            "sleep_hours": row[1], "rhr": row[2], "hrv": row[3], "ctl": row[4], "atl": row[5], "tsb": row[6],
+        })
+
+    # Recent Strava activities (last 14 days, full fields)
     from_date = today - timedelta(days=14)
     r = await session.execute(
-        select(StravaActivity.name, StravaActivity.start_date, StravaActivity.moving_time_sec, StravaActivity.distance_m, StravaActivity.suffer_score).where(
+        select(
+            StravaActivity.name, StravaActivity.start_date, StravaActivity.type, StravaActivity.sport_type,
+            StravaActivity.moving_time_sec, StravaActivity.elapsed_time_sec, StravaActivity.distance_m,
+            StravaActivity.total_elevation_gain_m, StravaActivity.average_heartrate, StravaActivity.max_heartrate,
+            StravaActivity.average_watts, StravaActivity.suffer_score,
+        ).where(
             StravaActivity.user_id == user_id,
             StravaActivity.start_date >= datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc),
             StravaActivity.start_date < datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc),
@@ -117,23 +172,37 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
     )
     activities = r.all()
     workouts = []
-    for name, start_dt, moving_sec, dist_m, tss in activities:
+    for row in activities:
+        name, start_dt, act_type, sport_type, moving_sec, elapsed_sec, dist_m, elev_m, avg_hr, max_hr, avg_watts, tss = row
         d = start_dt.date() if start_dt and hasattr(start_dt, "date") else None
         workouts.append({
             "date": d.isoformat() if d else None,
             "name": name,
+            "type": act_type,
+            "sport_type": sport_type,
             "moving_time_sec": moving_sec,
+            "elapsed_time_sec": elapsed_sec,
             "distance_km": round(dist_m / 1000, 1) if dist_m is not None else None,
+            "elevation_gain_m": round(elev_m, 0) if elev_m is not None else None,
+            "average_heartrate": avg_hr,
+            "max_heartrate": max_hr,
+            "average_watts": avg_watts,
             "tss": tss,
         })
 
     parts = [
+        "## Athlete profile (weight, height, age, FTP, name, sex)",
+        json.dumps(athlete, default=str),
         "## Food today (sum)",
         f"Calories: {food_sum['calories']:.0f}, Protein: {food_sum['protein_g']:.0f}g, Fat: {food_sum['fat_g']:.0f}g, Carbs: {food_sum['carbs_g']:.0f}g",
+        "## Food today (entries)",
+        json.dumps(food_entries, default=str),
         "## Wellness today (sleep, RHR, HRV)",
         json.dumps(wellness_today or {}),
         "## Load (CTL/ATL/TSB)",
         json.dumps(ctl_atl_tsb or {}),
+        "## Wellness history (last 14 days)",
+        json.dumps(wellness_history, default=str),
         "## Sleep (from photos, last 30 days)",
         sleep_summary,
         "## Recent workouts (Strava, last 14 days)",
