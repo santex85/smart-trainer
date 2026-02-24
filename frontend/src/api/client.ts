@@ -339,6 +339,20 @@ export async function createOrUpdateWellness(payload: WellnessUpsertPayload): Pr
   return api<WellnessDay>("/api/v1/wellness", { method: "PUT", body: payload });
 }
 
+export interface SleepExtractionSummary {
+  created_at: string;
+  sleep_date?: string | null;
+  sleep_hours?: number | null;
+  actual_sleep_hours?: number | null;
+}
+
+export async function getSleepExtractions(fromDate?: string, toDate?: string): Promise<SleepExtractionSummary[]> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("from_date", fromDate);
+  if (toDate) params.set("to_date", toDate);
+  return api<SleepExtractionSummary[]>(`/api/v1/photo/sleep-extractions?${params}`);
+}
+
 export async function getEvents(fromDate?: string, toDate?: string): Promise<EventItem[]> {
   const params = new URLSearchParams();
   if (fromDate) params.set("from_date", fromDate);

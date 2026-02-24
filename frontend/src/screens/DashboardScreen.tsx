@@ -23,6 +23,7 @@ import {
   runOrchestrator,
   getWellness,
   createOrUpdateWellness,
+  getSleepExtractions,
   getAthleteProfile,
   updateAthleteProfile,
   type ActivityItem,
@@ -389,6 +390,7 @@ export function DashboardScreen({
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [fitnessData, setFitnessData] = useState<StravaFitness | null>(null);
   const [wellnessToday, setWellnessToday] = useState<WellnessDay | null>(null);
+  const [sleepFromPhoto, setSleepFromPhoto] = useState<{ sleep_hours?: number; actual_sleep_hours?: number; sleep_date?: string } | null>(null);
   const [athleteProfile, setAthleteProfile] = useState<{ weight_kg: number | null } | null>(null);
   const [wellnessEditVisible, setWellnessEditVisible] = useState(false);
   const [lastAnalysisResult, setLastAnalysisResult] = useState<{
@@ -415,12 +417,21 @@ export function DashboardScreen({
     setNutritionLoadError(false);
     setActivitiesLoadError(false);
     try {
-      const [stravaStatus, aResult, nResult, fitness, wellnessList, profile] = await Promise.all([
+      const [stravaStatus, aResult, nResult, fitness, wellnessList, sleepFromPhotoResult, profile] = await Promise.all([
         getStravaStatus().then((s) => s.linked).catch(() => false),
         getStravaActivities(activitiesStart, today).then((a) => ({ ok: true as const, data: a || [] })).catch(() => ({ ok: false as const, data: [] as ActivityItem[] })),
         getNutritionDay(nutritionDate).then((n) => ({ ok: true as const, data: n })).catch(() => ({ ok: false as const, data: null })),
         getStravaFitness().then((f) => f ?? null).catch(() => null),
-        getWellness(today, today).then((w) => (w && w.length > 0 ? w[0] : null)).catch(() => null),
+        getWellness(addDays(today, -1), addDays(today, 1)).then((w) => {
+          if (!w || w.length === 0) return null;
+          return w.find((d) => d.date === today) ?? null;
+        }).catch(() => null),
+        getSleepExtractions(addDays(today, -6), today).then((list) => {
+          const latest = list && list.length > 0 ? list[0] : null;
+          if (!latest) return null;
+          const hours = latest.actual_sleep_hours ?? latest.sleep_hours;
+          return hours != null ? { sleep_hours: latest.sleep_hours, actual_sleep_hours: latest.actual_sleep_hours, sleep_date: latest.sleep_date ?? undefined } : null;
+        }).catch(() => null),
         getAthleteProfile().then((p) => ({ weight_kg: p.weight_kg })).catch(() => null),
       ]);
       setStravaLinked(stravaStatus);
@@ -430,6 +441,7 @@ export function DashboardScreen({
       setNutritionLoadError(!nResult.ok);
       setFitnessData(fitness);
       setWellnessToday(wellnessList);
+      setSleepFromPhoto(wellnessList?.sleep_hours != null ? null : sleepFromPhotoResult);
       setAthleteProfile(profile);
     } catch {
       setActivities([]);
@@ -438,6 +450,7 @@ export function DashboardScreen({
       setNutritionLoadError(true);
       setFitnessData(null);
       setWellnessToday(null);
+      setSleepFromPhoto(null);
       setAthleteProfile(null);
     } finally {
       setLoading(false);
@@ -578,9 +591,11 @@ export function DashboardScreen({
               </TouchableOpacity>
             </View>
             <Text style={styles.hint}>Сегодня. Данные хранятся в БД и учитываются ИИ при анализе и в чате.</Text>
-            {wellnessToday || athleteProfile?.weight_kg != null ? (
+            {(wellnessToday || sleepFromPhoto || athleteProfile?.weight_kg != null) ? (
               <Text style={styles.value}>
-                {wellnessToday?.sleep_hours != null ? `Сон ${wellnessToday.sleep_hours} ч` : "Сон —"}
+                {(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours) != null
+                  ? `Сон ${(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours)} ч`
+                  : "Сон —"}
                 {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
                 {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
                 {athleteProfile?.weight_kg != null ? ` · Вес ${athleteProfile.weight_kg} кг` : " · Вес —"}

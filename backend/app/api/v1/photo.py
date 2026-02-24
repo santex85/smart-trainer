@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime
+from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -171,3 +171,37 @@ async def save_sleep_from_preview(
         extracted_data=data,
         created_at=record.created_at.isoformat() if record.created_at else "",
     )
+
+
+@router.get("/sleep-extractions", response_model=list[dict])
+async def list_sleep_extractions(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    from_date: date | None = Query(None, description="YYYY-MM-DD"),
+    to_date: date | None = Query(None, description="YYYY-MM-DD"),
+    limit: int = Query(30, ge=1, le=90),
+) -> list[dict]:
+    """List sleep extractions (from photos) for dashboard. Returns created_at, sleep_date, sleep_hours, actual_sleep_hours."""
+    uid = user.id
+    to_dt = datetime.combine(to_date or date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
+    from_dt = datetime.combine(from_date or (to_date or date.today()) - timedelta(days=limit), datetime.min.time()).replace(tzinfo=timezone.utc)
+    r = await session.execute(
+        select(SleepExtraction.created_at, SleepExtraction.extracted_data).where(
+            SleepExtraction.user_id == uid,
+            SleepExtraction.created_at >= from_dt,
+            SleepExtraction.created_at <= to_dt + timedelta(days=1),
+        ).order_by(SleepExtraction.created_at.desc()).limit(limit)
+    )
+    out = []
+    for created_at, data_json in r.all():
+        try:
+            data = json.loads(data_json) if isinstance(data_json, str) else data_json
+        except (json.JSONDecodeError, TypeError):
+            continue
+        out.append({
+            "created_at": created_at.isoformat() if created_at else "",
+            "sleep_date": data.get("date"),
+            "sleep_hours": data.get("sleep_hours"),
+            "actual_sleep_hours": data.get("actual_sleep_hours"),
+        })
+    return out
