@@ -198,10 +198,16 @@ async def list_sleep_extractions(
             data = json.loads(data_json) if isinstance(data_json, str) else data_json
         except (json.JSONDecodeError, TypeError):
             continue
+        sh = data.get("sleep_hours")
+        ah = data.get("actual_sleep_hours")
+        if sh is None and data.get("sleep_minutes") is not None:
+            sh = round(data["sleep_minutes"] / 60.0, 2)
+        if ah is None and data.get("actual_sleep_minutes") is not None:
+            ah = round(data["actual_sleep_minutes"] / 60.0, 2)
         out.append({
             "created_at": created_at.isoformat() if created_at else "",
             "sleep_date": data.get("date"),
-            "sleep_hours": data.get("sleep_hours"),
-            "actual_sleep_hours": data.get("actual_sleep_hours"),
+            "sleep_hours": sh,
+            "actual_sleep_hours": ah,
         })
     return out

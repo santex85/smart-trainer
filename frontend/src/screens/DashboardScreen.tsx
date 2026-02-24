@@ -426,13 +426,15 @@ export function DashboardScreen({
         getStravaFitness().then((f) => f ?? null).catch(() => null),
         getWellness(addDays(today, -1), addDays(today, 1)).then((w) => {
           if (!w || w.length === 0) return null;
-          return w.find((d) => d.date === today) ?? null;
+          const todayNorm = today.slice(0, 10);
+          return w.find((d) => String(d?.date ?? "").slice(0, 10) === todayNorm) ?? null;
         }).catch(() => null),
-        getSleepExtractions(addDays(today, -6), today).then((list) => {
-          const latest = list && list.length > 0 ? list[0] : null;
-          if (!latest) return null;
-          const hours = latest.actual_sleep_hours ?? latest.sleep_hours;
-          return hours != null ? { sleep_hours: latest.sleep_hours, actual_sleep_hours: latest.actual_sleep_hours, sleep_date: latest.sleep_date ?? undefined } : null;
+        getSleepExtractions(addDays(today, -29), today).then((list) => {
+          if (!list || list.length === 0) return null;
+          const withHours = list.find((x) => (x.actual_sleep_hours ?? x.sleep_hours) != null);
+          if (!withHours) return null;
+          const hours = withHours.actual_sleep_hours ?? withHours.sleep_hours;
+          return { sleep_hours: withHours.sleep_hours, actual_sleep_hours: withHours.actual_sleep_hours, sleep_date: withHours.sleep_date ?? undefined };
         }).catch(() => null),
         getAthleteProfile().then((p) => ({ weight_kg: p.weight_kg })).catch(() => null),
       ]);
