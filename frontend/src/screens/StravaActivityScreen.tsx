@@ -43,6 +43,22 @@ function dateStrFromIso(iso: string | undefined): string | null {
   return i >= 0 ? iso.slice(0, i) : iso.slice(0, 10);
 }
 
+function formatStartDateTime(iso: string | undefined): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("default", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
 const CALENDAR_THEME = {
   backgroundColor: "transparent",
   calendarBackground: "transparent",
@@ -67,6 +83,7 @@ export function StravaActivityScreen({ onClose }: { onClose: () => void }) {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [linked, setLinked] = useState(false);
+  const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null);
 
   const viewYear = useMemo(() => parseInt(viewDate.slice(0, 4), 10), [viewDate]);
   const viewMonth = useMemo(() => parseInt(viewDate.slice(5, 7), 10), [viewDate]);
@@ -186,7 +203,12 @@ export function StravaActivityScreen({ onClose }: { onClose: () => void }) {
                 </Text>
                 {activitiesForSelectedDay.length > 0 ? (
                   activitiesForSelectedDay.map((act) => (
-                    <View key={act.id} style={styles.activityCard}>
+                    <TouchableOpacity
+                      key={act.id}
+                      style={styles.activityCard}
+                      onPress={() => setExpandedActivityId(expandedActivityId === act.id ? null : act.id)}
+                      activeOpacity={0.8}
+                    >
                       <Text style={styles.activityName}>{act.name || "Workout"}</Text>
                       {act.type ? (
                         <Text style={styles.activityType}>{act.type}</Text>
@@ -196,7 +218,25 @@ export function StravaActivityScreen({ onClose }: { onClose: () => void }) {
                         {act.distance_km != null ? ` · ${act.distance_km} km` : ""}
                         {act.tss != null ? ` · TSS ${Math.round(act.tss)}` : ""}
                       </Text>
-                    </View>
+                      {expandedActivityId === act.id ? (
+                        <View style={styles.detailsBlock}>
+                          <Text style={styles.detailsTitle}>Детали</Text>
+                          <Text style={styles.detailsLine}>Старт: {formatStartDateTime(act.start_date)}</Text>
+                          {act.type ? (
+                            <Text style={styles.detailsLine}>Тип: {act.type}</Text>
+                          ) : null}
+                          {act.duration_sec != null ? (
+                            <Text style={styles.detailsLine}>Длительность: {formatDuration(act.duration_sec)}</Text>
+                          ) : null}
+                          {act.distance_km != null ? (
+                            <Text style={styles.detailsLine}>Дистанция: {act.distance_km} km</Text>
+                          ) : null}
+                          {act.tss != null ? (
+                            <Text style={styles.detailsLine}>TSS: {Math.round(act.tss)}</Text>
+                          ) : null}
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
                   ))
                 ) : (
                   <Text style={styles.hint}>No activities on this day.</Text>
@@ -237,4 +277,7 @@ const styles = StyleSheet.create({
   activityName: { fontSize: 16, color: "#e2e8f0", fontWeight: "600" },
   activityType: { fontSize: 12, color: "#64748b", marginTop: 2 },
   activityMeta: { fontSize: 12, color: "#94a3b8", marginTop: 4 },
+  detailsBlock: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#334155" },
+  detailsTitle: { fontSize: 12, color: "#94a3b8", fontWeight: "600", marginBottom: 6 },
+  detailsLine: { fontSize: 12, color: "#94a3b8", marginBottom: 2 },
 });

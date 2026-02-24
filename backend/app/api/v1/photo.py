@@ -1,8 +1,9 @@
+import json
 import logging
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
@@ -11,8 +12,11 @@ from app.models.user import User
 from app.schemas.nutrition import NutritionAnalyzeResponse
 from app.schemas.photo import PhotoAnalyzeResponse, PhotoFoodResponse, PhotoSleepResponse
 from app.schemas.sleep_extraction import SleepExtractionResponse
+from app.models.sleep_extraction import SleepExtraction
+from app.schemas.sleep_extraction import SleepExtractionResult
 from app.services.gemini_nutrition import analyze_food_from_image
 from app.services.gemini_photo_classifier import classify_image
+from app.services.gemini_sleep_parser import extract_sleep_data
 from app.services.sleep_analysis import analyze_and_save_sleep
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,9 +47,11 @@ async def analyze_photo(
     user: Annotated[User, Depends(get_current_user)],
     file: Annotated[UploadFile, File(description="Photo: food or sleep data")],
     meal_type: Annotated[str | None, Form()] = None,
+    save: Annotated[bool, Query(description="If false, analyze only and do not save")] = True,
 ) -> PhotoAnalyzeResponse:
     """
-    Upload any photo. AI classifies as food or sleep data; then analyzes and saves accordingly.
+    Upload any photo. AI classifies as food or sleep data; then analyzes and optionally saves.
+    If save=False, returns preview data without writing to DB.
     Returns either { type: "food", food: {...} } or { type: "sleep", sleep: {...} }.
     """
     image_bytes = await file.read()
@@ -65,49 +71,103 @@ async def analyze_photo(
         except Exception:
             logging.exception("Food image analysis failed")
             raise HTTPException(status_code=502, detail="AI analysis failed. Please try again.")
-        meal = (meal_type or MealType.other.value).lower()
-        if meal not in [e.value for e in MealType]:
-            meal = MealType.other.value
-        log = FoodLog(
-            user_id=user.id,
-            timestamp=datetime.utcnow(),
-            meal_type=meal,
-            name=result.name,
-            portion_grams=result.portion_grams,
-            calories=result.calories,
-            protein_g=result.protein_g,
-            fat_g=result.fat_g,
-            carbs_g=result.carbs_g,
-        )
-        session.add(log)
-        await session.flush()
+        if save:
+            meal = (meal_type or MealType.other.value).lower()
+            if meal not in [e.value for e in MealType]:
+                meal = MealType.other.value
+            log = FoodLog(
+                user_id=user.id,
+                timestamp=datetime.utcnow(),
+                meal_type=meal,
+                name=result.name,
+                portion_grams=result.portion_grams,
+                calories=result.calories,
+                protein_g=result.protein_g,
+                fat_g=result.fat_g,
+                carbs_g=result.carbs_g,
+            )
+            session.add(log)
+            await session.flush()
+            return PhotoFoodResponse(
+                type="food",
+                food=NutritionAnalyzeResponse(
+                    id=log.id,
+                    name=log.name,
+                    portion_grams=log.portion_grams,
+                    calories=log.calories,
+                    protein_g=log.protein_g,
+                    fat_g=log.fat_g,
+                    carbs_g=log.carbs_g,
+                ),
+            )
         return PhotoFoodResponse(
             type="food",
             food=NutritionAnalyzeResponse(
-                id=log.id,
-                name=log.name,
-                portion_grams=log.portion_grams,
-                calories=log.calories,
-                protein_g=log.protein_g,
-                fat_g=log.fat_g,
-                carbs_g=log.carbs_g,
+                id=0,
+                name=result.name,
+                portion_grams=result.portion_grams,
+                calories=result.calories,
+                protein_g=result.protein_g,
+                fat_g=result.fat_g,
+                carbs_g=result.carbs_g,
             ),
         )
 
     # kind == "sleep"
+    if save:
+        try:
+            record, data = await analyze_and_save_sleep(session, user.id, image_bytes)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except Exception:
+            logging.exception("Sleep image extraction failed")
+            raise HTTPException(status_code=502, detail="Sleep data extraction failed. Please try again.")
+        return PhotoSleepResponse(
+            type="sleep",
+            sleep=SleepExtractionResponse(
+                id=record.id,
+                extracted_data=data,
+                created_at=record.created_at.isoformat() if record.created_at else "",
+            ),
+        )
     try:
-        record, data = await analyze_and_save_sleep(session, user.id, image_bytes)
+        extraction = extract_sleep_data(image_bytes)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception:
         logging.exception("Sleep image extraction failed")
         raise HTTPException(status_code=502, detail="Sleep data extraction failed. Please try again.")
-
+    data = extraction.model_dump(mode="json")
     return PhotoSleepResponse(
         type="sleep",
         sleep=SleepExtractionResponse(
-            id=record.id,
+            id=0,
             extracted_data=data,
-            created_at=record.created_at.isoformat() if record.created_at else "",
+            created_at="",
         ),
+    )
+
+
+@router.post("/save-sleep", response_model=SleepExtractionResponse)
+async def save_sleep_from_preview(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    body: SleepExtractionResult,
+) -> SleepExtractionResponse:
+    """
+    Save previously extracted sleep data (e.g. from analyze with save=false).
+    """
+    stored = body.model_dump(mode="json")
+    record = SleepExtraction(
+        user_id=user.id,
+        extracted_data=json.dumps(stored, ensure_ascii=False),
+    )
+    session.add(record)
+    await session.commit()
+    await session.refresh(record)
+    data = json.loads(record.extracted_data)
+    return SleepExtractionResponse(
+        id=record.id,
+        extracted_data=data,
+        created_at=record.created_at.isoformat() if record.created_at else "",
     )

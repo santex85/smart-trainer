@@ -22,6 +22,19 @@ class NutritionAnalyzeResponse(BaseModel):
     id: int | None = None
 
 
+class CreateFoodEntryRequest(BaseModel):
+    """Body for POST /nutrition/entries (create one entry from preview or manual)."""
+
+    name: str = Field(..., min_length=1, max_length=512)
+    portion_grams: float = Field(..., ge=0, le=10000)
+    calories: float = Field(..., ge=0, le=10000)
+    protein_g: float = Field(..., ge=0, le=500)
+    fat_g: float = Field(..., ge=0, le=500)
+    carbs_g: float = Field(..., ge=0, le=1000)
+    meal_type: str | None = None
+    date: str | None = Field(None, description="YYYY-MM-DD; default today")
+
+
 class NutritionEntryUpdate(BaseModel):
     """Optional fields for PATCH; same bounds as NutritionAnalysisResult."""
 

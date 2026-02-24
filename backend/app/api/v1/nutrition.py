@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.models.food_log import FoodLog, MealType
 from app.models.user import User
 from app.schemas.nutrition import (
+    CreateFoodEntryRequest,
     NutritionAnalyzeResponse,
     NutritionDayEntry,
     NutritionDayResponse,
@@ -84,6 +85,49 @@ async def analyze_nutrition(
         protein_g=log.protein_g,
         fat_g=log.fat_g,
         carbs_g=log.carbs_g,
+    )
+
+
+@router.post("/entries", response_model=NutritionDayEntry)
+async def create_nutrition_entry(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    body: CreateFoodEntryRequest,
+) -> NutritionDayEntry:
+    """Create a single food log entry (e.g. from photo preview). Optional meal_type and date (YYYY-MM-DD; default today)."""
+    meal = (body.meal_type or MealType.other.value).lower()
+    if meal not in [e.value for e in MealType]:
+        meal = MealType.other.value
+    day_str = body.date or datetime.utcnow().date().isoformat()
+    try:
+        day_date = date.fromisoformat(day_str)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+    ts = datetime.combine(day_date, datetime.min.time(), tzinfo=timezone.utc)
+    log = FoodLog(
+        user_id=user.id,
+        timestamp=ts,
+        meal_type=meal,
+        name=body.name,
+        portion_grams=body.portion_grams,
+        calories=body.calories,
+        protein_g=body.protein_g,
+        fat_g=body.fat_g,
+        carbs_g=body.carbs_g,
+    )
+    session.add(log)
+    await session.flush()
+    await session.refresh(log)
+    return NutritionDayEntry(
+        id=log.id,
+        name=log.name,
+        portion_grams=log.portion_grams,
+        calories=log.calories,
+        protein_g=log.protein_g,
+        fat_g=log.fat_g,
+        carbs_g=log.carbs_g,
+        meal_type=log.meal_type,
+        timestamp=log.timestamp.isoformat() if log.timestamp else "",
     )
 
 

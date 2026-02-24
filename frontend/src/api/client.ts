@@ -115,9 +115,10 @@ export async function uploadPhoto(file: { uri: string; name?: string; type?: str
 
 export async function uploadPhotoForAnalysis(
   file: { uri: string; name?: string; type?: string },
-  mealType?: string
+  mealType?: string,
+  save: boolean = true
 ): Promise<PhotoAnalyzeResponse> {
-  devLog(`uploadPhotoForAnalysis: start uri=${file.uri?.slice(0, 60)}… platform=${Platform.OS}`);
+  devLog(`uploadPhotoForAnalysis: start uri=${file.uri?.slice(0, 60)}… platform=${Platform.OS} save=${save}`);
   const form = new FormData();
   if (isWeb()) {
     try {
@@ -134,7 +135,8 @@ export async function uploadPhotoForAnalysis(
     form.append("file", blob, file.name || "photo.jpg");
   }
   if (mealType) form.append("meal_type", mealType);
-  const url = `${API_BASE}/api/v1/photo/analyze`;
+  const query = save ? "" : "?save=false";
+  const url = `${API_BASE}/api/v1/photo/analyze${query}`;
   const token = await getAccessToken();
   const headers: Record<string, string> = { Accept: "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -292,6 +294,31 @@ export async function updateNutritionEntry(
 
 export async function deleteNutritionEntry(entryId: number): Promise<{ status: string }> {
   return api<{ status: string }>(`/api/v1/nutrition/entries/${entryId}`, { method: "DELETE" });
+}
+
+export type CreateNutritionEntryPayload = {
+  name: string;
+  portion_grams: number;
+  calories: number;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+  meal_type?: string;
+  date?: string;
+};
+
+export async function createNutritionEntry(payload: CreateNutritionEntryPayload): Promise<NutritionDayEntry> {
+  return api<NutritionDayEntry>("/api/v1/nutrition/entries", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function saveSleepFromPreview(extracted_data: SleepExtractedData): Promise<SleepExtractionResponse> {
+  return api<SleepExtractionResponse>("/api/v1/photo/save-sleep", {
+    method: "POST",
+    body: extracted_data,
+  });
 }
 
 export async function getWellness(fromDate?: string, toDate?: string): Promise<WellnessDay[]> {

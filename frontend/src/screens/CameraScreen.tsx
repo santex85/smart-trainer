@@ -12,6 +12,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import {
   uploadPhotoForAnalysis,
+  createNutritionEntry,
+  saveSleepFromPreview,
   type NutritionResult,
   type SleepExtractionResponse,
   type SleepExtractedData,
@@ -93,10 +95,17 @@ export function CameraScreen({
   onSleepSaved?: (result: SleepExtractionResponse) => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [photoResult, setPhotoResult] = useState<
     { type: "food"; food: NutritionResult } | { type: "sleep"; sleep: SleepExtractionResponse } | null
   >(null);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
+
+  const isPreview = (): boolean => {
+    if (!photoResult) return false;
+    if (photoResult.type === "food") return (photoResult.food.id ?? 0) === 0;
+    return (photoResult.sleep.id ?? 0) === 0;
+  };
 
   useEffect(() => {
     setLogEntries(getLogs());
@@ -122,19 +131,17 @@ export function CameraScreen({
       devLog("pickImage: no asset uri", "warn");
       return;
     }
-    devLog("pickImage: selected, starting upload");
+    devLog("pickImage: selected, starting upload (preview)");
     setLoading(true);
     setPhotoResult(null);
     try {
-      const res = await uploadPhotoForAnalysis({
-        uri: asset.uri,
-        name: "meal.jpg",
-        type: "image/jpeg",
-      });
+      const res = await uploadPhotoForAnalysis(
+        { uri: asset.uri, name: "meal.jpg", type: "image/jpeg" },
+        undefined,
+        false
+      );
       devLog("pickImage: upload success");
       setPhotoResult(res);
-      if (res.type === "food") onSaved?.(res.food);
-      else if (res.type === "sleep") onSleepSaved?.(res.sleep);
     } catch (e) {
       devLog(`pickImage: error ${e instanceof Error ? e.message : String(e)}`, "error");
       Alert.alert("Error", getErrorMessage(e));
@@ -160,25 +167,58 @@ export function CameraScreen({
       devLog("takePhoto: no asset uri", "warn");
       return;
     }
-    devLog("takePhoto: captured, starting upload");
+    devLog("takePhoto: captured, starting upload (preview)");
     setLoading(true);
     setPhotoResult(null);
     try {
-      const res = await uploadPhotoForAnalysis({
-        uri: asset.uri,
-        name: "meal.jpg",
-        type: "image/jpeg",
-      });
+      const res = await uploadPhotoForAnalysis(
+        { uri: asset.uri, name: "meal.jpg", type: "image/jpeg" },
+        undefined,
+        false
+      );
       devLog("takePhoto: upload success");
       setPhotoResult(res);
-      if (res.type === "food") onSaved?.(res.food);
-      else if (res.type === "sleep") onSleepSaved?.(res.sleep);
     } catch (e) {
       devLog(`takePhoto: error ${e instanceof Error ? e.message : String(e)}`, "error");
       Alert.alert("Error", getErrorMessage(e));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!photoResult) return;
+    setSaving(true);
+    try {
+      if (photoResult.type === "food") {
+        const today = new Date().toISOString().slice(0, 10);
+        await createNutritionEntry({
+          name: photoResult.food.name,
+          portion_grams: photoResult.food.portion_grams,
+          calories: photoResult.food.calories,
+          protein_g: photoResult.food.protein_g,
+          fat_g: photoResult.food.fat_g,
+          carbs_g: photoResult.food.carbs_g,
+          meal_type: "other",
+          date: today,
+        });
+        onSaved?.(photoResult.food);
+      } else {
+        const saved = await saveSleepFromPreview(photoResult.sleep.extracted_data);
+        onSleepSaved?.(saved);
+      }
+      setPhotoResult(null);
+      onClose();
+    } catch (e) {
+      devLog(`handleSave: error ${e instanceof Error ? e.message : String(e)}`, "error");
+      Alert.alert("Error", getErrorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setPhotoResult(null);
   };
 
   return (
@@ -228,10 +268,27 @@ export function CameraScreen({
               {photoResult.food.carbs_g}g
             </Text>
             <Text style={styles.hint}>Portion: {photoResult.food.portion_grams}g</Text>
-            <Text style={styles.resultWhere}>Saved to your day. Close to return to dashboard.</Text>
-            <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
-              <Text style={styles.doneBtnText}>Done</Text>
-            </TouchableOpacity>
+            <Text style={styles.resultWhere}>
+              {isPreview() ? "Проверьте данные и нажмите Сохранить." : "Saved to your day. Close to return to dashboard."}
+            </Text>
+            {isPreview() ? (
+              <View style={styles.previewActions}>
+                <TouchableOpacity
+                  style={[styles.doneBtn, styles.saveBtn]}
+                  onPress={handleSave}
+                  disabled={saving}
+                >
+                  <Text style={styles.doneBtnText}>{saving ? "…" : "Сохранить"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel} disabled={saving}>
+                  <Text style={styles.cancelBtnText}>Отмена</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
+                <Text style={styles.doneBtnText}>Done</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -239,10 +296,27 @@ export function CameraScreen({
           <View style={styles.result}>
             <Text style={styles.resultName}>Sleep data recognized</Text>
             <SleepDataLines data={photoResult.sleep.extracted_data} />
-            <Text style={styles.resultWhere}>Saved. Close to return to dashboard.</Text>
-            <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
-              <Text style={styles.doneBtnText}>Done</Text>
-            </TouchableOpacity>
+            <Text style={styles.resultWhere}>
+              {isPreview() ? "Проверьте данные и нажмите Сохранить." : "Saved. Close to return to dashboard."}
+            </Text>
+            {isPreview() ? (
+              <View style={styles.previewActions}>
+                <TouchableOpacity
+                  style={[styles.doneBtn, styles.saveBtn]}
+                  onPress={handleSave}
+                  disabled={saving}
+                >
+                  <Text style={styles.doneBtnText}>{saving ? "…" : "Сохранить"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel} disabled={saving}>
+                  <Text style={styles.cancelBtnText}>Отмена</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
+                <Text style={styles.doneBtnText}>Done</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -295,6 +369,10 @@ const styles = StyleSheet.create({
   sleepLine: { fontSize: 14, color: "#94a3b8" },
   doneBtn: { marginTop: 20, backgroundColor: "#38bdf8", paddingVertical: 14, borderRadius: 12, alignItems: "center" },
   doneBtnText: { fontSize: 16, color: "#0f172a", fontWeight: "600" },
+  saveBtn: { marginTop: 12 },
+  previewActions: { marginTop: 16, gap: 10 },
+  cancelBtn: { paddingVertical: 14, borderRadius: 12, alignItems: "center", borderWidth: 1, borderColor: "#64748b" },
+  cancelBtnText: { fontSize: 16, color: "#94a3b8", fontWeight: "600" },
   logPanel: { marginBottom: 12, backgroundColor: "#0f172a", borderRadius: 8, maxHeight: 180, borderWidth: 1, borderColor: "#334155" },
   logHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#334155" },
   logTitle: { fontSize: 12, fontWeight: "600", color: "#94a3b8" },
