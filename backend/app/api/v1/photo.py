@@ -17,6 +17,7 @@ from app.schemas.sleep_extraction import SleepExtractionResult
 from app.services.gemini_nutrition import analyze_food_from_image
 from app.services.gemini_photo_classifier import classify_image
 from app.services.gemini_sleep_parser import extract_sleep_data
+from app.services.image_resize import resize_image_for_ai
 from app.services.sleep_analysis import analyze_and_save_sleep
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -56,6 +57,7 @@ async def analyze_photo(
     """
     image_bytes = await file.read()
     _validate_image(file, image_bytes)
+    image_bytes = resize_image_for_ai(image_bytes)
 
     try:
         kind = classify_image(image_bytes)
