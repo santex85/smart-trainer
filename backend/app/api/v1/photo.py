@@ -14,11 +14,9 @@ from app.schemas.photo import PhotoAnalyzeResponse, PhotoFoodResponse, PhotoSlee
 from app.schemas.sleep_extraction import SleepExtractionResponse
 from app.models.sleep_extraction import SleepExtraction
 from app.schemas.sleep_extraction import SleepExtractionResult
-from app.services.gemini_nutrition import analyze_food_from_image
-from app.services.gemini_photo_classifier import classify_image
-from app.services.gemini_sleep_parser import extract_sleep_data
+from app.services.gemini_photo_analyzer import classify_and_analyze_image
 from app.services.image_resize import resize_image_for_ai
-from app.services.sleep_analysis import analyze_and_save_sleep
+from app.services.sleep_analysis import save_sleep_result
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/photo", tags=["photo"])
@@ -60,19 +58,14 @@ async def analyze_photo(
     image_bytes = resize_image_for_ai(image_bytes)
 
     try:
-        kind = classify_image(image_bytes)
+        kind, result = classify_and_analyze_image(image_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception:
-        logging.exception("Photo classification failed")
-        raise HTTPException(status_code=502, detail="Classification failed. Please try again.")
+        logging.exception("Photo classify+analyze failed")
+        raise HTTPException(status_code=502, detail="AI analysis failed. Please try again.")
 
     if kind == "food":
-        try:
-            result = analyze_food_from_image(image_bytes)
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
-        except Exception:
-            logging.exception("Food image analysis failed")
-            raise HTTPException(status_code=502, detail="AI analysis failed. Please try again.")
         if save:
             meal = (meal_type or MealType.other.value).lower()
             if meal not in [e.value for e in MealType]:
@@ -118,12 +111,12 @@ async def analyze_photo(
     # kind == "sleep"
     if save:
         try:
-            record, data = await analyze_and_save_sleep(session, user.id, image_bytes)
+            record, data = await save_sleep_result(session, user.id, result)
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except Exception:
-            logging.exception("Sleep image extraction failed")
-            raise HTTPException(status_code=502, detail="Sleep data extraction failed. Please try again.")
+            logging.exception("Sleep save failed")
+            raise HTTPException(status_code=502, detail="Sleep data save failed. Please try again.")
         return PhotoSleepResponse(
             type="sleep",
             sleep=SleepExtractionResponse(
@@ -132,14 +125,7 @@ async def analyze_photo(
                 created_at=record.created_at.isoformat() if record.created_at else "",
             ),
         )
-    try:
-        extraction = extract_sleep_data(image_bytes)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except Exception:
-        logging.exception("Sleep image extraction failed")
-        raise HTTPException(status_code=502, detail="Sleep data extraction failed. Please try again.")
-    data = extraction.model_dump(mode="json")
+    data = result.model_dump(mode="json")
     return PhotoSleepResponse(
         type="sleep",
         sleep=SleepExtractionResponse(

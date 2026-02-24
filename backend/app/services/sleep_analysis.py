@@ -18,6 +18,26 @@ def _payload_for_storage(result: SleepExtractionResult) -> dict[str, Any]:
     return {k: raw.get(k) for k in SleepExtractionResult.model_fields}
 
 
+async def save_sleep_result(
+    session: AsyncSession,
+    user_id: int,
+    result: SleepExtractionResult,
+) -> tuple[SleepExtraction, dict]:
+    """
+    Save already-extracted sleep result to DB (no Gemini call).
+    Returns (record, extracted_data) for API response.
+    """
+    stored = _payload_for_storage(result)
+    record = SleepExtraction(
+        user_id=user_id,
+        extracted_data=json.dumps(stored, ensure_ascii=False),
+    )
+    session.add(record)
+    await session.flush()
+    data = json.loads(record.extracted_data)
+    return record, data
+
+
 async def analyze_and_save_sleep(
     session: AsyncSession,
     user_id: int,
@@ -28,14 +48,4 @@ async def analyze_and_save_sleep(
     возврат записи и extracted_data для ответа API.
     """
     result = extract_sleep_data(image_bytes)
-    stored = _payload_for_storage(result)
-
-    record = SleepExtraction(
-        user_id=user_id,
-        extracted_data=json.dumps(stored, ensure_ascii=False),
-    )
-    session.add(record)
-    await session.flush()
-
-    data = json.loads(record.extracted_data)
-    return record, data
+    return await save_sleep_result(session, user_id, result)
