@@ -12,8 +12,6 @@ import { LoginScreen } from "./src/screens/LoginScreen";
 import { RegisterScreen } from "./src/screens/RegisterScreen";
 import { CameraScreen } from "./src/screens/CameraScreen";
 import { ChatScreen } from "./src/screens/ChatScreen";
-import { StravaLinkScreen } from "./src/screens/StravaLinkScreen";
-import { StravaActivityScreen } from "./src/screens/StravaActivityScreen";
 import { AthleteProfileScreen } from "./src/screens/AthleteProfileScreen";
 import type { AuthUser } from "./src/api/client";
 
@@ -25,9 +23,7 @@ export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [cameraVisible, setCameraVisible] = useState(false);
-  const [stravaModalVisible, setStravaModalVisible] = useState(false);
   const [refreshNutritionTrigger, setRefreshNutritionTrigger] = useState(0);
-  const [refreshStravaTrigger, setRefreshStravaTrigger] = useState(0);
   const [refreshSleepTrigger, setRefreshSleepTrigger] = useState(0);
 
   useEffect(() => {
@@ -49,11 +45,6 @@ export default function App() {
   const closeCamera = () => {
     setCameraVisible(false);
     setRefreshNutritionTrigger((t) => t + 1);
-  };
-
-  const closeStrava = () => {
-    setStravaModalVisible(false);
-    setRefreshStravaTrigger((t) => t + 1);
   };
 
   const handleLogout = async () => {
@@ -130,21 +121,10 @@ export default function App() {
                   onLogout={handleLogout}
                   onOpenCamera={() => setCameraVisible(true)}
                   onOpenChat={() => navigation.navigate("Chat")}
-                  onOpenStrava={() => setStravaModalVisible(true)}
-                  onOpenStravaActivity={() => navigation.navigate("Activity")}
                   onOpenAthleteProfile={() => navigation.navigate("Profile")}
                   refreshNutritionTrigger={refreshNutritionTrigger}
-                  refreshStravaTrigger={refreshStravaTrigger}
                   refreshSleepTrigger={refreshSleepTrigger}
                 />
-              )}
-            </Tab.Screen>
-            <Tab.Screen
-              name="Activity"
-              options={{ tabBarLabel: "Тренировки" }}
-            >
-              {({ navigation }) => (
-                <StravaActivityScreen onClose={() => navigation.navigate("Home")} />
               )}
             </Tab.Screen>
             <Tab.Screen
@@ -182,17 +162,6 @@ export default function App() {
           </View>
         )}
 
-        {stravaModalVisible && (
-          <View style={styles.modal}>
-            <StravaLinkScreen
-              onClose={closeStrava}
-              onViewAllActivity={() => {
-                setStravaModalVisible(false);
-                setTimeout(() => (navigationRef as { current?: { navigate: (name: string) => void } }).current?.navigate("Activity"), 0);
-              }}
-            />
-          </View>
-        )}
       </View>
     </SafeAreaProvider>
   );

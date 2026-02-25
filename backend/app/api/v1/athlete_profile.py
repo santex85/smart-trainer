@@ -1,10 +1,8 @@
-"""Athlete profile: GET/PATCH profile, refresh from Strava."""
+"""Athlete profile: GET/PATCH profile (manual fields only)."""
 
-import logging
-from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,10 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.athlete_profile import AthleteProfile
-from app.models.strava_credentials import StravaCredentials
 from app.models.user import User
-from app.services.strava_sync import _ensure_access_token
-from app.services.strava_client import get_current_athlete, strava_can_make_request
 
 router = APIRouter(prefix="/athlete-profile", tags=["athlete-profile"])
 
@@ -84,7 +79,7 @@ async def get_athlete_profile(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    """Return athlete profile (manual + Strava), with source hints."""
+    """Return athlete profile (manual fields; legacy strava_* fields kept for existing data)."""
     uid = user.id
     r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
     profile = r.scalar_one_or_none()
@@ -115,55 +110,5 @@ async def update_athlete_profile(
         profile.ftp = body.ftp
     await session.commit()
     await session.refresh(profile)
-    r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
-    return _profile_response(r.scalar_one_or_none(), user)
-
-
-@router.post("/refresh-strava")
-async def refresh_athlete_profile_from_strava(
-    session: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(get_current_user)],
-) -> dict:
-    """Fetch current athlete from Strava (GET /athlete) and update strava_* fields."""
-    uid = user.id
-    r = await session.execute(select(StravaCredentials).where(StravaCredentials.user_id == uid))
-    creds = r.scalar_one_or_none()
-    if not creds:
-        raise HTTPException(status_code=400, detail="Strava not linked.")
-    if not strava_can_make_request():
-        raise HTTPException(status_code=503, detail="Strava rate limit reached; try again later.")
-    access_token = await _ensure_access_token(session, creds)
-    try:
-        athlete_data = await get_current_athlete(access_token)
-    except Exception as e:
-        logging.warning("Refresh Strava athlete failed: %s", e)
-        raise HTTPException(status_code=502, detail="Failed to fetch athlete from Strava.") from e
-    if not athlete_data:
-        raise HTTPException(status_code=502, detail="Empty response from Strava.")
-    r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
-    profile = r.scalar_one_or_none()
-    now = datetime.now(timezone.utc)
-    if profile:
-        profile.strava_weight_kg = athlete_data.get("weight")
-        profile.strava_ftp = athlete_data.get("ftp")
-        profile.strava_firstname = athlete_data.get("firstname")
-        profile.strava_lastname = athlete_data.get("lastname")
-        profile.strava_profile_url = athlete_data.get("profile") or athlete_data.get("profile_medium")
-        profile.strava_sex = athlete_data.get("sex")
-        profile.strava_updated_at = now
-    else:
-        session.add(
-            AthleteProfile(
-                user_id=uid,
-                strava_weight_kg=athlete_data.get("weight"),
-                strava_ftp=athlete_data.get("ftp"),
-                strava_firstname=athlete_data.get("firstname"),
-                strava_lastname=athlete_data.get("lastname"),
-                strava_profile_url=athlete_data.get("profile") or athlete_data.get("profile_medium"),
-                strava_sex=athlete_data.get("sex"),
-                strava_updated_at=now,
-            )
-        )
-    await session.commit()
     r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
     return _profile_response(r.scalar_one_or_none(), user)

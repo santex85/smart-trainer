@@ -17,11 +17,12 @@ from app.models.athlete_profile import AthleteProfile
 from app.models.chat_message import ChatMessage, MessageRole
 from app.models.food_log import FoodLog
 from app.models.sleep_extraction import SleepExtraction
-from app.models.strava_activity import StravaActivity
 from app.models.user import User
 from app.models.wellness_cache import WellnessCache
+from app.models.workout import Workout
 from app.schemas.orchestrator import Decision, ModifiedPlanItem, OrchestratorResponse
 from app.services.gemini_common import run_generate_content
+from app.services.load_metrics import compute_fitness_from_workouts
 from app.services.intervals_client import create_event, update_event
 from app.services.crypto import decrypt_value
 from app.models.intervals_credentials import IntervalsCredentials
@@ -73,7 +74,7 @@ def _build_context(
     athlete_profile: dict[str, Any] | None = None,
     food_entries: list[dict] | None = None,
     wellness_history: list[dict] | None = None,
-    strava_activities: list[dict] | None = None,
+    recent_workouts: list[dict] | None = None,
 ) -> str:
     parts = [
         "## Athlete profile (weight, height, age, FTP, name, sex)",
@@ -90,8 +91,8 @@ def _build_context(
         json.dumps(wellness_history or [], default=str),
         "## Planned workouts today (Intervals)",
         json.dumps(events_today),
-        "## Recent workouts (Strava, last 14 days)",
-        json.dumps(strava_activities or [], default=str),
+        "## Recent workouts (manual/FIT, if any)",
+        json.dumps(recent_workouts or [], default=str),
     ]
     return "\n".join(parts)
 
@@ -168,7 +169,13 @@ async def run_daily_decision(
             "rhr": w.rhr,
             "hrv": w.hrv,
         }
-        ctl_atl_tsb = {"ctl": w.ctl, "atl": w.atl, "tsb": w.tsb}
+        if w.ctl is not None or w.atl is not None or w.tsb is not None:
+            ctl_atl_tsb = {"ctl": w.ctl, "atl": w.atl, "tsb": w.tsb}
+    if ctl_atl_tsb is None:
+        # Fallback: compute from unified workouts (manual + FIT)
+        fitness = await compute_fitness_from_workouts(session, user_id, as_of=today)
+        if fitness:
+            ctl_atl_tsb = {"ctl": fitness["ctl"], "atl": fitness["atl"], "tsb": fitness["tsb"]}
     if wellness_today is None:
         wellness_today = {}
     if wellness_today.get("sleep_hours") is None:
@@ -249,37 +256,28 @@ async def run_daily_decision(
             "sleep_hours": row[1], "rhr": row[2], "hrv": row[3], "ctl": row[4], "atl": row[5], "tsb": row[6],
         })
 
-    # Strava activities (last 14 days, full fields)
+    # Recent workouts: from unified workout store (manual + FIT)
     from_date = today - timedelta(days=14)
-    r_strava = await session.execute(
-        select(
-            StravaActivity.name, StravaActivity.start_date, StravaActivity.type, StravaActivity.sport_type,
-            StravaActivity.moving_time_sec, StravaActivity.elapsed_time_sec, StravaActivity.distance_m,
-            StravaActivity.total_elevation_gain_m, StravaActivity.average_heartrate, StravaActivity.max_heartrate,
-            StravaActivity.average_watts, StravaActivity.suffer_score,
-        ).where(
-            StravaActivity.user_id == user_id,
-            StravaActivity.start_date >= datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc),
-            StravaActivity.start_date < datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc),
-        ).order_by(StravaActivity.start_date.desc()).limit(10)
+    from_dt = datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+    to_dt = datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
+    r_workouts = await session.execute(
+        select(Workout).where(
+            Workout.user_id == user_id,
+            Workout.start_date >= from_dt,
+            Workout.start_date < to_dt,
+        ).order_by(Workout.start_date.desc()).limit(10)
     )
-    strava_activities = []
-    for row in r_strava.all():
-        name, start_dt, act_type, sport_type, moving_sec, elapsed_sec, dist_m, elev_m, avg_hr, max_hr, avg_watts, tss = row
-        d = start_dt.date() if start_dt and hasattr(start_dt, "date") else None
-        strava_activities.append({
+    recent_workouts = []
+    for w in r_workouts.scalars().all():
+        d = w.start_date.date() if w.start_date and hasattr(w.start_date, "date") else None
+        recent_workouts.append({
             "date": d.isoformat() if d else None,
-            "name": name,
-            "type": act_type,
-            "sport_type": sport_type,
-            "moving_time_sec": moving_sec,
-            "elapsed_time_sec": elapsed_sec,
-            "distance_km": round(dist_m / 1000, 1) if dist_m is not None else None,
-            "elevation_gain_m": round(elev_m, 0) if elev_m is not None else None,
-            "average_heartrate": avg_hr,
-            "max_heartrate": max_hr,
-            "average_watts": avg_watts,
-            "tss": tss,
+            "name": w.name,
+            "type": w.type,
+            "duration_sec": w.duration_sec,
+            "distance_km": round(w.distance_m / 1000, 1) if w.distance_m is not None else None,
+            "tss": w.tss,
+            "source": w.source,
         })
 
     # Events today: fetch from API (we need credentials)
@@ -307,7 +305,7 @@ async def run_daily_decision(
         athlete_profile=athlete_profile,
         food_entries=food_entries,
         wellness_history=wellness_history,
-        strava_activities=strava_activities,
+        recent_workouts=recent_workouts,
     )
 
     genai.configure(api_key=settings.google_gemini_api_key)

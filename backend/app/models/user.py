@@ -35,3 +35,6 @@ class User(Base):
     athlete_profile: Mapped["AthleteProfile | None"] = relationship(
         "AthleteProfile", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
+    workouts: Mapped[list["Workout"]] = relationship(
+        "Workout", back_populates="user", cascade="all, delete-orphan"
+    )

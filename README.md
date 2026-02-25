@@ -1,6 +1,6 @@
 # Smart Trainer (ИИ-Тренер) MVP
 
-Cross-platform AI sports coach: nutrition from plate photos (Gemini), Intervals.icu integration (wellness, CTL/ATL, events), and an AI orchestrator that suggests Go/Modify/Skip for daily training.
+Cross-platform AI sports coach: nutrition from plate photos (Gemini), Intervals.icu (wellness, events), manual and FIT workouts, and an AI orchestrator that suggests Go/Modify/Skip for daily training. State and load (CTL/ATL/TSB) are based on Intervals/wellness and local workouts; Strava is no longer used.
 
 ## Structure
 
@@ -29,7 +29,7 @@ Make targets: `make build`, `make up`, `make down`, `make logs`, `make migrate`,
 
 ### Production deploy (167.71.74.220)
 
-See [docs/DEPLOY.md](docs/DEPLOY.md): Phase 0 (server analysis and cleanup), then git clone, `.env` from `.env.production.example`, Caddy HTTPS, Strava callback.
+See [docs/DEPLOY.md](docs/DEPLOY.md): Phase 0 (server analysis and cleanup), then git clone, `.env` from `.env.production.example`, Caddy HTTPS.
 
 ### Backend (local)
 
@@ -55,10 +55,13 @@ npx expo start
 
 - `POST /api/v1/nutrition/analyze` — upload meal photo → Gemini → JSON (name, calories, macros), saved to `food_log`
 - `POST /api/v1/intervals/link` — store Intervals.icu athlete_id + API key (encrypted)
-- `POST /api/v1/intervals/sync` — fetch wellness/activities, cache CTL/ATL/TSB
-- `GET /api/v1/intervals/wellness`, `GET /api/v1/intervals/events` — cached wellness and planned events
+- `GET /api/v1/intervals/events`, `GET /api/v1/intervals/activities` — planned events and activities from Intervals
+- `GET /api/v1/wellness`, `PUT /api/v1/wellness` — wellness (sleep, RHR, HRV) and optional CTL/ATL/TSB
+- `GET /api/v1/workouts`, `POST /api/v1/workouts`, `PATCH /api/v1/workouts/{id}`, `DELETE /api/v1/workouts/{id}` — manual and FIT workouts
+- `GET /api/v1/workouts/fitness` — CTL/ATL/TSB computed from workouts
+- `POST /api/v1/workouts/upload-fit` — upload a .fit file (dedupe by checksum)
 - `GET /api/v1/chat/history`, `POST /api/v1/chat/send` — chat with AI coach
-- `POST /api/v1/chat/orchestrator/run` — run daily decision (Go/Modify/Skip), optionally update Intervals and add chat message
+- `POST /api/v1/chat/orchestrator/run` — run daily decision (Go/Modify/Skip) from wellness + workouts + Intervals events
 
 ## Roadmap (done in this repo)
 

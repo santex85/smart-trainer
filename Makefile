@@ -45,16 +45,14 @@ shell-backend:
 
 # Переключить конфиг на localhost (браузер на этом же компе)
 use-localhost:
-	@sed 's|^STRAVA_REDIRECT_URI=.*|STRAVA_REDIRECT_URI=http://localhost:8000/api/v1/strava/callback|' .env > .env.tmp && mv .env.tmp .env
 	@echo "EXPO_PUBLIC_API_URL=http://localhost:8000" > frontend/.env
-	@echo "Готово: API и Strava callback = localhost:8000"
+	@echo "Готово: API = localhost:8000"
 
 # Переключить конфиг на Wi‑Fi (доступ с телефона). IP авто (en0 / hostname -I / .wifi_ip) или: make use-wifi WIFI_IP=192.168.1.200
 use-wifi:
 	@echo "IP: $(WIFI_IP)"
-	@sed 's|^STRAVA_REDIRECT_URI=.*|STRAVA_REDIRECT_URI=http://$(WIFI_IP):8000/api/v1/strava/callback|' .env > .env.tmp && mv .env.tmp .env
 	@echo "EXPO_PUBLIC_API_URL=http://$(WIFI_IP):8000" > frontend/.env
-	@echo "Готово: API и Strava callback = $(WIFI_IP):8000 (открой с телефона http://$(WIFI_IP))"
+	@echo "Готово: API = $(WIFI_IP):8000 (открой с телефона http://$(WIFI_IP))"
 
 # Сохранить IP Wi‑Fi и переключить конфиг. Пример: make set-wifi IP=192.168.1.157
 set-wifi:

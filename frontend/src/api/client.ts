@@ -261,6 +261,93 @@ export interface ActivityItem {
   type?: string;
 }
 
+export interface WorkoutItem {
+  id: number;
+  start_date: string;
+  name?: string | null;
+  type?: string | null;
+  duration_sec?: number | null;
+  distance_m?: number | null;
+  tss?: number | null;
+  source: string;
+  notes?: string | null;
+}
+
+export interface WorkoutFitness {
+  ctl: number;
+  atl: number;
+  tsb: number;
+  date: string;
+}
+
+export async function getWorkouts(fromDate?: string, toDate?: string): Promise<WorkoutItem[]> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("from_date", fromDate);
+  if (toDate) params.set("to_date", toDate);
+  return api<WorkoutItem[]>(`/api/v1/workouts?${params}`);
+}
+
+export async function getWorkoutFitness(): Promise<WorkoutFitness | null> {
+  return api<WorkoutFitness | null>("/api/v1/workouts/fitness");
+}
+
+export type WorkoutCreatePayload = {
+  start_date: string;
+  name?: string | null;
+  type?: string | null;
+  duration_sec?: number | null;
+  distance_m?: number | null;
+  tss?: number | null;
+  notes?: string | null;
+};
+
+export async function createWorkout(payload: WorkoutCreatePayload): Promise<WorkoutItem> {
+  return api<WorkoutItem>("/api/v1/workouts", { method: "POST", body: payload });
+}
+
+export async function updateWorkout(
+  workoutId: number,
+  payload: Partial<WorkoutCreatePayload>
+): Promise<WorkoutItem> {
+  return api<WorkoutItem>(`/api/v1/workouts/${workoutId}`, { method: "PATCH", body: payload });
+}
+
+export async function deleteWorkout(workoutId: number): Promise<void> {
+  return api<void>(`/api/v1/workouts/${workoutId}`, { method: "DELETE" });
+}
+
+export async function uploadFitWorkout(file: Blob | { uri: string; name: string }): Promise<WorkoutItem> {
+  const API_BASE =
+    process.env.EXPO_PUBLIC_API_URL === "" ? "" : (process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000");
+  const token = await getAccessToken();
+  const form = new FormData();
+  if (file instanceof Blob) {
+    form.append("file", file, "workout.fit");
+  } else {
+    const blob = await fetch(file.uri).then((r) => r.blob());
+    form.append("file", blob, file.name || "workout.fit");
+  }
+  const res = await fetch(`${API_BASE}/api/v1/workouts/upload-fit`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (res.status === 401) {
+    await removeAccessToken();
+    onUnauthorized?.();
+    throw new Error("Unauthorized");
+  }
+  if (res.status === 409) {
+    const t = await res.text();
+    throw new Error(t || "This FIT file was already imported.");
+  }
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || `Upload failed: ${res.status}`);
+  }
+  return res.json() as Promise<WorkoutItem>;
+}
+
 export interface ChatMessage {
   role: string;
   content: string;
@@ -386,40 +473,6 @@ export async function syncIntervals(): Promise<{ status: string; user_id?: numbe
   return api<{ status: string; user_id?: number }>("/api/v1/intervals/sync", { method: "POST" });
 }
 
-export async function getStravaStatus(): Promise<{ linked: boolean; athlete_id?: string | null }> {
-  return api<{ linked: boolean; athlete_id?: string | null }>("/api/v1/strava/status");
-}
-
-export async function getStravaAuthorizeUrl(): Promise<{ url: string }> {
-  return api<{ url: string }>("/api/v1/strava/authorize-url");
-}
-
-export async function getStravaActivities(fromDate?: string, toDate?: string): Promise<ActivityItem[]> {
-  const params = new URLSearchParams();
-  if (fromDate) params.set("from_date", fromDate);
-  if (toDate) params.set("to_date", toDate);
-  return api<ActivityItem[]>(`/api/v1/strava/activities?${params}`);
-}
-
-export async function unlinkStrava(): Promise<{ status: string }> {
-  return api<{ status: string }>("/api/v1/strava/unlink", { method: "POST" });
-}
-
-export async function syncStrava(): Promise<{ status: string; message?: string }> {
-  return api<{ status: string; message?: string }>("/api/v1/strava/sync", { method: "POST" });
-}
-
-export interface StravaFitness {
-  ctl: number;
-  atl: number;
-  tsb: number;
-  date: string;
-}
-
-export async function getStravaFitness(): Promise<StravaFitness | null> {
-  return api<StravaFitness | null>("/api/v1/strava/fitness");
-}
-
 export interface NutritionGoals {
   calorie_goal?: number;
   protein_goal?: number;
@@ -457,10 +510,6 @@ export async function updateAthleteProfile(body: {
     method: "PATCH",
     body,
   });
-}
-
-export async function refreshAthleteProfileFromStrava(): Promise<AthleteProfileResponse> {
-  return api<AthleteProfileResponse>("/api/v1/athlete-profile/refresh-strava", { method: "POST" });
 }
 
 export async function getChatHistory(limit = 50): Promise<ChatMessage[]> {

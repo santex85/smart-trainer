@@ -15,9 +15,9 @@ from app.models.athlete_profile import AthleteProfile
 from app.models.chat_message import ChatMessage, MessageRole
 from app.models.food_log import FoodLog
 from app.models.sleep_extraction import SleepExtraction
-from app.models.strava_activity import StravaActivity
 from app.models.user import User
 from app.models.wellness_cache import WellnessCache
+from app.models.workout import Workout
 from app.services.orchestrator import run_daily_decision
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -164,38 +164,28 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
             "sleep_hours": row[1], "rhr": row[2], "hrv": row[3], "ctl": row[4], "atl": row[5], "tsb": row[6],
         })
 
-    # Recent Strava activities (last N days, capped count)
+    # Recent workouts (manual/FIT)
     from_date = today - timedelta(days=CHAT_CONTEXT_DAYS)
-    r = await session.execute(
-        select(
-            StravaActivity.name, StravaActivity.start_date, StravaActivity.type, StravaActivity.sport_type,
-            StravaActivity.moving_time_sec, StravaActivity.elapsed_time_sec, StravaActivity.distance_m,
-            StravaActivity.total_elevation_gain_m, StravaActivity.average_heartrate, StravaActivity.max_heartrate,
-            StravaActivity.average_watts, StravaActivity.suffer_score,
-        ).where(
-            StravaActivity.user_id == user_id,
-            StravaActivity.start_date >= datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc),
-            StravaActivity.start_date < datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc),
-        ).order_by(StravaActivity.start_date.desc()).limit(CHAT_WORKOUTS_LIMIT)
+    from_dt = datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+    to_dt = datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
+    r_w = await session.execute(
+        select(Workout).where(
+            Workout.user_id == user_id,
+            Workout.start_date >= from_dt,
+            Workout.start_date < to_dt,
+        ).order_by(Workout.start_date.desc()).limit(CHAT_WORKOUTS_LIMIT)
     )
-    activities = r.all()
     workouts = []
-    for row in activities:
-        name, start_dt, act_type, sport_type, moving_sec, elapsed_sec, dist_m, elev_m, avg_hr, max_hr, avg_watts, tss = row
-        d = start_dt.date() if start_dt and hasattr(start_dt, "date") else None
+    for w in r_w.scalars().all():
+        d = w.start_date.date() if w.start_date and hasattr(w.start_date, "date") else None
         workouts.append({
             "date": d.isoformat() if d else None,
-            "name": name,
-            "type": act_type,
-            "sport_type": sport_type,
-            "moving_time_sec": moving_sec,
-            "elapsed_time_sec": elapsed_sec,
-            "distance_km": round(dist_m / 1000, 1) if dist_m is not None else None,
-            "elevation_gain_m": round(elev_m, 0) if elev_m is not None else None,
-            "average_heartrate": avg_hr,
-            "max_heartrate": max_hr,
-            "average_watts": avg_watts,
-            "tss": tss,
+            "name": w.name,
+            "type": w.type,
+            "duration_sec": w.duration_sec,
+            "distance_km": round(w.distance_m / 1000, 1) if w.distance_m is not None else None,
+            "tss": w.tss,
+            "source": w.source,
         })
 
     def _cap(s: str, limit: int = CHAT_SECTION_MAX_CHARS) -> str:
@@ -217,7 +207,7 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
         _cap(json.dumps(wellness_history, default=str)),
         "## Sleep (from photos, last %d days)" % CHAT_CONTEXT_DAYS,
         _cap(sleep_summary),
-        "## Recent workouts (Strava, last %d)" % CHAT_WORKOUTS_LIMIT,
+        "## Recent workouts (manual/FIT)",
         _cap(json.dumps(workouts, default=str)),
     ]
     return "\n".join(parts)
@@ -266,7 +256,7 @@ async def send_message(
         if result.suggestions_next_days:
             reply += f"\n\n{result.suggestions_next_days}"
     else:
-        # Coach LLM with athlete context (nutrition, wellness, load, recent Strava workouts)
+        # Coach LLM with athlete context (nutrition, wellness, load, recent workouts)
         import google.generativeai as genai
         from app.config import settings
         from app.services.gemini_common import run_generate_content

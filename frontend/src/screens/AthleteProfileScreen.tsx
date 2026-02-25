@@ -14,8 +14,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   getAthleteProfile,
   updateAthleteProfile,
-  refreshAthleteProfileFromStrava,
-  getStravaStatus,
   type AthleteProfileResponse,
 } from "../api/client";
 
@@ -32,11 +30,9 @@ function getErrorMessage(e: unknown): string {
 
 export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
   const [profile, setProfile] = useState<AthleteProfileResponse | null>(null);
-  const [stravaLinked, setStravaLinked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [refreshingStrava, setRefreshingStrava] = useState(false);
   const [weight, setWeight] = useState("");
   const [height, setHeight] = useState("");
   const [birthYear, setBirthYear] = useState("");
@@ -45,12 +41,8 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, status] = await Promise.all([
-        getAthleteProfile(),
-        getStravaStatus().catch(() => ({ linked: false })),
-      ]);
+      const p = await getAthleteProfile();
       setProfile(p);
-      setStravaLinked(status.linked);
       setWeight(p.weight_kg != null ? String(p.weight_kg) : "");
       setHeight(p.height_cm != null ? String(p.height_cm) : "");
       setBirthYear(p.birth_year != null ? String(p.birth_year) : "");
@@ -96,21 +88,6 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const handleRefreshFromStrava = async () => {
-    setRefreshingStrava(true);
-    try {
-      const updated = await refreshAthleteProfileFromStrava();
-      setProfile(updated);
-      setWeight(updated.weight_kg != null ? String(updated.weight_kg) : weight);
-      setHeight(updated.height_cm != null ? String(updated.height_cm) : height);
-      setFtp(updated.ftp != null ? String(updated.ftp) : ftp);
-    } catch (e) {
-      Alert.alert("Ошибка", getErrorMessage(e));
-    } finally {
-      setRefreshingStrava(false);
-    }
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -141,7 +118,7 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
         ) : null}
         <Text style={styles.displayName}>{profile?.display_name ?? "—"}</Text>
         {profile?.strava_firstname || profile?.strava_lastname ? (
-          <Text style={styles.hint}>Из Strava: {[profile.strava_firstname, profile.strava_lastname].filter(Boolean).join(" ")}</Text>
+          <Text style={styles.hint}>Имя: {[profile.strava_firstname, profile.strava_lastname].filter(Boolean).join(" ")}</Text>
         ) : null}
 
         {editing ? (
@@ -182,7 +159,7 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
               placeholderTextColor="#64748b"
               keyboardType="number-pad"
             />
-            <Text style={styles.hint}>Рост и год рождения не передаются из Strava — введите вручную. FTP можно синхронизировать из Strava, если он там указан.</Text>
+            <Text style={styles.hint}>Введите вес, рост, год рождения и FTP. FTP используется для расчёта TSS по мощности.</Text>
             <View style={styles.editActions}>
               <TouchableOpacity style={styles.btnSecondary} onPress={() => setEditing(false)}>
                 <Text style={styles.btnSecondaryText}>Отмена</Text>
@@ -220,20 +197,6 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
               <Text style={styles.editBtnText}>Редактировать профиль</Text>
             </TouchableOpacity>
           </>
-        )}
-
-        {stravaLinked && (
-          <TouchableOpacity
-            style={[styles.stravaBtn, refreshingStrava && styles.btnDisabled]}
-            onPress={handleRefreshFromStrava}
-            disabled={refreshingStrava}
-          >
-            {refreshingStrava ? (
-              <ActivityIndicator size="small" color="#0f172a" />
-            ) : (
-              <Text style={styles.stravaBtnText}>Обновить из Strava</Text>
-            )}
-          </TouchableOpacity>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -279,12 +242,4 @@ const styles = StyleSheet.create({
   btnDisabled: { opacity: 0.7 },
   editBtn: { marginTop: 20, paddingVertical: 12, alignItems: "center" },
   editBtnText: { fontSize: 16, color: "#38bdf8" },
-  stravaBtn: {
-    marginTop: 24,
-    backgroundColor: "#fc4c02",
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  stravaBtnText: { fontSize: 16, color: "#fff", fontWeight: "600" },
 });

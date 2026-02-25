@@ -11,12 +11,9 @@ import {
   Modal,
   TextInput,
   Pressable,
+  Platform,
 } from "react-native";
 import {
-  getStravaActivities,
-  getStravaStatus,
-  syncStrava,
-  getStravaFitness,
   getNutritionDay,
   updateNutritionEntry,
   deleteNutritionEntry,
@@ -26,13 +23,17 @@ import {
   getSleepExtractions,
   getAthleteProfile,
   updateAthleteProfile,
-  type ActivityItem,
+  getWorkouts,
+  getWorkoutFitness,
+  createWorkout,
+  uploadFitWorkout,
   type AthleteProfileResponse,
   type NutritionDayResponse,
   type NutritionDayEntry,
   type AuthUser,
-  type StravaFitness,
   type WellnessDay,
+  type WorkoutItem,
+  type WorkoutFitness,
 } from "../api/client";
 
 const CALORIE_GOAL = 2200;
@@ -393,33 +394,142 @@ function EditWellnessModal({
   );
 }
 
+function AddWorkoutModal({
+  defaultDate,
+  onClose,
+  onSaved,
+}: {
+  defaultDate: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [dateStr, setDateStr] = useState(defaultDate);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("Run");
+  const [durationMin, setDurationMin] = useState("");
+  const [distanceKm, setDistanceKm] = useState("");
+  const [tss, setTss] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    const durationSec = durationMin.trim() ? parseInt(durationMin, 10) * 60 : undefined;
+    const distanceM = distanceKm.trim() ? parseFloat(distanceKm) * 1000 : undefined;
+    const tssVal = tss.trim() ? parseFloat(tss) : undefined;
+    if (durationSec !== undefined && (Number.isNaN(durationSec) || durationSec < 0)) {
+      Alert.alert("Ошибка", "Длительность: введите число минут.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await createWorkout({
+        start_date: `${dateStr}T12:00:00.000Z`,
+        name: name.trim() || undefined,
+        type: type || undefined,
+        duration_sec: durationSec ?? undefined,
+        distance_m: distanceM ?? undefined,
+        tss: tssVal ?? undefined,
+        notes: notes.trim() || undefined,
+      });
+      onSaved();
+      onClose();
+    } catch (e) {
+      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось сохранить.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible transparent animationType="fade">
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+          <Text style={styles.cardTitle}>Добавить тренировку</Text>
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Дата (YYYY-MM-DD)"
+            placeholderTextColor="#64748b"
+            value={dateStr}
+            onChangeText={setDateStr}
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Название"
+            placeholderTextColor="#64748b"
+            value={name}
+            onChangeText={setName}
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Тип (Run, Ride, Swim...)"
+            placeholderTextColor="#64748b"
+            value={type}
+            onChangeText={setType}
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Длительность (мин)"
+            placeholderTextColor="#64748b"
+            value={durationMin}
+            onChangeText={setDurationMin}
+            keyboardType="numeric"
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Дистанция (км)"
+            placeholderTextColor="#64748b"
+            value={distanceKm}
+            onChangeText={setDistanceKm}
+            keyboardType="decimal-pad"
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="TSS"
+            placeholderTextColor="#64748b"
+            value={tss}
+            onChangeText={setTss}
+            keyboardType="numeric"
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Заметки"
+            placeholderTextColor="#64748b"
+            value={notes}
+            onChangeText={setNotes}
+          />
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
+              <Text style={styles.modalBtnCancelText}>Отмена</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalBtnSave} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Сохранить</Text>}
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export function DashboardScreen({
   user,
   onLogout,
   onOpenCamera,
   onOpenChat,
-  onOpenStrava,
-  onOpenStravaActivity,
   onOpenAthleteProfile,
   refreshNutritionTrigger = 0,
-  refreshStravaTrigger = 0,
   refreshSleepTrigger = 0,
 }: {
   user?: AuthUser | null;
   onLogout?: () => void;
   onOpenCamera: () => void;
   onOpenChat: () => void;
-  onOpenStrava?: () => void;
-  onOpenStravaActivity?: () => void;
   onOpenAthleteProfile?: () => void;
   refreshNutritionTrigger?: number;
-  refreshStravaTrigger?: number;
   refreshSleepTrigger?: number;
 }) {
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
-  const [activitiesLoadError, setActivitiesLoadError] = useState(false);
-  const [stravaLinked, setStravaLinked] = useState(false);
-  const [syncingStrava, setSyncingStrava] = useState(false);
+  const [workouts, setWorkouts] = useState<WorkoutItem[]>([]);
+  const [workoutFitness, setWorkoutFitness] = useState<WorkoutFitness | null>(null);
   const [nutritionDay, setNutritionDay] = useState<NutritionDayResponse | null>(null);
   const [nutritionLoadError, setNutritionLoadError] = useState(false);
   const [nutritionDate, setNutritionDate] = useState(getTodayLocal);
@@ -427,11 +537,12 @@ export function DashboardScreen({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [fitnessData, setFitnessData] = useState<StravaFitness | null>(null);
   const [wellnessToday, setWellnessToday] = useState<WellnessDay | null>(null);
   const [sleepFromPhoto, setSleepFromPhoto] = useState<{ sleep_hours?: number; actual_sleep_hours?: number; sleep_date?: string } | null>(null);
   const [athleteProfile, setAthleteProfile] = useState<AthleteProfileResponse | null>(null);
   const [wellnessEditVisible, setWellnessEditVisible] = useState(false);
+  const [workoutAddVisible, setWorkoutAddVisible] = useState(false);
+  const [fitUploading, setFitUploading] = useState(false);
   const [lastAnalysisResult, setLastAnalysisResult] = useState<{
     decision: string;
     reason: string;
@@ -439,7 +550,6 @@ export function DashboardScreen({
   } | null>(null);
 
   const today = getTodayLocal();
-  const activitiesStart = addDays(today, -14);
 
   const loadNutritionForDate = useCallback(async (dateStr: string) => {
     setNutritionLoadError(false);
@@ -454,13 +564,10 @@ export function DashboardScreen({
 
   const load = useCallback(async () => {
     setNutritionLoadError(false);
-    setActivitiesLoadError(false);
     try {
-      const [stravaStatus, aResult, nResult, fitness, wellnessList, sleepFromPhotoResult, profile] = await Promise.all([
-        getStravaStatus().then((s) => s.linked).catch(() => false),
-        getStravaActivities(activitiesStart, today).then((a) => ({ ok: true as const, data: a || [] })).catch(() => ({ ok: false as const, data: [] as ActivityItem[] })),
+      const activitiesStart = addDays(today, -14);
+      const [nResult, wellnessList, sleepFromPhotoResult, profile, workoutsList, fitness] = await Promise.all([
         getNutritionDay(nutritionDate).then((n) => ({ ok: true as const, data: n })).catch(() => ({ ok: false as const, data: null })),
-        getStravaFitness().then((f) => f ?? null).catch(() => null),
         getWellness(addDays(today, -6), addDays(today, 1)).then((w) => {
           if (!w || w.length === 0) return null;
           const todayNorm = today.slice(0, 10);
@@ -476,34 +583,33 @@ export function DashboardScreen({
           return { sleep_hours: withHours.sleep_hours, actual_sleep_hours: withHours.actual_sleep_hours, sleep_date: withHours.sleep_date ?? undefined };
         }).catch(() => null),
         getAthleteProfile().catch(() => null),
+        getWorkouts(activitiesStart, today).catch(() => []),
+        getWorkoutFitness().catch(() => null),
       ]);
-      setStravaLinked(stravaStatus);
-      setActivities((aResult.ok ? aResult.data : []).sort((x, y) => (y.start_date || "").localeCompare(x.start_date || "")));
-      setActivitiesLoadError(!aResult.ok);
       setNutritionDay(nResult.ok ? nResult.data : null);
       setNutritionLoadError(!nResult.ok);
-      setFitnessData(fitness);
       setWellnessToday(wellnessList);
       setSleepFromPhoto(wellnessList?.sleep_hours != null ? null : sleepFromPhotoResult);
       setAthleteProfile(profile);
+      setWorkouts(workoutsList ?? []);
+      setWorkoutFitness(fitness ?? null);
     } catch {
-      setActivities([]);
-      setActivitiesLoadError(true);
       setNutritionDay(null);
       setNutritionLoadError(true);
-      setFitnessData(null);
       setWellnessToday(null);
       setSleepFromPhoto(null);
       setAthleteProfile(null);
+      setWorkouts([]);
+      setWorkoutFitness(null);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [today, activitiesStart, nutritionDate]);
+  }, [today, nutritionDate]);
 
   useEffect(() => {
     load();
-  }, [load, refreshNutritionTrigger, refreshStravaTrigger, refreshSleepTrigger]);
+  }, [load, refreshNutritionTrigger, refreshSleepTrigger]);
 
   const setNutritionDateAndLoad = useCallback(
     (dateStr: string) => {
@@ -523,6 +629,30 @@ export function DashboardScreen({
     load();
   };
 
+  const onSelectFitFile = useCallback(() => {
+    if (Platform.OS !== "web" || typeof document === "undefined") {
+      Alert.alert("FIT", "Загрузка FIT доступна в веб-версии. Откройте приложение в браузере.");
+      return;
+    }
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".fit";
+    input.onchange = async (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      setFitUploading(true);
+      try {
+        await uploadFitWorkout(file);
+        load();
+      } catch (err) {
+        Alert.alert("Ошибка", err instanceof Error ? err.message : "Не удалось загрузить FIT.");
+      } finally {
+        setFitUploading(false);
+      }
+    };
+    input.click();
+  }, [load]);
+
   const onRunAnalysisNow = async () => {
     setAnalysisLoading(true);
     setLastAnalysisResult(null);
@@ -535,20 +665,6 @@ export function DashboardScreen({
       Alert.alert("Ошибка", msg);
     } finally {
       setAnalysisLoading(false);
-    }
-  };
-
-  const onSyncStrava = async () => {
-    if (syncingStrava) return;
-    setSyncingStrava(true);
-    try {
-      await syncStrava();
-      await load();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Sync failed";
-      Alert.alert("Ошибка", msg);
-    } finally {
-      setSyncingStrava(false);
     }
   };
 
@@ -719,16 +835,23 @@ export function DashboardScreen({
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Фитнес (CTL / ATL / TSB)</Text>
-            <Text style={styles.hint}>В стиле TrainingPeaks по TSS из Strava (последние 90 дней)</Text>
-            {fitnessData ? (
+            <Text style={styles.hint}>По TSS из ваших тренировок (ручной ввод и FIT)</Text>
+            {workoutFitness ? (
               <>
                 <Text style={styles.cardValue}>
-                  CTL {fitnessData.ctl.toFixed(0)} · ATL {fitnessData.atl.toFixed(0)} · TSB {fitnessData.tsb.toFixed(0)}
+                  CTL {workoutFitness.ctl.toFixed(0)} · ATL {workoutFitness.atl.toFixed(0)} · TSB {workoutFitness.tsb.toFixed(0)}
                 </Text>
-                <Text style={styles.hint}>На дату {fitnessData.date}</Text>
+                <Text style={styles.hint}>На дату {workoutFitness.date}</Text>
+              </>
+            ) : (wellnessToday?.ctl != null || wellnessToday?.atl != null || wellnessToday?.tsb != null) ? (
+              <>
+                <Text style={styles.cardValue}>
+                  CTL {wellnessToday?.ctl?.toFixed(0) ?? "—"} · ATL {wellnessToday?.atl?.toFixed(0) ?? "—"} · TSB {wellnessToday?.tsb?.toFixed(0) ?? "—"}
+                </Text>
+                <Text style={styles.hint}>Из wellness. Добавляйте тренировки для расчёта по TSS.</Text>
               </>
             ) : (
-              <Text style={styles.placeholder}>Подключите Strava и синхронизируйте тренировки.</Text>
+              <Text style={styles.placeholder}>Добавляйте тренировки вручную или загружайте FIT — CTL/ATL/TSB посчитаются по TSS.</Text>
             )}
           </View>
 
@@ -760,54 +883,53 @@ export function DashboardScreen({
             />
           ) : null}
 
+          {workoutAddVisible ? (
+            <AddWorkoutModal
+              defaultDate={today}
+              onClose={() => setWorkoutAddVisible(false)}
+              onSaved={() => {
+                setWorkoutAddVisible(false);
+                load();
+              }}
+            />
+          ) : null}
+
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>Тренировки</Text>
               <View style={styles.cardTitleActions}>
-                {stravaLinked && (
-                  <TouchableOpacity
-                    onPress={onSyncStrava}
-                    style={[styles.syncBtn, syncingStrava && styles.syncBtnDisabled]}
-                    disabled={syncingStrava}
-                  >
-                    {syncingStrava ? (
-                      <ActivityIndicator size="small" color="#0f172a" />
-                    ) : (
-                      <Text style={styles.syncBtnText}>Синхр.</Text>
-                    )}
-                  </TouchableOpacity>
-                )}
-                {onOpenStrava && (
-                  <TouchableOpacity onPress={onOpenStrava} style={styles.cardTitleLink}>
-                    <Text style={styles.intervalsLinkText}>Strava</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  onPress={onSelectFitFile}
+                  disabled={fitUploading}
+                  style={fitUploading ? styles.syncBtnDisabled : undefined}
+                >
+                  {fitUploading ? (
+                    <ActivityIndicator size="small" color="#38bdf8" />
+                  ) : (
+                    <Text style={styles.intervalsLinkText}>Загрузить FIT</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setWorkoutAddVisible(true)}>
+                  <Text style={styles.intervalsLinkText}>+ Добавить</Text>
+                </TouchableOpacity>
               </View>
             </View>
-            <Text style={styles.hint}>Последние 14 дней · тренировки из Strava</Text>
-            {onOpenStravaActivity && stravaLinked && (
-              <TouchableOpacity style={styles.calendarLink} onPress={onOpenStravaActivity}>
-                <Text style={styles.intervalsLinkText}>Все тренировки (календарь)</Text>
-              </TouchableOpacity>
-            )}
-            {activitiesLoadError && (
-              <Text style={styles.errorHint}>Не удалось загрузить тренировки. Потяните для обновления или синхронизируйте Strava.</Text>
-            )}
-            {!activitiesLoadError && activities.length > 0 ? activities.map((act) => (
-                <View key={act.id} style={styles.activityRow}>
-                  <Text style={styles.calendarDate}>{formatEventDate(act.start_date)}</Text>
-                  <View style={styles.activityInfo}>
-                    <Text style={styles.calendarTitle}>{act.name || "Тренировка"}</Text>
-                    <Text style={styles.hint}>
-                      {formatDuration(act.duration_sec)}
-                      {act.distance_km != null ? ` · ${act.distance_km} km` : ""}
-                      {act.tss != null ? ` · TSS ${Math.round(act.tss)}` : ""}
-                    </Text>
-                  </View>
+            <Text style={styles.hint}>Последние 14 дней · ручной ввод и FIT</Text>
+            {workouts.length > 0 ? workouts.map((act) => (
+              <View key={act.id} style={styles.activityRow}>
+                <Text style={styles.calendarDate}>{formatEventDate(act.start_date)}</Text>
+                <View style={styles.activityInfo}>
+                  <Text style={styles.calendarTitle}>{act.name || "Тренировка"}</Text>
+                  <Text style={styles.hint}>
+                    {formatDuration(act.duration_sec ?? undefined)}
+                    {act.distance_m != null ? ` · ${(act.distance_m / 1000).toFixed(1)} km` : ""}
+                    {act.tss != null ? ` · TSS ${Math.round(act.tss)}` : ""}
+                  </Text>
                 </View>
-              )) : !activitiesLoadError ? (
-              <Text style={styles.placeholder}>Нет тренировок. Подключите Strava.</Text>
-            ) : null}
+              </View>
+            )) : (
+              <Text style={styles.placeholder}>Нет тренировок. Нажмите «+ Добавить» или загрузите FIT.</Text>
+            )}
           </View>
 
           {lastAnalysisResult ? (

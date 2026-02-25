@@ -6,7 +6,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import auth, athlete_profile, chat, intervals, nutrition, photo, strava, users, wellness
+from app.api.v1 import auth, athlete_profile, chat, intervals, nutrition, photo, users, wellness, workouts
 
 # Ensure app loggers (Intervals, sync, etc.) print to stdout so you see them in the terminal
 logging.basicConfig(
@@ -18,7 +18,6 @@ logging.getLogger("app").setLevel(logging.DEBUG)
 from app.config import settings
 from app.db.session import init_db
 from app.services.http_client import close_http_client, init_http_client
-from app.services.strava_sync import process_sync_queue_one
 
 scheduler = AsyncIOScheduler()
 
@@ -41,13 +40,6 @@ async def scheduled_orchestrator_run():
 async def lifespan(app: FastAPI):
     await init_db()
     init_http_client(timeout=30.0)
-
-    async def strava_queue_worker():
-        from app.db.session import async_session_maker
-        async with async_session_maker() as session:
-            await process_sync_queue_one(session)
-            await session.commit()
-    scheduler.add_job(strava_queue_worker, "interval", minutes=1)
 
     # Orchestrator: run at configured hours (e.g. 07:00 and 16:00)
     try:
@@ -81,11 +73,11 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(nutrition.router, prefix="/api/v1")
 app.include_router(photo.router, prefix="/api/v1")
 app.include_router(intervals.router, prefix="/api/v1")
-app.include_router(strava.router, prefix="/api/v1")
 app.include_router(athlete_profile.router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(wellness.router, prefix="/api/v1")
+app.include_router(workouts.router, prefix="/api/v1")
 
 
 @app.get("/health")
