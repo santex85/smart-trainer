@@ -13,6 +13,7 @@ import { RegisterScreen } from "./src/screens/RegisterScreen";
 import { CameraScreen } from "./src/screens/CameraScreen";
 import { ChatScreen } from "./src/screens/ChatScreen";
 import { AthleteProfileScreen } from "./src/screens/AthleteProfileScreen";
+import { IntervalsLinkScreen } from "./src/screens/IntervalsLinkScreen";
 import type { AuthUser } from "./src/api/client";
 
 const Stack = createNativeStackNavigator();
@@ -23,6 +24,7 @@ export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [cameraVisible, setCameraVisible] = useState(false);
+  const [intervalsVisible, setIntervalsVisible] = useState(false);
   const [refreshNutritionTrigger, setRefreshNutritionTrigger] = useState(0);
   const [refreshSleepTrigger, setRefreshSleepTrigger] = useState(0);
 
@@ -122,6 +124,7 @@ export default function App() {
                   onOpenCamera={() => setCameraVisible(true)}
                   onOpenChat={() => navigation.navigate("Chat")}
                   onOpenAthleteProfile={() => navigation.navigate("Profile")}
+                  onOpenIntervals={() => setIntervalsVisible(true)}
                   refreshNutritionTrigger={refreshNutritionTrigger}
                   refreshSleepTrigger={refreshSleepTrigger}
                 />
@@ -159,6 +162,12 @@ export default function App() {
                 setCameraVisible(false);
               }}
             />
+          </View>
+        )}
+
+        {intervalsVisible && (
+          <View style={styles.modal}>
+            <IntervalsLinkScreen onClose={() => setIntervalsVisible(false)} />
           </View>
         )}
 

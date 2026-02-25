@@ -517,6 +517,7 @@ export function DashboardScreen({
   onOpenCamera,
   onOpenChat,
   onOpenAthleteProfile,
+  onOpenIntervals,
   refreshNutritionTrigger = 0,
   refreshSleepTrigger = 0,
 }: {
@@ -525,6 +526,7 @@ export function DashboardScreen({
   onOpenCamera: () => void;
   onOpenChat: () => void;
   onOpenAthleteProfile?: () => void;
+  onOpenIntervals?: () => void;
   refreshNutritionTrigger?: number;
   refreshSleepTrigger?: number;
 }) {
@@ -834,8 +836,15 @@ export function DashboardScreen({
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Фитнес (CTL / ATL / TSB)</Text>
-            <Text style={styles.hint}>По TSS из ваших тренировок (ручной ввод и FIT)</Text>
+            <View style={styles.cardTitleRow}>
+              <Text style={styles.cardTitle}>Фитнес (CTL / ATL / TSB)</Text>
+              {onOpenIntervals ? (
+                <TouchableOpacity onPress={onOpenIntervals}>
+                  <Text style={styles.intervalsLinkText}>Intervals.icu</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <Text style={styles.hint}>По TSS из тренировок. Подключите Intervals.icu для планов и синхронизации.</Text>
             {workoutFitness ? (
               <>
                 <Text style={styles.cardValue}>
