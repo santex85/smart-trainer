@@ -1,4 +1,4 @@
-"""Sync Intervals.icu data into our DB: activities -> workouts, wellness -> wellness_cache (CTL/ATL/TSB)."""
+"""Sync Intervals.icu data into our DB: activities -> workouts, wellness -> wellness_cache (sleep, RHR, HRV, CTL/ATL/TSB)."""
 
 from datetime import date, datetime, timedelta, timezone
 
@@ -90,7 +90,7 @@ async def sync_intervals_to_db(
         await session.execute(stmt)
         count_workouts += 1
 
-    # Upsert wellness_cache: only ctl, atl, tsb from Intervals (keep existing sleep_hours, rhr, hrv)
+    # Upsert wellness_cache: ctl, atl, tsb from Intervals; sleep_hours, rhr, hrv only when currently null (Variant A)
     count_wellness = 0
     for w in wellness_days:
         if w.date is None:
@@ -106,11 +106,20 @@ async def sync_intervals_to_db(
             existing.ctl = w.ctl
             existing.atl = w.atl
             existing.tsb = w.tsb
+            if existing.sleep_hours is None and w.sleep_hours is not None:
+                existing.sleep_hours = w.sleep_hours
+            if existing.rhr is None and w.rhr is not None:
+                existing.rhr = float(w.rhr)
+            if existing.hrv is None and w.hrv is not None:
+                existing.hrv = float(w.hrv)
         else:
             session.add(
                 WellnessCache(
                     user_id=user_id,
                     date=w.date,
+                    sleep_hours=w.sleep_hours,
+                    rhr=float(w.rhr) if w.rhr is not None else None,
+                    hrv=float(w.hrv) if w.hrv is not None else None,
                     ctl=w.ctl,
                     atl=w.atl,
                     tsb=w.tsb,
