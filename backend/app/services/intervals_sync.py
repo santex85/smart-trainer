@@ -50,8 +50,8 @@ async def sync_intervals_to_db(
     activities = await get_activities(athlete_id, api_key, oldest, newest, limit=500)
     wellness_days = await get_wellness(athlete_id, api_key, oldest, newest)
 
-    # Upsert workouts by (user_id, external_id)
-    count_workouts = 0
+    # Batch upsert workouts by (user_id, external_id)
+    workout_rows = []
     for a in activities:
         if not a.id:
             continue
@@ -59,78 +59,83 @@ async def sync_intervals_to_db(
         start_dt = a.start_date
         name = a.name or raw.get("title") or raw.get("name")
         tss = a.icu_training_load if a.icu_training_load is not None else raw.get("icu_training_load") or raw.get("training_load") or raw.get("tss")
-        row = _activity_to_workout_row(user_id, raw, a.id, start_dt, name, tss)
-        stmt = (
-            pg_insert(Workout)
-            .values(
-                user_id=row["user_id"],
-                external_id=row["external_id"],
-                source=row["source"],
-                start_date=row["start_date"],
-                name=row["name"],
-                type=row["type"],
-                duration_sec=row["duration_sec"],
-                distance_m=row["distance_m"],
-                tss=row["tss"],
-                raw=row["raw"],
+        workout_rows.append(_activity_to_workout_row(user_id, raw, a.id, start_dt, name, tss))
+    count_workouts = 0
+    if workout_rows:
+        for batch_start in range(0, len(workout_rows), 500):
+            batch = workout_rows[batch_start:batch_start + 500]
+            stmt = (
+                pg_insert(Workout)
+                .values(batch)
+                .on_conflict_do_update(
+                    index_elements=["user_id", "external_id"],
+                    set_={
+                        "start_date": pg_insert(Workout).excluded.start_date,
+                        "name": pg_insert(Workout).excluded.name,
+                        "type": pg_insert(Workout).excluded.type,
+                        "duration_sec": pg_insert(Workout).excluded.duration_sec,
+                        "distance_m": pg_insert(Workout).excluded.distance_m,
+                        "tss": pg_insert(Workout).excluded.tss,
+                        "raw": pg_insert(Workout).excluded.raw,
+                    },
+                )
             )
-            .on_conflict_do_update(
-                index_elements=["user_id", "external_id"],
-                set_={
-                    "start_date": row["start_date"],
-                    "name": row["name"],
-                    "type": row["type"],
-                    "duration_sec": row["duration_sec"],
-                    "distance_m": row["distance_m"],
-                    "tss": row["tss"],
-                    "raw": row["raw"],
-                },
-            )
-        )
-        await session.execute(stmt)
-        count_workouts += 1
+            await session.execute(stmt)
+        count_workouts = len(workout_rows)
 
-    # Upsert wellness_cache: ctl, atl, tsb from Intervals; sleep_hours, rhr, hrv only when currently null (Variant A)
+    # Batch upsert wellness_cache: ctl/atl/tsb always update; sleep/rhr/hrv/weight only when currently null
     count_wellness = 0
+    wellness_rows = []
     for w in wellness_days:
         if w.date is None:
             continue
-        r = await session.execute(
-            select(WellnessCache).where(
-                WellnessCache.user_id == user_id,
-                WellnessCache.date == w.date,
-            )
-        )
-        existing = r.scalar_one_or_none()
-        if existing:
-            existing.ctl = w.ctl
-            existing.atl = w.atl
-            existing.tsb = w.tsb
-            if existing.sleep_hours is None and w.sleep_hours is not None:
-                existing.sleep_hours = w.sleep_hours
-            if existing.rhr is None and w.rhr is not None:
-                existing.rhr = float(w.rhr)
-            if existing.hrv is None and w.hrv is not None:
-                existing.hrv = float(w.hrv)
-            if existing.weight_kg is None and w.weight_kg is not None:
-                existing.weight_kg = float(w.weight_kg)
-            existing.sport_info = w.sport_info if w.sport_info else None
-        else:
-            session.add(
-                WellnessCache(
-                    user_id=user_id,
-                    date=w.date,
-                    sleep_hours=w.sleep_hours,
-                    rhr=float(w.rhr) if w.rhr is not None else None,
-                    hrv=float(w.hrv) if w.hrv is not None else None,
-                    ctl=w.ctl,
-                    atl=w.atl,
-                    tsb=w.tsb,
-                    weight_kg=float(w.weight_kg) if w.weight_kg is not None else None,
-                    sport_info=w.sport_info if w.sport_info else None,
+        wellness_rows.append({
+            "user_id": user_id,
+            "date": w.date,
+            "sleep_hours": w.sleep_hours,
+            "rhr": float(w.rhr) if w.rhr is not None else None,
+            "hrv": float(w.hrv) if w.hrv is not None else None,
+            "ctl": w.ctl,
+            "atl": w.atl,
+            "tsb": w.tsb,
+            "weight_kg": float(w.weight_kg) if w.weight_kg is not None else None,
+            "sport_info": w.sport_info if w.sport_info else None,
+        })
+    if wellness_rows:
+        from sqlalchemy import func, case, literal
+        for batch_start in range(0, len(wellness_rows), 500):
+            batch = wellness_rows[batch_start:batch_start + 500]
+            stmt = (
+                pg_insert(WellnessCache)
+                .values(batch)
+                .on_conflict_do_update(
+                    index_elements=["user_id", "date"],
+                    set_={
+                        "ctl": pg_insert(WellnessCache).excluded.ctl,
+                        "atl": pg_insert(WellnessCache).excluded.atl,
+                        "tsb": pg_insert(WellnessCache).excluded.tsb,
+                        "sport_info": pg_insert(WellnessCache).excluded.sport_info,
+                        "sleep_hours": func.coalesce(
+                            WellnessCache.sleep_hours,
+                            pg_insert(WellnessCache).excluded.sleep_hours,
+                        ),
+                        "rhr": func.coalesce(
+                            WellnessCache.rhr,
+                            pg_insert(WellnessCache).excluded.rhr,
+                        ),
+                        "hrv": func.coalesce(
+                            WellnessCache.hrv,
+                            pg_insert(WellnessCache).excluded.hrv,
+                        ),
+                        "weight_kg": func.coalesce(
+                            WellnessCache.weight_kg,
+                            pg_insert(WellnessCache).excluded.weight_kg,
+                        ),
+                    },
                 )
             )
-        count_wellness += 1
+            await session.execute(stmt)
+        count_wellness = len(wellness_rows)
 
     await session.commit()
     return (count_workouts, count_wellness)
