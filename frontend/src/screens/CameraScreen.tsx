@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Image,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -96,9 +98,19 @@ export function CameraScreen({
 }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedPhotoUri, setSelectedPhotoUri] = useState<string | null>(null);
   const [photoResult, setPhotoResult] = useState<
     { type: "food"; food: NutritionResult } | { type: "sleep"; sleep: SleepExtractionResponse } | null
   >(null);
+  const [selectedMealType, setSelectedMealType] = useState<string>("other");
+  const [editedFood, setEditedFood] = useState<{
+    name: string;
+    portion_grams: number;
+    calories: number;
+    protein_g: number;
+    fat_g: number;
+    carbs_g: number;
+  } | null>(null);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
 
   const isPreview = (): boolean => {
@@ -134,6 +146,7 @@ export function CameraScreen({
     devLog("pickImage: selected, starting upload (preview)");
     setLoading(true);
     setPhotoResult(null);
+    setSelectedPhotoUri(asset.uri);
     try {
       const res = await uploadPhotoForAnalysis(
         { uri: asset.uri, name: "meal.jpg", type: "image/jpeg" },
@@ -142,9 +155,22 @@ export function CameraScreen({
       );
       devLog("pickImage: upload success");
       setPhotoResult(res);
+      if (res?.type === "food") {
+        setSelectedMealType("other");
+        setEditedFood({
+          name: res.food.name,
+          portion_grams: res.food.portion_grams,
+          calories: res.food.calories,
+          protein_g: res.food.protein_g,
+          fat_g: res.food.fat_g,
+          carbs_g: res.food.carbs_g,
+        });
+      } else {
+        setEditedFood(null);
+      }
     } catch (e) {
       devLog(`pickImage: error ${e instanceof Error ? e.message : String(e)}`, "error");
-      Alert.alert("Error", getErrorMessage(e));
+      Alert.alert("Ошибка", getErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -170,6 +196,7 @@ export function CameraScreen({
     devLog("takePhoto: captured, starting upload (preview)");
     setLoading(true);
     setPhotoResult(null);
+    setSelectedPhotoUri(asset.uri);
     try {
       const res = await uploadPhotoForAnalysis(
         { uri: asset.uri, name: "meal.jpg", type: "image/jpeg" },
@@ -178,9 +205,22 @@ export function CameraScreen({
       );
       devLog("takePhoto: upload success");
       setPhotoResult(res);
+      if (res?.type === "food") {
+        setSelectedMealType("other");
+        setEditedFood({
+          name: res.food.name,
+          portion_grams: res.food.portion_grams,
+          calories: res.food.calories,
+          protein_g: res.food.protein_g,
+          fat_g: res.food.fat_g,
+          carbs_g: res.food.carbs_g,
+        });
+      } else {
+        setEditedFood(null);
+      }
     } catch (e) {
       devLog(`takePhoto: error ${e instanceof Error ? e.message : String(e)}`, "error");
-      Alert.alert("Error", getErrorMessage(e));
+      Alert.alert("Ошибка", getErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -192,26 +232,30 @@ export function CameraScreen({
     try {
       if (photoResult.type === "food") {
         const today = new Date().toISOString().slice(0, 10);
-        await createNutritionEntry({
+        const payload = editedFood ?? {
           name: photoResult.food.name,
           portion_grams: photoResult.food.portion_grams,
           calories: photoResult.food.calories,
           protein_g: photoResult.food.protein_g,
           fat_g: photoResult.food.fat_g,
           carbs_g: photoResult.food.carbs_g,
-          meal_type: "other",
+        };
+        await createNutritionEntry({
+          ...payload,
+          meal_type: selectedMealType,
           date: today,
         });
-        onSaved?.(photoResult.food);
+        onSaved?.({ ...photoResult.food, ...payload });
       } else {
         const saved = await saveSleepFromPreview(photoResult.sleep.extracted_data);
         onSleepSaved?.(saved);
       }
       setPhotoResult(null);
+      setSelectedPhotoUri(null);
       onClose();
     } catch (e) {
       devLog(`handleSave: error ${e instanceof Error ? e.message : String(e)}`, "error");
-      Alert.alert("Error", getErrorMessage(e));
+      Alert.alert("Ошибка", getErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -219,14 +263,24 @@ export function CameraScreen({
 
   const handleCancel = () => {
     setPhotoResult(null);
+    setSelectedPhotoUri(null);
+    setEditedFood(null);
   };
+
+  const MEAL_TYPES = [
+    { value: "breakfast", label: "Завтрак" },
+    { value: "lunch", label: "Обед" },
+    { value: "dinner", label: "Ужин" },
+    { value: "snack", label: "Перекус" },
+    { value: "other", label: "Другое" },
+  ] as const;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Photo</Text>
+        <Text style={styles.title}>Фото</Text>
         <TouchableOpacity onPress={onClose}>
-          <Text style={styles.close}>Close</Text>
+          <Text style={styles.close}>Закрыть</Text>
         </TouchableOpacity>
       </View>
 
@@ -256,20 +310,78 @@ export function CameraScreen({
         {loading && (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color="#38bdf8" />
-            <Text style={styles.hint}>Analyzing with AI…</Text>
+            <Text style={styles.hint}>Анализ с помощью ИИ…</Text>
           </View>
         )}
 
         {photoResult?.type === "food" && !loading && (
           <View style={styles.result}>
-            <Text style={styles.resultName}>{photoResult.food.name}</Text>
-            <Text style={styles.resultMacros}>
-              {photoResult.food.calories} kcal · P {photoResult.food.protein_g}g · F {photoResult.food.fat_g}g · C{" "}
-              {photoResult.food.carbs_g}g
-            </Text>
-            <Text style={styles.hint}>Portion: {photoResult.food.portion_grams}g</Text>
+            {selectedPhotoUri ? (
+              <Image source={{ uri: selectedPhotoUri }} style={styles.photoThumbnail} resizeMode="cover" />
+            ) : null}
+            {isPreview() && editedFood ? (
+              <>
+                <Text style={styles.editLabel}>Название</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedFood.name}
+                  onChangeText={(t) => setEditedFood((p) => (p ? { ...p, name: t } : null))}
+                  placeholder="Блюдо"
+                  placeholderTextColor="#64748b"
+                />
+                <View style={styles.editRow}>
+                  <View style={styles.editHalf}>
+                    <Text style={styles.editLabel}>Ккал</Text>
+                    <TextInput
+                      style={styles.editInput}
+                      value={String(editedFood.calories)}
+                      onChangeText={(t) => setEditedFood((p) => (p ? { ...p, calories: Number(t) || 0 } : null))}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor="#64748b"
+                    />
+                  </View>
+                  <View style={styles.editHalf}>
+                    <Text style={styles.editLabel}>Порция (г)</Text>
+                    <TextInput
+                      style={styles.editInput}
+                      value={String(editedFood.portion_grams)}
+                      onChangeText={(t) => setEditedFood((p) => (p ? { ...p, portion_grams: Number(t) || 0 } : null))}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor="#64748b"
+                    />
+                  </View>
+                </View>
+                <View style={styles.editRow}>
+                  <View style={styles.editThird}><Text style={styles.editLabel}>Б</Text><TextInput style={styles.editInput} value={String(editedFood.protein_g)} onChangeText={(t) => setEditedFood((p) => (p ? { ...p, protein_g: Number(t) || 0 } : null))} keyboardType="numeric" placeholder="0" placeholderTextColor="#64748b" /></View>
+                  <View style={styles.editThird}><Text style={styles.editLabel}>Ж</Text><TextInput style={styles.editInput} value={String(editedFood.fat_g)} onChangeText={(t) => setEditedFood((p) => (p ? { ...p, fat_g: Number(t) || 0 } : null))} keyboardType="numeric" placeholder="0" placeholderTextColor="#64748b" /></View>
+                  <View style={styles.editThird}><Text style={styles.editLabel}>У</Text><TextInput style={styles.editInput} value={String(editedFood.carbs_g)} onChangeText={(t) => setEditedFood((p) => (p ? { ...p, carbs_g: Number(t) || 0 } : null))} keyboardType="numeric" placeholder="0" placeholderTextColor="#64748b" /></View>
+                </View>
+                <Text style={styles.editLabel}>Приём пищи</Text>
+                <View style={styles.mealTypeRow}>
+                  {MEAL_TYPES.map(({ value, label }) => (
+                    <TouchableOpacity
+                      key={value}
+                      style={[styles.mealTypeBtn, selectedMealType === value && styles.mealTypeBtnActive]}
+                      onPress={() => setSelectedMealType(value)}
+                    >
+                      <Text style={[styles.mealTypeBtnText, selectedMealType === value && styles.mealTypeBtnTextActive]}>{label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.resultName}>{photoResult.food.name}</Text>
+                <Text style={styles.resultMacros}>
+                  {photoResult.food.calories} ккал · Б {photoResult.food.protein_g}г · Ж {photoResult.food.fat_g}г · У {photoResult.food.carbs_g}г
+                </Text>
+                <Text style={styles.hint}>Порция: {photoResult.food.portion_grams}г</Text>
+              </>
+            )}
             <Text style={styles.resultWhere}>
-              {isPreview() ? "Проверьте данные и нажмите Сохранить." : "Saved to your day. Close to return to dashboard."}
+              {isPreview() ? "Проверьте данные и нажмите Сохранить." : "Сохранено. Закройте, чтобы вернуться."}
             </Text>
             {isPreview() ? (
               <View style={styles.previewActions}>
@@ -286,7 +398,7 @@ export function CameraScreen({
               </View>
             ) : (
               <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
-                <Text style={styles.doneBtnText}>Done</Text>
+                <Text style={styles.doneBtnText}>Готово</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -294,10 +406,13 @@ export function CameraScreen({
 
         {photoResult?.type === "sleep" && !loading && (
           <View style={styles.result}>
-            <Text style={styles.resultName}>Sleep data recognized</Text>
+            {selectedPhotoUri ? (
+              <Image source={{ uri: selectedPhotoUri }} style={styles.photoThumbnail} resizeMode="cover" />
+            ) : null}
+            <Text style={styles.resultName}>Распознаны данные сна</Text>
             <SleepDataLines data={photoResult.sleep.extracted_data} />
             <Text style={styles.resultWhere}>
-              {isPreview() ? "Проверьте данные и нажмите Сохранить." : "Saved. Close to return to dashboard."}
+              {isPreview() ? "Проверьте данные и нажмите Сохранить." : "Сохранено. Закройте, чтобы вернуться."}
             </Text>
             {isPreview() ? (
               <View style={styles.previewActions}>
@@ -314,7 +429,7 @@ export function CameraScreen({
               </View>
             ) : (
               <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
-                <Text style={styles.doneBtnText}>Done</Text>
+                <Text style={styles.doneBtnText}>Готово</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -323,16 +438,16 @@ export function CameraScreen({
         {!photoResult && !loading && (
           <>
             <Text style={styles.flowHint}>
-              Choose any photo — we'll detect if it's food or sleep data and process it.
+              Выберите фото — мы определим, еда это или данные сна, и обработаем.
             </Text>
             <View style={styles.actions}>
               <TouchableOpacity style={styles.button} onPress={takePhoto}>
                 <Text style={styles.buttonIcon}>📷</Text>
-                <Text style={styles.buttonText}>Take photo</Text>
+                <Text style={styles.buttonText}>Сделать фото</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.button} onPress={pickImage}>
                 <Text style={styles.buttonIcon}>🖼️</Text>
-                <Text style={styles.buttonText}>Choose from gallery</Text>
+                <Text style={styles.buttonText}>Выбрать из галереи</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -362,6 +477,7 @@ const styles = StyleSheet.create({
   buttonIcon: { fontSize: 40, marginBottom: 8 },
   buttonText: { fontSize: 18, color: "#e2e8f0", fontWeight: "600" },
   result: { backgroundColor: "#16213e", borderRadius: 12, padding: 20 },
+  photoThumbnail: { width: "100%", height: 180, borderRadius: 8, marginBottom: 12 },
   resultName: { fontSize: 20, color: "#e2e8f0", fontWeight: "600", marginBottom: 8 },
   resultMacros: { fontSize: 16, color: "#94a3b8", marginBottom: 4 },
   resultWhere: { fontSize: 12, color: "#64748b", marginTop: 8 },
@@ -373,6 +489,16 @@ const styles = StyleSheet.create({
   previewActions: { marginTop: 16, gap: 10 },
   cancelBtn: { paddingVertical: 14, borderRadius: 12, alignItems: "center", borderWidth: 1, borderColor: "#64748b" },
   cancelBtnText: { fontSize: 16, color: "#94a3b8", fontWeight: "600" },
+  editLabel: { fontSize: 12, color: "#94a3b8", marginTop: 8, marginBottom: 4 },
+  editInput: { backgroundColor: "#1a1a2e", borderRadius: 8, padding: 10, fontSize: 16, color: "#e2e8f0", marginBottom: 4 },
+  editRow: { flexDirection: "row", gap: 8 },
+  editHalf: { flex: 1 },
+  editThird: { flex: 1 },
+  mealTypeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4, marginBottom: 8 },
+  mealTypeBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: "#1a1a2e" },
+  mealTypeBtnActive: { backgroundColor: "#38bdf8" },
+  mealTypeBtnText: { fontSize: 12, color: "#94a3b8" },
+  mealTypeBtnTextActive: { fontSize: 12, color: "#0f172a", fontWeight: "600" },
   logPanel: { marginBottom: 12, backgroundColor: "#0f172a", borderRadius: 8, maxHeight: 180, borderWidth: 1, borderColor: "#334155" },
   logHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#334155" },
   logTitle: { fontSize: 12, fontWeight: "600", color: "#94a3b8" },

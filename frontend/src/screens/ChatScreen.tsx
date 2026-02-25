@@ -9,9 +9,25 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getChatHistory, sendChatMessage, runOrchestrator, type ChatMessage } from "../api/client";
+
+function formatChatTime(isoOrTimestamp: string): string {
+  try {
+    const d = new Date(isoOrTimestamp);
+    if (Number.isNaN(d.getTime())) return "";
+    const today = new Date();
+    const isToday = d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+    if (isToday) {
+      return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    }
+    return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
 
 export function ChatScreen({ onClose }: { onClose: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -38,17 +54,17 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
   const send = async (runOrch = false) => {
     if (runOrch) {
       if (loading) return;
-      setMessages((prev) => [...prev, { role: "user", content: "What's today's decision?" }]);
+      setMessages((prev) => [...prev, { role: "user", content: "Какое решение на сегодня?" }]);
       setLoading(true);
       try {
         const orch = await runOrchestrator();
-        const reply = `Decision: ${orch.decision}. ${orch.reason}${orch.suggestions_next_days ? "\n\n" + orch.suggestions_next_days : ""}`;
+        const reply = `Решение: ${orch.decision}. ${orch.reason}${orch.suggestions_next_days ? "\n\n" + orch.suggestions_next_days : ""}`;
         setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
         setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
       } catch (e) {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: "Error: " + (e instanceof Error ? e.message : "Request failed") },
+          { role: "assistant", content: "Ошибка: " + (e instanceof Error ? e.message : "Запрос не удался") },
         ]);
       } finally {
         setLoading(false);
@@ -67,7 +83,7 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
     } catch (e) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Error: " + (e instanceof Error ? e.message : "Request failed") },
+        { role: "assistant", content: "Ошибка: " + (e instanceof Error ? e.message : "Запрос не удался") },
       ]);
     } finally {
       setLoading(false);
@@ -78,8 +94,8 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.header}>
-          <Text style={styles.title}>AI Coach</Text>
-          <TouchableOpacity onPress={onClose}><Text style={styles.close}>Close</Text></TouchableOpacity>
+          <Text style={styles.title}>AI-тренер</Text>
+          <TouchableOpacity onPress={onClose}><Text style={styles.close}>Закрыть</Text></TouchableOpacity>
         </View>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#38bdf8" />
@@ -96,9 +112,9 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
       keyboardVerticalOffset={80}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>AI Coach</Text>
+        <Text style={styles.title}>AI-тренер</Text>
         <TouchableOpacity onPress={onClose}>
-          <Text style={styles.close}>Close</Text>
+          <Text style={styles.close}>Закрыть</Text>
         </TouchableOpacity>
       </View>
 
@@ -110,15 +126,44 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
         renderItem={({ item }) => (
           <View style={[styles.bubble, item.role === "user" ? styles.userBubble : styles.assistantBubble]}>
             <Text style={styles.bubbleText}>{item.content}</Text>
+            {item.timestamp ? (
+              <Text style={styles.bubbleTime}>{formatChatTime(item.timestamp)}</Text>
+            ) : null}
           </View>
         )}
-        ListEmptyComponent={<Text style={styles.placeholder}>Send a message or ask for today's decision.</Text>}
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <Text style={styles.placeholder}>Напишите сообщение или запросите решение на сегодня.</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickPrompts} contentContainerStyle={styles.quickPromptsContent}>
+              {["Как прошла моя неделя?", "Что съесть перед тренировкой?", "Нужен ли мне отдых?"].map((prompt) => (
+                <TouchableOpacity
+                  key={prompt}
+                  style={styles.quickPromptChip}
+                  onPress={() => setInput(prompt)}
+                >
+                  <Text style={styles.quickPromptText}>{prompt}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        }
       />
 
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickPrompts} contentContainerStyle={styles.quickPromptsContent}>
+        {["Как прошла моя неделя?", "Что съесть перед тренировкой?", "Нужен ли мне отдых?"].map((prompt) => (
+          <TouchableOpacity
+            key={prompt}
+            style={styles.quickPromptChip}
+            onPress={() => setInput(prompt)}
+          >
+            <Text style={styles.quickPromptText}>{prompt}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
-          placeholder="Message..."
+          placeholder="Сообщение..."
           placeholderTextColor="#64748b"
           value={input}
           onChangeText={setInput}
@@ -131,7 +176,7 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
           onPress={() => send(false)}
           disabled={loading || !input.trim()}
         >
-          <Text style={styles.sendBtnText}>Send</Text>
+          <Text style={styles.sendBtnText}>Отправить</Text>
         </TouchableOpacity>
       </View>
       <TouchableOpacity
@@ -139,7 +184,7 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
         onPress={() => send(true)}
         disabled={loading}
       >
-        <Text style={styles.orchBtnText}>Get today's decision (Go/Modify/Skip)</Text>
+        <Text style={styles.orchBtnText}>Решение на сегодня (Go/Modify/Skip)</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
     </SafeAreaView>
@@ -158,7 +203,13 @@ const styles = StyleSheet.create({
   userBubble: { alignSelf: "flex-end", backgroundColor: "#38bdf8" },
   assistantBubble: { alignSelf: "flex-start", backgroundColor: "#16213e" },
   bubbleText: { fontSize: 15, color: "#e2e8f0" },
+  bubbleTime: { fontSize: 11, color: "#64748b", marginTop: 4 },
+  emptyWrap: { paddingHorizontal: 16 },
   placeholder: { color: "#64748b", textAlign: "center", marginTop: 24 },
+  quickPrompts: { marginTop: 16 },
+  quickPromptsContent: { gap: 8, paddingBottom: 8 },
+  quickPromptChip: { backgroundColor: "#16213e", paddingVertical: 10, paddingHorizontal: 14, borderRadius: 20, marginRight: 8 },
+  quickPromptText: { fontSize: 14, color: "#e2e8f0" },
   inputRow: { flexDirection: "row", padding: 12, gap: 8, alignItems: "flex-end", borderTopWidth: 1, borderTopColor: "#334155" },
   input: { flex: 1, backgroundColor: "#16213e", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: "#e2e8f0", maxHeight: 100 },
   sendBtn: { backgroundColor: "#38bdf8", paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20, justifyContent: "center" },

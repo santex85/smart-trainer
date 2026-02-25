@@ -40,7 +40,7 @@ export function LoginScreen({
   const handleLogin = async () => {
     const e = email.trim().toLowerCase();
     if (!e || !password) {
-      setError("Enter email and password");
+      setError("Введите email и пароль");
       return;
     }
     setError(null);
@@ -65,7 +65,7 @@ export function LoginScreen({
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
-            <Text style={styles.title}>Sign in</Text>
+            <Text style={styles.title}>Вход</Text>
             <Text style={styles.hint}>Email</Text>
             <TextInput
               style={styles.input}
@@ -78,7 +78,7 @@ export function LoginScreen({
               keyboardType="email-address"
               editable={!loading}
             />
-            <Text style={styles.hint}>Password</Text>
+            <Text style={styles.hint}>Пароль</Text>
             <TextInput
               style={styles.input}
               value={password}
@@ -97,11 +97,11 @@ export function LoginScreen({
               {loading ? (
                 <ActivityIndicator size="small" color="#0f172a" />
               ) : (
-                <Text style={styles.buttonPrimaryText}>Sign in</Text>
+                <Text style={styles.buttonPrimaryText}>Войти</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.link} onPress={onGoToRegister} disabled={loading}>
-              <Text style={styles.linkText}>Create an account</Text>
+              <Text style={styles.linkText}>Создать аккаунт</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

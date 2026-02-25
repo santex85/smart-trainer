@@ -27,6 +27,7 @@ import {
   getAthleteProfile,
   updateAthleteProfile,
   type ActivityItem,
+  type AthleteProfileResponse,
   type NutritionDayResponse,
   type NutritionDayEntry,
   type AuthUser,
@@ -70,6 +71,42 @@ function formatDuration(sec: number | undefined): string {
   return `${m}m`;
 }
 
+function NutritionProgressBar({
+  current,
+  goal,
+  label,
+  color,
+}: {
+  current: number;
+  goal: number;
+  label: string;
+  color: string;
+}) {
+  const percent = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
+  return (
+    <View style={progressBarStyles.container}>
+      <View style={progressBarStyles.labelRow}>
+        <Text style={progressBarStyles.label}>{label}</Text>
+        <Text style={progressBarStyles.value}>
+          {Math.round(current)} / {Math.round(goal)}
+        </Text>
+      </View>
+      <View style={progressBarStyles.track}>
+        <View style={[progressBarStyles.fill, { width: `${percent}%`, backgroundColor: color }]} />
+      </View>
+    </View>
+  );
+}
+
+const progressBarStyles = StyleSheet.create({
+  container: { marginTop: 8 },
+  labelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
+  label: { fontSize: 12, color: "#94a3b8" },
+  value: { fontSize: 12, color: "#e2e8f0" },
+  track: { height: 6, backgroundColor: "#1a1a2e", borderRadius: 3, overflow: "hidden" },
+  fill: { height: "100%", borderRadius: 3 },
+});
+
 function EditFoodEntryModal({
   entry,
   onClose,
@@ -99,7 +136,7 @@ function EditFoodEntryModal({
     const f = Number(fatG);
     const ca = Number(carbsG);
     if (Number.isNaN(p) || Number.isNaN(c) || Number.isNaN(pr) || Number.isNaN(f) || Number.isNaN(ca)) {
-      Alert.alert("Error", "Please enter valid numbers.");
+      Alert.alert("Ошибка", "Введите корректные числа.");
       return;
     }
     setSaving(true);
@@ -115,7 +152,7 @@ function EditFoodEntryModal({
       });
       onSaved();
     } catch (e) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Failed to save");
+      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось сохранить");
     } finally {
       setSaving(false);
     }
@@ -131,7 +168,7 @@ function EditFoodEntryModal({
       await deleteNutritionEntry(entry.id);
       onDeleted();
     } catch (e) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Failed to delete");
+      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить");
     } finally {
       setDeleting(false);
     }
@@ -393,7 +430,7 @@ export function DashboardScreen({
   const [fitnessData, setFitnessData] = useState<StravaFitness | null>(null);
   const [wellnessToday, setWellnessToday] = useState<WellnessDay | null>(null);
   const [sleepFromPhoto, setSleepFromPhoto] = useState<{ sleep_hours?: number; actual_sleep_hours?: number; sleep_date?: string } | null>(null);
-  const [athleteProfile, setAthleteProfile] = useState<{ weight_kg: number | null } | null>(null);
+  const [athleteProfile, setAthleteProfile] = useState<AthleteProfileResponse | null>(null);
   const [wellnessEditVisible, setWellnessEditVisible] = useState(false);
   const [lastAnalysisResult, setLastAnalysisResult] = useState<{
     decision: string;
@@ -438,7 +475,7 @@ export function DashboardScreen({
           if (!withHours) return null;
           return { sleep_hours: withHours.sleep_hours, actual_sleep_hours: withHours.actual_sleep_hours, sleep_date: withHours.sleep_date ?? undefined };
         }).catch(() => null),
-        getAthleteProfile().then((p) => ({ weight_kg: p.weight_kg })).catch(() => null),
+        getAthleteProfile().catch(() => null),
       ]);
       setStravaLinked(stravaStatus);
       setActivities((aResult.ok ? aResult.data : []).sort((x, y) => (y.start_date || "").localeCompare(x.start_date || "")));
@@ -476,6 +513,11 @@ export function DashboardScreen({
     [loadNutritionForDate]
   );
 
+  const calorieGoal = athleteProfile?.nutrition_goals?.calorie_goal ?? CALORIE_GOAL;
+  const proteinGoal = athleteProfile?.nutrition_goals?.protein_goal ?? PROTEIN_GOAL;
+  const fatGoal = athleteProfile?.nutrition_goals?.fat_goal ?? FAT_GOAL;
+  const carbsGoal = athleteProfile?.nutrition_goals?.carbs_goal ?? CARBS_GOAL;
+
   const onRefresh = () => {
     setRefreshing(true);
     load();
@@ -490,7 +532,7 @@ export function DashboardScreen({
       load();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Request failed";
-      Alert.alert("Error", msg);
+      Alert.alert("Ошибка", msg);
     } finally {
       setAnalysisLoading(false);
     }
@@ -504,7 +546,7 @@ export function DashboardScreen({
       await load();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Sync failed";
-      Alert.alert("Error", msg);
+      Alert.alert("Ошибка", msg);
     } finally {
       setSyncingStrava(false);
     }
@@ -520,54 +562,98 @@ export function DashboardScreen({
         <View style={styles.userRow}>
           <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
           <TouchableOpacity onPress={onLogout}>
-            <Text style={styles.logoutText}>Log out</Text>
+            <Text style={styles.logoutText}>Выйти</Text>
           </TouchableOpacity>
         </View>
       ) : null}
-      <Text style={styles.title}>Today</Text>
+      <Text style={styles.title}>Сегодня</Text>
 
       {loading ? (
-        <ActivityIndicator size="large" style={styles.loader} />
+        <View style={styles.skeletonWrap}>
+          <View style={styles.skeletonCard}>
+            <View style={styles.skeletonTitle} />
+            <View style={styles.skeletonLine} />
+            <View style={styles.skeletonLine} />
+            <View style={styles.skeletonLineShort} />
+          </View>
+          <View style={styles.skeletonCard}>
+            <View style={styles.skeletonTitle} />
+            <View style={styles.skeletonLine} />
+          </View>
+          <View style={styles.skeletonCard}>
+            <View style={styles.skeletonTitle} />
+            <View style={styles.skeletonLine} />
+          </View>
+          <View style={styles.skeletonCard}>
+            <View style={styles.skeletonTitle} />
+            <View style={styles.skeletonLine} />
+            <View style={styles.skeletonLine} />
+          </View>
+        </View>
       ) : (
         <>
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
-              <Text style={styles.cardTitle}>Nutrition (goal remainder)</Text>
+              <Text style={styles.cardTitle}>Питание (остаток по целям)</Text>
               <View style={styles.cardTitleActions}>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(addDays(nutritionDate, -1))}
                   style={styles.dateNavBtn}
                 >
-                  <Text style={styles.dateNavText}>Yesterday</Text>
+                  <Text style={styles.dateNavText}>Вчера</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(today)}
                   style={[styles.dateNavBtn, nutritionDate === today && styles.dateNavBtnActive]}
                 >
-                  <Text style={[styles.dateNavText, nutritionDate === today && styles.dateNavTextActive]}>Today</Text>
+                  <Text style={[styles.dateNavText, nutritionDate === today && styles.dateNavTextActive]}>Сегодня</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(addDays(nutritionDate, 1))}
                   style={styles.dateNavBtn}
                 >
-                  <Text style={styles.dateNavText}>Tomorrow</Text>
+                  <Text style={styles.dateNavText}>Завтра</Text>
                 </TouchableOpacity>
               </View>
             </View>
             {nutritionLoadError && (
-              <Text style={styles.errorHint}>Couldn&apos;t load nutrition. Pull to refresh.</Text>
+              <Text style={styles.errorHint}>Не удалось загрузить питание. Потяните для обновления.</Text>
             )}
             {!nutritionLoadError && nutritionDay && nutritionDay.entries.length > 0 ? (
               <>
                 <Text style={styles.value}>
-                  Logged: {Math.round(nutritionDay.totals.calories)} kcal · P {Math.round(nutritionDay.totals.protein_g)}g · F{" "}
+                  Съедено: {Math.round(nutritionDay.totals.calories)} ккал · Б {Math.round(nutritionDay.totals.protein_g)}g · F{" "}
                   {Math.round(nutritionDay.totals.fat_g)}g · C {Math.round(nutritionDay.totals.carbs_g)}g
                 </Text>
                 <Text style={styles.hint}>
-                  Remainder: {Math.max(0, CALORIE_GOAL - nutritionDay.totals.calories)} kcal · Carbs{" "}
-                  {Math.max(0, CARBS_GOAL - nutritionDay.totals.carbs_g)}g · P {Math.max(0, PROTEIN_GOAL - nutritionDay.totals.protein_g)}g · F{" "}
-                  {Math.max(0, FAT_GOAL - nutritionDay.totals.fat_g)}g
+                  Осталось: {Math.max(0, calorieGoal - nutritionDay.totals.calories)} ккал · У{" "}
+                  {Math.max(0, carbsGoal - nutritionDay.totals.carbs_g)}г · Б {Math.max(0, proteinGoal - nutritionDay.totals.protein_g)}г · Ж{" "}
+                  {Math.max(0, fatGoal - nutritionDay.totals.fat_g)}г
                 </Text>
+                <NutritionProgressBar
+                  current={nutritionDay.totals.calories}
+                  goal={calorieGoal}
+                  label="Ккал"
+                  color="#38bdf8"
+                />
+                <NutritionProgressBar
+                  current={nutritionDay.totals.protein_g}
+                  goal={proteinGoal}
+                  label="Белки"
+                  color="#22c55e"
+                />
+                <NutritionProgressBar
+                  current={nutritionDay.totals.fat_g}
+                  goal={fatGoal}
+                  label="Жиры"
+                  color="#f59e0b"
+                />
+                <NutritionProgressBar
+                  current={nutritionDay.totals.carbs_g}
+                  goal={carbsGoal}
+                  label="Углеводы"
+                  color="#8b5cf6"
+                />
                 {nutritionDay.entries.map((entry) => (
                   <TouchableOpacity
                     key={entry.id}
@@ -581,10 +667,19 @@ export function DashboardScreen({
                   </TouchableOpacity>
                 ))}
               </>
+            ) : !nutritionLoadError && nutritionDay ? (
+              <>
+                <Text style={styles.placeholder}>Отмечайте приёмы пищи камерой →</Text>
+                <Text style={styles.hint}>Цель: {calorieGoal} ккал · У: {carbsGoal}г · Б: {proteinGoal}г · Ж: {fatGoal}г</Text>
+                <NutritionProgressBar current={nutritionDay.totals.calories} goal={calorieGoal} label="Ккал" color="#38bdf8" />
+                <NutritionProgressBar current={nutritionDay.totals.protein_g} goal={proteinGoal} label="Белки" color="#22c55e" />
+                <NutritionProgressBar current={nutritionDay.totals.fat_g} goal={fatGoal} label="Жиры" color="#f59e0b" />
+                <NutritionProgressBar current={nutritionDay.totals.carbs_g} goal={carbsGoal} label="Углеводы" color="#8b5cf6" />
+              </>
             ) : !nutritionLoadError ? (
               <>
-                <Text style={styles.placeholder}>Track meals with the camera →</Text>
-                <Text style={styles.hint}>Goal: {CALORIE_GOAL} kcal · Carbs: {CARBS_GOAL}g · P: {PROTEIN_GOAL}g · F: {FAT_GOAL}g</Text>
+                <Text style={styles.placeholder}>Отмечайте приёмы пищи камерой →</Text>
+                <Text style={styles.hint}>Цель: {calorieGoal} ккал · У: {carbsGoal}г · Б: {proteinGoal}г · Ж: {fatGoal}г</Text>
               </>
             ) : null}
           </View>
@@ -617,8 +712,8 @@ export function DashboardScreen({
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Fitness (CTL / ATL / TSB)</Text>
-            <Text style={styles.hint}>TrainingPeaks-style from Strava TSS (last 90 days)</Text>
+            <Text style={styles.cardTitle}>Фитнес (CTL / ATL / TSB)</Text>
+            <Text style={styles.hint}>В стиле TrainingPeaks по TSS из Strava (последние 90 дней)</Text>
             {fitnessData ? (
               <>
                 <Text style={styles.value}>
@@ -627,7 +722,7 @@ export function DashboardScreen({
                 <Text style={styles.hint}>As of {fitnessData.date}</Text>
               </>
             ) : (
-              <Text style={styles.placeholder}>Connect Strava and sync workouts to see fitness.</Text>
+              <Text style={styles.placeholder}>Подключите Strava и синхронизируйте тренировки.</Text>
             )}
           </View>
 
@@ -661,7 +756,7 @@ export function DashboardScreen({
 
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
-              <Text style={styles.cardTitle}>Training</Text>
+              <Text style={styles.cardTitle}>Тренировки</Text>
               <View style={styles.cardTitleActions}>
                 {stravaLinked && (
                   <TouchableOpacity
@@ -672,7 +767,7 @@ export function DashboardScreen({
                     {syncingStrava ? (
                       <ActivityIndicator size="small" color="#0f172a" />
                     ) : (
-                      <Text style={styles.syncBtnText}>Sync</Text>
+                      <Text style={styles.syncBtnText}>Синхр.</Text>
                     )}
                   </TouchableOpacity>
                 )}
@@ -683,7 +778,7 @@ export function DashboardScreen({
                 )}
               </View>
             </View>
-            <Text style={styles.hint}>Last 14 days · completed workouts from Strava</Text>
+            <Text style={styles.hint}>Последние 14 дней · тренировки из Strava</Text>
             {onOpenStravaActivity && stravaLinked && (
               <TouchableOpacity style={styles.calendarLink} onPress={onOpenStravaActivity}>
                 <Text style={styles.intervalsLinkText}>All activity (calendar)</Text>
@@ -705,14 +800,14 @@ export function DashboardScreen({
                   </View>
                 </View>
               )) : !activitiesLoadError ? (
-              <Text style={styles.placeholder}>No workouts. Connect Strava to import.</Text>
+              <Text style={styles.placeholder}>Нет тренировок. Подключите Strava.</Text>
             ) : null}
           </View>
 
           {lastAnalysisResult ? (
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Analysis result</Text>
-              <Text style={styles.analysisDecision}>Decision: {lastAnalysisResult.decision}</Text>
+              <Text style={styles.cardTitle}>Результат анализа</Text>
+              <Text style={styles.analysisDecision}>Решение: {lastAnalysisResult.decision}</Text>
               <Text style={styles.value}>{lastAnalysisResult.reason}</Text>
               {lastAnalysisResult.suggestions_next_days ? (
                 <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.suggestions_next_days}</Text>
@@ -728,24 +823,24 @@ export function DashboardScreen({
             {analysisLoading ? (
               <ActivityIndicator size="small" color="#0f172a" />
             ) : (
-              <Text style={styles.analysisBtnText}>Run analysis now</Text>
+              <Text style={styles.analysisBtnText}>Запустить анализ</Text>
             )}
           </TouchableOpacity>
 
           {onOpenAthleteProfile && (
             <TouchableOpacity style={styles.chatLink} onPress={onOpenAthleteProfile}>
-              <Text style={styles.chatLinkText}>Athlete profile →</Text>
+              <Text style={styles.chatLinkText}>Профиль атлета →</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.chatLink} onPress={onOpenChat}>
-            <Text style={styles.chatLinkText}>Open AI Coach chat →</Text>
+            <Text style={styles.chatLinkText}>Открыть чат AI-тренера →</Text>
           </TouchableOpacity>
         </>
       )}
 
       <TouchableOpacity style={styles.fab} onPress={onOpenCamera} activeOpacity={0.8}>
         <Text style={styles.fabLabel}>📷</Text>
-        <Text style={styles.fabText}>Photo</Text>
+        <Text style={styles.fabText}>Фото</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -759,6 +854,11 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 120 },
   title: { fontSize: 28, fontWeight: "700", color: "#eee", marginBottom: 20 },
   loader: { marginTop: 40 },
+  skeletonWrap: { gap: 12 },
+  skeletonCard: { backgroundColor: "#16213e", borderRadius: 12, padding: 16, marginBottom: 12 },
+  skeletonTitle: { width: "60%", height: 14, backgroundColor: "#334155", borderRadius: 4, marginBottom: 12 },
+  skeletonLine: { width: "100%", height: 12, backgroundColor: "#334155", borderRadius: 4, marginBottom: 8 },
+  skeletonLineShort: { width: "80%", height: 12, backgroundColor: "#334155", borderRadius: 4 },
   card: {
     backgroundColor: "#16213e",
     borderRadius: 12,

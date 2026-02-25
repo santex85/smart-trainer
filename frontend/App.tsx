@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { getMe, setOnUnauthorized } from "./src/api/client";
 import { getAccessToken, removeAccessToken } from "./src/storage/authStorage";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
@@ -17,13 +18,13 @@ import { AthleteProfileScreen } from "./src/screens/AthleteProfileScreen";
 import type { AuthUser } from "./src/api/client";
 
 const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
 const navigationRef = createNavigationContainerRef();
 
 export default function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [cameraVisible, setCameraVisible] = useState(false);
-  const [chatVisible, setChatVisible] = useState(false);
   const [stravaModalVisible, setStravaModalVisible] = useState(false);
   const [refreshNutritionTrigger, setRefreshNutritionTrigger] = useState(0);
   const [refreshStravaTrigger, setRefreshStravaTrigger] = useState(0);
@@ -109,41 +110,60 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-        <View style={styles.root}>
+      <View style={styles.root}>
         <NavigationContainer ref={navigationRef}>
-          <Stack.Navigator
+          <Tab.Navigator
             screenOptions={{
               headerShown: false,
-              contentStyle: { backgroundColor: "#1a1a2e" },
+              tabBarStyle: { backgroundColor: "#16213e", borderTopColor: "#334155" },
+              tabBarActiveTintColor: "#38bdf8",
+              tabBarInactiveTintColor: "#64748b",
             }}
           >
-            <Stack.Screen name="Dashboard">
+            <Tab.Screen
+              name="Home"
+              options={{ tabBarLabel: "Главная" }}
+            >
               {({ navigation }) => (
                 <DashboardScreen
                   user={user}
                   onLogout={handleLogout}
                   onOpenCamera={() => setCameraVisible(true)}
-                  onOpenChat={() => setChatVisible(true)}
+                  onOpenChat={() => navigation.navigate("Chat")}
                   onOpenStrava={() => setStravaModalVisible(true)}
-                  onOpenStravaActivity={() => navigation.navigate("StravaActivity")}
-                  onOpenAthleteProfile={() => navigation.navigate("AthleteProfile")}
+                  onOpenStravaActivity={() => navigation.navigate("Activity")}
+                  onOpenAthleteProfile={() => navigation.navigate("Profile")}
                   refreshNutritionTrigger={refreshNutritionTrigger}
                   refreshStravaTrigger={refreshStravaTrigger}
                   refreshSleepTrigger={refreshSleepTrigger}
                 />
               )}
-            </Stack.Screen>
-            <Stack.Screen name="StravaActivity">
+            </Tab.Screen>
+            <Tab.Screen
+              name="Activity"
+              options={{ tabBarLabel: "Тренировки" }}
+            >
               {({ navigation }) => (
-                <StravaActivityScreen onClose={() => navigation.goBack()} />
+                <StravaActivityScreen onClose={() => navigation.navigate("Home")} />
               )}
-            </Stack.Screen>
-            <Stack.Screen name="AthleteProfile">
+            </Tab.Screen>
+            <Tab.Screen
+              name="Chat"
+              options={{ tabBarLabel: "Чат" }}
+            >
               {({ navigation }) => (
-                <AthleteProfileScreen onClose={() => navigation.goBack()} />
+                <ChatScreen onClose={() => navigation.navigate("Home")} />
               )}
-            </Stack.Screen>
-          </Stack.Navigator>
+            </Tab.Screen>
+            <Tab.Screen
+              name="Profile"
+              options={{ tabBarLabel: "Профиль" }}
+            >
+              {({ navigation }) => (
+                <AthleteProfileScreen onClose={() => navigation.navigate("Home")} />
+              )}
+            </Tab.Screen>
+          </Tab.Navigator>
         </NavigationContainer>
 
         {cameraVisible && (
@@ -162,19 +182,13 @@ export default function App() {
           </View>
         )}
 
-        {chatVisible && (
-          <View style={styles.modal}>
-            <ChatScreen onClose={() => setChatVisible(false)} />
-          </View>
-        )}
-
         {stravaModalVisible && (
           <View style={styles.modal}>
             <StravaLinkScreen
               onClose={closeStrava}
               onViewAllActivity={() => {
                 setStravaModalVisible(false);
-                setTimeout(() => (navigationRef as { current?: { navigate: (name: string) => void } }).current?.navigate("StravaActivity"), 0);
+                setTimeout(() => (navigationRef as { current?: { navigate: (name: string) => void } }).current?.navigate("Activity"), 0);
               }}
             />
           </View>
