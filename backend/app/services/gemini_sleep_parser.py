@@ -68,15 +68,8 @@ Other:
 Rules: No rounding. Fill factor_ratings from the factors section; fill phase minutes from graph or text; add sleep_phases timeline if you can estimate segments. Prefer null over guessing. Output ONLY valid JSON, no markdown."""
 
 
-def _configure_genai() -> None:
-    if not settings.google_gemini_api_key:
-        raise ValueError("GOOGLE_GEMINI_API_KEY is not set")
-    genai.configure(api_key=settings.google_gemini_api_key)
-
-
 async def extract_sleep_data(image_bytes: bytes, mode: str = "lite") -> SleepExtractionResult:
     """Parse image and return structured sleep extraction result. mode: 'lite' (default) or 'full'."""
-    _configure_genai()
     prompt = SLEEP_EXTRACT_PROMPT_LITE if mode == "lite" else SLEEP_EXTRACT_PROMPT
     model = genai.GenerativeModel(
         settings.gemini_model,

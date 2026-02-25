@@ -34,15 +34,8 @@ Rules:
 - All numeric values must be non-negative numbers. portion_grams and macros in grams, calories in kcal."""
 
 
-def _configure_genai() -> None:
-    if not settings.google_gemini_api_key:
-        raise ValueError("GOOGLE_GEMINI_API_KEY is not set")
-    genai.configure(api_key=settings.google_gemini_api_key)
-
-
 async def analyze_food_from_image(image_bytes: bytes) -> NutritionAnalysisResult:
     """Send image to Gemini; return validated nutrition result (Pydantic)."""
-    _configure_genai()
     model = genai.GenerativeModel(
         settings.gemini_model,
         generation_config=GENERATION_CONFIG,

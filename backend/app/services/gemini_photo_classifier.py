@@ -24,15 +24,8 @@ SAFETY_SETTINGS = {
 }
 
 
-def _configure_genai() -> None:
-    if not settings.google_gemini_api_key:
-        raise ValueError("GOOGLE_GEMINI_API_KEY is not set")
-    genai.configure(api_key=settings.google_gemini_api_key)
-
-
 async def classify_image(image_bytes: bytes) -> str:
     """Return 'food' or 'sleep'. Default to 'food' only if response is missing or invalid."""
-    _configure_genai()
     model = genai.GenerativeModel(
         settings.gemini_model,
         safety_settings=SAFETY_SETTINGS,

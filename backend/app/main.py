@@ -6,6 +6,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -28,23 +29,38 @@ scheduler = AsyncIOScheduler()
 
 
 async def scheduled_orchestrator_run():
-    """Run orchestrator (daily decision) for every user at configured hours."""
+    """Run orchestrator (daily decision) for every user at configured hours (parallel with semaphore)."""
+    import asyncio
     from datetime import date
     from sqlalchemy import select
     from app.db.session import async_session_maker
     from app.models.user import User
     from app.services.orchestrator import run_daily_decision
+
     async with async_session_maker() as session:
-        r = await session.execute(select(User))
-        for user in r.scalars().all():
-            await run_daily_decision(session, user.id, date.today())
-        await session.commit()
+        r = await session.execute(select(User.id))
+        user_ids = [row[0] for row in r.all()]
+    if not user_ids:
+        return
+
+    sem = asyncio.Semaphore(5)
+
+    async def run_for_user(uid: int) -> None:
+        async with sem:
+            async with async_session_maker() as session:
+                await run_daily_decision(session, uid, date.today())
+                await session.commit()
+
+    await asyncio.gather(*[run_for_user(uid) for uid in user_ids])
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     init_http_client(timeout=30.0)
+    if settings.google_gemini_api_key:
+        import google.generativeai as genai
+        genai.configure(api_key=settings.google_gemini_api_key)
 
     # Orchestrator: run at configured hours (e.g. 07:00 and 16:00)
     try:
@@ -72,6 +88,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

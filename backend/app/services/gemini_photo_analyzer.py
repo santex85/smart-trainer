@@ -55,12 +55,6 @@ When type is "wellness", set "wellness" to { "rhr": <number or null>, "hrv": <nu
 Output ONLY valid JSON. No markdown, no code fences."""
 
 
-def _configure_genai() -> None:
-    if not settings.google_gemini_api_key:
-        raise ValueError("GOOGLE_GEMINI_API_KEY is not set")
-    genai.configure(api_key=settings.google_gemini_api_key)
-
-
 async def classify_and_analyze_image(
     image_bytes: bytes,
 ) -> tuple[str, NutritionAnalysisResult | SleepExtractionResult | WellnessPhotoResult]:
@@ -68,7 +62,6 @@ async def classify_and_analyze_image(
     Single Gemini call: classify image as food, sleep, or wellness and return the analysis.
     Returns ("food", NutritionAnalysisResult), ("sleep", SleepExtractionResult), or ("wellness", WellnessPhotoResult).
     """
-    _configure_genai()
     model = genai.GenerativeModel(
         settings.gemini_model,
         generation_config=GENERATION_CONFIG,

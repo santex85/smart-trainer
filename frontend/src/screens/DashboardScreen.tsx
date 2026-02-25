@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -73,7 +73,7 @@ function formatDuration(sec: number | undefined): string {
   return `${m}m`;
 }
 
-function NutritionProgressBar({
+const NutritionProgressBar = React.memo(function NutritionProgressBar({
   current,
   goal,
   label,
@@ -98,7 +98,7 @@ function NutritionProgressBar({
       </View>
     </View>
   );
-}
+});
 
 const progressBarStyles = StyleSheet.create({
   container: { marginTop: 8 },
@@ -109,7 +109,7 @@ const progressBarStyles = StyleSheet.create({
   fill: { height: "100%", borderRadius: 3 },
 });
 
-function EditFoodEntryModal({
+const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
   entry,
   onClose,
   onSaved,
@@ -286,9 +286,9 @@ function EditFoodEntryModal({
       </Pressable>
     </Modal>
   );
-}
+});
 
-function EditWellnessModal({
+const EditWellnessModal = React.memo(function EditWellnessModal({
   date,
   initialWellness,
   initialWeight,
@@ -393,9 +393,9 @@ function EditWellnessModal({
       </Pressable>
     </Modal>
   );
-}
+});
 
-function AddWorkoutModal({
+const AddWorkoutModal = React.memo(function AddWorkoutModal({
   defaultDate,
   onClose,
   onSaved,
@@ -510,7 +510,7 @@ function AddWorkoutModal({
       </Pressable>
     </Modal>
   );
-}
+});
 
 export function DashboardScreen({
   user,
@@ -622,10 +622,21 @@ export function DashboardScreen({
     [loadNutritionForDate]
   );
 
-  const calorieGoal = athleteProfile?.nutrition_goals?.calorie_goal ?? CALORIE_GOAL;
-  const proteinGoal = athleteProfile?.nutrition_goals?.protein_goal ?? PROTEIN_GOAL;
-  const fatGoal = athleteProfile?.nutrition_goals?.fat_goal ?? FAT_GOAL;
-  const carbsGoal = athleteProfile?.nutrition_goals?.carbs_goal ?? CARBS_GOAL;
+  const nutritionGoals = useMemo(
+    () => ({
+      calorieGoal: athleteProfile?.nutrition_goals?.calorie_goal ?? CALORIE_GOAL,
+      proteinGoal: athleteProfile?.nutrition_goals?.protein_goal ?? PROTEIN_GOAL,
+      fatGoal: athleteProfile?.nutrition_goals?.fat_goal ?? FAT_GOAL,
+      carbsGoal: athleteProfile?.nutrition_goals?.carbs_goal ?? CARBS_GOAL,
+    }),
+    [
+      athleteProfile?.nutrition_goals?.calorie_goal,
+      athleteProfile?.nutrition_goals?.protein_goal,
+      athleteProfile?.nutrition_goals?.fat_goal,
+      athleteProfile?.nutrition_goals?.carbs_goal,
+    ]
+  );
+  const { calorieGoal, proteinGoal, fatGoal, carbsGoal } = nutritionGoals;
 
   const onRefresh = () => {
     setRefreshing(true);

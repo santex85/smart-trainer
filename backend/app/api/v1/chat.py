@@ -1,5 +1,6 @@
 """Chat with AI coach: history, send message, optional orchestrator run."""
 
+import asyncio
 import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
@@ -36,12 +37,59 @@ CHAT_SECTION_MAX_CHARS = 1200
 async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
     """Build a compressed text summary: profile, food/wellness today + last N days, last M workouts. No passwords/tokens."""
     today = date.today()
+    sleep_from = today - timedelta(days=CHAT_CONTEXT_DAYS)
+    wellness_from = today - timedelta(days=CHAT_CONTEXT_DAYS)
+    from_dt = datetime.combine(wellness_from, datetime.min.time()).replace(tzinfo=timezone.utc)
+    to_dt = datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
 
-    # Athlete profile (weight, height, age, ftp, display_name, sex) — no tokens
-    r_user = await session.execute(select(User.email).where(User.id == user_id))
+    (
+        r_user,
+        r_prof,
+        r_food,
+        r_wellness,
+        r_sleep_list,
+        r_well,
+        r_w,
+    ) = await asyncio.gather(
+        session.execute(select(User.email).where(User.id == user_id)),
+        session.execute(select(AthleteProfile).where(AthleteProfile.user_id == user_id)),
+        session.execute(
+            select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type, FoodLog.timestamp).where(
+                FoodLog.user_id == user_id,
+                FoodLog.timestamp >= datetime.combine(today, datetime.min.time()),
+                FoodLog.timestamp < datetime.combine(today + timedelta(days=1), datetime.min.time()),
+            )
+        ),
+        session.execute(
+            select(WellnessCache).where(
+                WellnessCache.user_id == user_id,
+                WellnessCache.date == today,
+            )
+        ),
+        session.execute(
+            select(SleepExtraction.created_at, SleepExtraction.extracted_data).where(
+                SleepExtraction.user_id == user_id,
+                SleepExtraction.created_at >= from_dt,
+            ).order_by(SleepExtraction.created_at.desc()).limit(20)
+        ),
+        session.execute(
+            select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb, WellnessCache.weight_kg).where(
+                WellnessCache.user_id == user_id,
+                WellnessCache.date >= wellness_from,
+                WellnessCache.date <= today,
+            ).order_by(WellnessCache.date.asc())
+        ),
+        session.execute(
+            select(Workout).where(
+                Workout.user_id == user_id,
+                Workout.start_date >= from_dt,
+                Workout.start_date < to_dt,
+            ).order_by(Workout.start_date.desc()).limit(CHAT_WORKOUTS_LIMIT)
+        ),
+    )
+
     user_row = r_user.one_or_none()
     email = user_row[0] if user_row else None
-    r_prof = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == user_id))
     profile = r_prof.scalar_one_or_none()
     athlete = {}
     if profile:
@@ -65,15 +113,7 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
     if not athlete.get("display_name") and email:
         athlete["display_name"] = email
 
-    # Food today (sum and entries)
-    r = await session.execute(
-        select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type, FoodLog.timestamp).where(
-            FoodLog.user_id == user_id,
-            FoodLog.timestamp >= datetime.combine(today, datetime.min.time()),
-            FoodLog.timestamp < datetime.combine(today + timedelta(days=1), datetime.min.time()),
-        )
-    )
-    rows = r.all()
+    rows = r_food.all()
     food_sum = {"calories": 0.0, "protein_g": 0.0, "fat_g": 0.0, "carbs_g": 0.0}
     food_entries = []
     for row in rows:
@@ -86,14 +126,7 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
             "meal_type": row[6], "timestamp": row[7].isoformat() if row[7] else None,
         })
 
-    # Wellness today (sleep, RHR, HRV) and load (CTL/ATL/TSB)
-    r = await session.execute(
-        select(WellnessCache).where(
-            WellnessCache.user_id == user_id,
-            WellnessCache.date == today,
-        )
-    )
-    w = r.scalar_one_or_none()
+    w = r_wellness.scalar_one_or_none()
     wellness_today = None
     ctl_atl_tsb = None
     if w:
@@ -102,15 +135,14 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
     if wellness_today is None:
         wellness_today = {}
     if wellness_today.get("sleep_hours") is None:
-        # Enrich with sleep from latest photo extraction so "Wellness today" shows sleep when only from photos
-        sleep_from = today - timedelta(days=3)
-        r_w = await session.execute(
+        sleep_from_3 = today - timedelta(days=3)
+        r_w_sleep = await session.execute(
             select(SleepExtraction.extracted_data).where(
                 SleepExtraction.user_id == user_id,
-                SleepExtraction.created_at >= datetime.combine(sleep_from, datetime.min.time()).replace(tzinfo=timezone.utc),
+                SleepExtraction.created_at >= datetime.combine(sleep_from_3, datetime.min.time()).replace(tzinfo=timezone.utc),
             ).order_by(SleepExtraction.created_at.desc()).limit(1)
         )
-        row_w = r_w.one_or_none()
+        row_w = r_w_sleep.one_or_none()
         if row_w:
             try:
                 data = json.loads(row_w[0]) if isinstance(row_w[0], str) else row_w[0]
@@ -121,16 +153,8 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
             except (json.JSONDecodeError, TypeError, ValueError):
                 pass
 
-    # Sleep extractions (from photos, last N days only)
-    sleep_from = today - timedelta(days=CHAT_CONTEXT_DAYS)
-    r = await session.execute(
-        select(SleepExtraction.created_at, SleepExtraction.extracted_data).where(
-            SleepExtraction.user_id == user_id,
-            SleepExtraction.created_at >= datetime.combine(sleep_from, datetime.min.time()).replace(tzinfo=timezone.utc),
-        ).order_by(SleepExtraction.created_at.desc()).limit(20)
-    )
     sleep_entries = []
-    for created_at, data_json in r.all():
+    for created_at, data_json in r_sleep_list.all():
         try:
             data = json.loads(data_json) if isinstance(data_json, str) else data_json
         except (json.JSONDecodeError, TypeError):
@@ -148,15 +172,6 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
         })
     sleep_summary = json.dumps(sleep_entries, default=str) if sleep_entries else "No sleep data from photos."
 
-    # Wellness history (last N days)
-    wellness_from = today - timedelta(days=CHAT_CONTEXT_DAYS)
-    r_well = await session.execute(
-        select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb, WellnessCache.weight_kg).where(
-            WellnessCache.user_id == user_id,
-            WellnessCache.date >= wellness_from,
-            WellnessCache.date <= today,
-        ).order_by(WellnessCache.date.asc())
-    )
     wellness_history = []
     for row in r_well.all():
         wellness_history.append({
@@ -164,17 +179,6 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
             "sleep_hours": row[1], "rhr": row[2], "hrv": row[3], "ctl": row[4], "atl": row[5], "tsb": row[6], "weight_kg": row[7],
         })
 
-    # Recent workouts (manual/FIT)
-    from_date = today - timedelta(days=CHAT_CONTEXT_DAYS)
-    from_dt = datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-    to_dt = datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
-    r_w = await session.execute(
-        select(Workout).where(
-            Workout.user_id == user_id,
-            Workout.start_date >= from_dt,
-            Workout.start_date < to_dt,
-        ).order_by(Workout.start_date.desc()).limit(CHAT_WORKOUTS_LIMIT)
-    )
     workouts = []
     for w in r_w.scalars().all():
         d = w.start_date.date() if w.start_date and hasattr(w.start_date, "date") else None
@@ -261,7 +265,6 @@ async def send_message(
         from app.config import settings
         from app.services.gemini_common import run_generate_content
         context = await _build_athlete_context(session, uid)
-        genai.configure(api_key=settings.google_gemini_api_key)
         model = genai.GenerativeModel(settings.gemini_model)
         prompt = f"{CHAT_SYSTEM}\n\nContext:\n{context}\n\nUser message: {body.message}"
         response = await run_generate_content(model, prompt)

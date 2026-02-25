@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.strava_activity import StravaActivity
@@ -87,6 +88,7 @@ async def sync_user_strava_activities(session: AsyncSession, user_id: int) -> No
     before_epoch = int(datetime.now(timezone.utc).timestamp())
     activities = await get_all_activities_paginated(access_token, after_epoch, before_epoch)
     logger.info("Strava sync: user_id=%s fetched %s activities", user_id, len(activities))
+
     def _float(v: Any) -> float | None:
         if v is None:
             return None
@@ -114,6 +116,8 @@ async def sync_user_strava_activities(session: AsyncSession, user_id: int) -> No
             return None
         return bool(v)
 
+    now_utc = datetime.now(timezone.utc)
+    rows = []
     for item in activities:
         strava_id = item.get("id")
         if strava_id is None:
@@ -145,75 +149,73 @@ async def sync_user_strava_activities(session: AsyncSession, user_id: int) -> No
         commute = _bool(item.get("commute"))
         manual = _bool(item.get("manual"))
         private = _bool(item.get("private"))
+        rows.append({
+            "user_id": user_id,
+            "strava_id": strava_id,
+            "start_date": start_date,
+            "start_date_local": start_date_local,
+            "timezone": tz,
+            "name": name,
+            "description": description,
+            "type": act_type,
+            "sport_type": sport_type,
+            "workout_type": workout_type,
+            "moving_time_sec": moving_time,
+            "elapsed_time_sec": elapsed_time,
+            "distance_m": distance,
+            "total_elevation_gain_m": total_elevation_gain,
+            "elev_high_m": elev_high,
+            "elev_low_m": elev_low,
+            "average_speed_m_s": average_speed,
+            "max_speed_m_s": max_speed,
+            "average_heartrate": average_heartrate,
+            "max_heartrate": max_heartrate,
+            "average_watts": average_watts,
+            "kilojoules": kilojoules,
+            "suffer_score": suffer_score,
+            "trainer": trainer,
+            "commute": commute,
+            "manual": manual,
+            "private": private,
+            "raw": item,
+            "synced_at": now_utc,
+        })
 
-        existing = await session.execute(
-            select(StravaActivity).where(
-                StravaActivity.user_id == user_id,
-                StravaActivity.strava_id == strava_id,
-            )
+    if rows:
+        stmt = pg_insert(StravaActivity).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["user_id", "strava_id"],
+            set_={
+                "start_date": stmt.excluded.start_date,
+                "start_date_local": stmt.excluded.start_date_local,
+                "timezone": stmt.excluded.timezone,
+                "name": stmt.excluded.name,
+                "description": stmt.excluded.description,
+                "type": stmt.excluded.type,
+                "sport_type": stmt.excluded.sport_type,
+                "workout_type": stmt.excluded.workout_type,
+                "moving_time_sec": stmt.excluded.moving_time_sec,
+                "elapsed_time_sec": stmt.excluded.elapsed_time_sec,
+                "distance_m": stmt.excluded.distance_m,
+                "total_elevation_gain_m": stmt.excluded.total_elevation_gain_m,
+                "elev_high_m": stmt.excluded.elev_high_m,
+                "elev_low_m": stmt.excluded.elev_low_m,
+                "average_speed_m_s": stmt.excluded.average_speed_m_s,
+                "max_speed_m_s": stmt.excluded.max_speed_m_s,
+                "average_heartrate": stmt.excluded.average_heartrate,
+                "max_heartrate": stmt.excluded.max_heartrate,
+                "average_watts": stmt.excluded.average_watts,
+                "kilojoules": stmt.excluded.kilojoules,
+                "suffer_score": stmt.excluded.suffer_score,
+                "trainer": stmt.excluded.trainer,
+                "commute": stmt.excluded.commute,
+                "manual": stmt.excluded.manual,
+                "private": stmt.excluded.private,
+                "raw": stmt.excluded.raw,
+                "synced_at": stmt.excluded.synced_at,
+            },
         )
-        row = existing.scalar_one_or_none()
-        if row:
-            row.start_date = start_date
-            row.start_date_local = start_date_local
-            row.timezone = tz
-            row.name = name
-            row.description = description
-            row.type = act_type
-            row.sport_type = sport_type
-            row.workout_type = workout_type
-            row.moving_time_sec = moving_time
-            row.elapsed_time_sec = elapsed_time
-            row.distance_m = distance
-            row.total_elevation_gain_m = total_elevation_gain
-            row.elev_high_m = elev_high
-            row.elev_low_m = elev_low
-            row.average_speed_m_s = average_speed
-            row.max_speed_m_s = max_speed
-            row.average_heartrate = average_heartrate
-            row.max_heartrate = max_heartrate
-            row.average_watts = average_watts
-            row.kilojoules = kilojoules
-            row.suffer_score = suffer_score
-            row.trainer = trainer
-            row.commute = commute
-            row.manual = manual
-            row.private = private
-            row.raw = item
-            row.synced_at = datetime.now(timezone.utc)
-        else:
-            session.add(
-                StravaActivity(
-                    user_id=user_id,
-                    strava_id=strava_id,
-                    start_date=start_date,
-                    start_date_local=start_date_local,
-                    timezone=tz,
-                    name=name,
-                    description=description,
-                    type=act_type,
-                    sport_type=sport_type,
-                    workout_type=workout_type,
-                    moving_time_sec=moving_time,
-                    elapsed_time_sec=elapsed_time,
-                    distance_m=distance,
-                    total_elevation_gain_m=total_elevation_gain,
-                    elev_high_m=elev_high,
-                    elev_low_m=elev_low,
-                    average_speed_m_s=average_speed,
-                    max_speed_m_s=max_speed,
-                    average_heartrate=average_heartrate,
-                    max_heartrate=max_heartrate,
-                    average_watts=average_watts,
-                    kilojoules=kilojoules,
-                    suffer_score=suffer_score,
-                    trainer=trainer,
-                    commute=commute,
-                    manual=manual,
-                    private=private,
-                    raw=item,
-                )
-            )
+        await session.execute(stmt)
     await session.flush()
 
 

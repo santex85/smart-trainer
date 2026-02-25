@@ -3,6 +3,7 @@ AI Orchestrator: aggregates nutrition, wellness, load; applies 3-level hierarchy
 returns Go/Modify/Skip with optional modified plan. TZ: Level 1 (sleep, HRV, RHR, calories)
 cannot be overridden by Level 2 (TSS, CTL, ATL). Level 3: polarised intensity (Seiler).
 """
+import asyncio
 import json
 import logging
 from datetime import date, datetime, timedelta, timezone
@@ -152,21 +153,68 @@ async def run_daily_decision(
     today = today or date.today()
     oldest_food = today
     newest_food = today
+    wellness_from = today - timedelta(days=7)
+    from_date = today - timedelta(days=14)
+    from_dt = datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+    to_dt = datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
 
-    # Food sum for today
-    r = await session.execute(
-        select(
-            FoodLog.calories,
-            FoodLog.protein_g,
-            FoodLog.fat_g,
-            FoodLog.carbs_g,
-        ).where(
-            FoodLog.user_id == user_id,
-            FoodLog.timestamp >= datetime.combine(oldest_food, datetime.min.time()),
-            FoodLog.timestamp < datetime.combine(newest_food + timedelta(days=1), datetime.min.time()),
-        )
+    # Parallel fetch of independent DB queries
+    (
+        r_food,
+        r_wellness,
+        r_user,
+        r_prof,
+        r_fe,
+        r_wh,
+        r_workouts,
+        r_creds,
+    ) = await asyncio.gather(
+        session.execute(
+            select(
+                FoodLog.calories,
+                FoodLog.protein_g,
+                FoodLog.fat_g,
+                FoodLog.carbs_g,
+            ).where(
+                FoodLog.user_id == user_id,
+                FoodLog.timestamp >= datetime.combine(oldest_food, datetime.min.time()),
+                FoodLog.timestamp < datetime.combine(newest_food + timedelta(days=1), datetime.min.time()),
+            )
+        ),
+        session.execute(
+            select(WellnessCache).where(
+                WellnessCache.user_id == user_id,
+                WellnessCache.date == today,
+            )
+        ),
+        session.execute(select(User.email).where(User.id == user_id)),
+        session.execute(select(AthleteProfile).where(AthleteProfile.user_id == user_id)),
+        session.execute(
+            select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type).where(
+                FoodLog.user_id == user_id,
+                FoodLog.timestamp >= datetime.combine(today, datetime.min.time()),
+                FoodLog.timestamp < datetime.combine(today + timedelta(days=1), datetime.min.time()),
+            )
+        ),
+        session.execute(
+            select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb, WellnessCache.weight_kg).where(
+                WellnessCache.user_id == user_id,
+                WellnessCache.date >= wellness_from,
+                WellnessCache.date <= today,
+            ).order_by(WellnessCache.date.asc())
+        ),
+        session.execute(
+            select(Workout).where(
+                Workout.user_id == user_id,
+                Workout.start_date >= from_dt,
+                Workout.start_date < to_dt,
+            ).order_by(Workout.start_date.desc()).limit(10)
+        ),
+        session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == user_id)),
     )
-    rows = r.all()
+
+    # Process food sum
+    rows = r_food.all()
     food_sum = {"calories": 0.0, "protein_g": 0.0, "fat_g": 0.0, "carbs_g": 0.0}
     for row in rows:
         food_sum["calories"] += row[0] or 0
@@ -174,14 +222,7 @@ async def run_daily_decision(
         food_sum["fat_g"] += row[2] or 0
         food_sum["carbs_g"] += row[3] or 0
 
-    # Wellness today (from wellness_cache; if no sleep_hours, add from latest sleep_extraction)
-    r = await session.execute(
-        select(WellnessCache).where(
-            WellnessCache.user_id == user_id,
-            WellnessCache.date == today,
-        )
-    )
-    w = r.scalar_one_or_none()
+    w = r_wellness.scalar_one_or_none()
     wellness_today = None
     ctl_atl_tsb = None
     if w:
@@ -194,19 +235,17 @@ async def run_daily_decision(
         if w.ctl is not None or w.atl is not None or w.tsb is not None:
             ctl_atl_tsb = {"ctl": w.ctl, "atl": w.atl, "tsb": w.tsb}
     if ctl_atl_tsb is None:
-        # Fallback: compute from unified workouts (manual + FIT)
         fitness = await compute_fitness_from_workouts(session, user_id, as_of=today)
         if fitness:
             ctl_atl_tsb = {"ctl": fitness["ctl"], "atl": fitness["atl"], "tsb": fitness["tsb"]}
     if wellness_today is None:
         wellness_today = {}
     if wellness_today.get("sleep_hours") is None:
-        # Use latest sleep from photo extractions (last 3 days)
-        from_dt = datetime.combine(today - timedelta(days=3), datetime.min.time()).replace(tzinfo=timezone.utc)
+        from_dt_sleep = datetime.combine(today - timedelta(days=3), datetime.min.time()).replace(tzinfo=timezone.utc)
         r2 = await session.execute(
             select(SleepExtraction.extracted_data).where(
                 SleepExtraction.user_id == user_id,
-                SleepExtraction.created_at >= from_dt,
+                SleepExtraction.created_at >= from_dt_sleep,
             ).order_by(SleepExtraction.created_at.desc()).limit(1)
         )
         row2 = r2.one_or_none()
@@ -220,11 +259,8 @@ async def run_daily_decision(
             except (json.JSONDecodeError, TypeError, ValueError):
                 pass
 
-    # Athlete profile (weight, height, age, ftp, name, sex) — no tokens
-    r_user = await session.execute(select(User.email).where(User.id == user_id))
     user_row = r_user.one_or_none()
     email = user_row[0] if user_row else None
-    r_prof = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == user_id))
     profile = r_prof.scalar_one_or_none()
     athlete_profile: dict[str, Any] = {}
     if profile:
@@ -248,29 +284,12 @@ async def run_daily_decision(
     if not athlete_profile.get("display_name") and email:
         athlete_profile["display_name"] = email
 
-    # Food entries today (list)
-    r_fe = await session.execute(
-        select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type).where(
-            FoodLog.user_id == user_id,
-            FoodLog.timestamp >= datetime.combine(today, datetime.min.time()),
-            FoodLog.timestamp < datetime.combine(today + timedelta(days=1), datetime.min.time()),
-        )
-    )
     food_entries = []
     for row in r_fe.all():
         food_entries.append({
             "name": row[0], "portion_grams": row[1], "calories": row[2], "protein_g": row[3], "fat_g": row[4], "carbs_g": row[5], "meal_type": row[6],
         })
 
-    # Wellness history (last 7 days)
-    wellness_from = today - timedelta(days=7)
-    r_wh = await session.execute(
-        select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb, WellnessCache.weight_kg).where(
-            WellnessCache.user_id == user_id,
-            WellnessCache.date >= wellness_from,
-            WellnessCache.date <= today,
-        ).order_by(WellnessCache.date.asc())
-    )
     wellness_history = []
     for row in r_wh.all():
         wellness_history.append({
@@ -278,17 +297,6 @@ async def run_daily_decision(
             "sleep_hours": row[1], "rhr": row[2], "hrv": row[3], "ctl": row[4], "atl": row[5], "tsb": row[6], "weight_kg": row[7],
         })
 
-    # Recent workouts: from unified workout store (manual + FIT)
-    from_date = today - timedelta(days=14)
-    from_dt = datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-    to_dt = datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
-    r_workouts = await session.execute(
-        select(Workout).where(
-            Workout.user_id == user_id,
-            Workout.start_date >= from_dt,
-            Workout.start_date < to_dt,
-        ).order_by(Workout.start_date.desc()).limit(10)
-    )
     recent_workouts = []
     for w in r_workouts.scalars().all():
         d = w.start_date.date() if w.start_date and hasattr(w.start_date, "date") else None
@@ -302,10 +310,8 @@ async def run_daily_decision(
             "source": w.source,
         })
 
-    # Events today: fetch from API (we need credentials)
     events_today: list[dict] = []
-    r = await session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == user_id))
-    creds = r.scalar_one_or_none()
+    creds = r_creds.scalar_one_or_none()
     if creds:
         from app.services.intervals_client import get_events
         api_key = decrypt_value(creds.encrypted_token_or_key)
@@ -330,7 +336,6 @@ async def run_daily_decision(
         recent_workouts=recent_workouts,
     )
 
-    genai.configure(api_key=settings.google_gemini_api_key)
     model = genai.GenerativeModel(
         settings.gemini_model,
         generation_config=GENERATION_CONFIG,

@@ -6,6 +6,7 @@ import io
 import logging
 
 from PIL import Image
+from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
 
@@ -59,3 +60,14 @@ def resize_image_for_ai(
         return image_bytes
 
     return buf.getvalue()
+
+
+async def resize_image_for_ai_async(
+    image_bytes: bytes,
+    max_long_side: int = 1536,
+    jpeg_quality: float = 0.85,
+) -> bytes:
+    """Async wrapper: run resize in threadpool to avoid blocking event loop."""
+    return await run_in_threadpool(
+        lambda: resize_image_for_ai(image_bytes, max_long_side, jpeg_quality),
+    )
