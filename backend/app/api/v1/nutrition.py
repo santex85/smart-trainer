@@ -19,7 +19,7 @@ from app.schemas.nutrition import (
     NutritionEntryUpdate,
 )
 from app.services.gemini_nutrition import analyze_food_from_image
-from app.services.image_resize import resize_image_for_ai
+from app.services.image_resize import resize_image_for_ai_async
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
@@ -52,7 +52,7 @@ async def analyze_nutrition(
         or (magic[:4] == b"RIFF" and magic[8:12] == b"WEBP")
     ):
         raise HTTPException(status_code=400, detail="File must be a valid image (JPEG, PNG, GIF or WebP).")
-    image_bytes = resize_image_for_ai(image_bytes)
+    image_bytes = await resize_image_for_ai_async(image_bytes)
     try:
         result = await analyze_food_from_image(image_bytes)
     except ValueError as e:

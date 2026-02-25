@@ -6,19 +6,17 @@ import io
 import logging
 
 from PIL import Image
+from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
 
 
-def resize_image_for_ai(
+def _resize_sync(
     image_bytes: bytes,
     max_long_side: int = 1536,
     jpeg_quality: float = 0.85,
 ) -> bytes:
-    """
-    Resize image for AI analysis: scale by long side, save as JPEG.
-    Returns resized bytes, or original bytes on error (fallback).
-    """
+    """CPU-bound resize; called from threadpool."""
     try:
         img = Image.open(io.BytesIO(image_bytes))
         img.load()
@@ -26,7 +24,6 @@ def resize_image_for_ai(
         logger.warning("image_resize: could not open image, passing through: %s", e)
         return image_bytes
 
-    # Convert to RGB for JPEG (handles P, RGBA, etc.)
     if img.mode in ("P", "RGBA", "LA"):
         background = Image.new("RGB", img.size, (255, 255, 255))
         if img.mode == "P":
@@ -59,3 +56,21 @@ def resize_image_for_ai(
         return image_bytes
 
     return buf.getvalue()
+
+
+def resize_image_for_ai(
+    image_bytes: bytes,
+    max_long_side: int = 1536,
+    jpeg_quality: float = 0.85,
+) -> bytes:
+    """Synchronous resize (kept for backward compatibility)."""
+    return _resize_sync(image_bytes, max_long_side, jpeg_quality)
+
+
+async def resize_image_for_ai_async(
+    image_bytes: bytes,
+    max_long_side: int = 1536,
+    jpeg_quality: float = 0.85,
+) -> bytes:
+    """Async resize: offloads CPU-bound work to a threadpool to avoid blocking the event loop."""
+    return await run_in_threadpool(_resize_sync, image_bytes, max_long_side, jpeg_quality)

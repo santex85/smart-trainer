@@ -16,7 +16,7 @@ from app.schemas.sleep_extraction import SleepExtractionResponse
 from app.models.sleep_extraction import SleepExtraction
 from app.schemas.sleep_extraction import SleepExtractionResult
 from app.services.gemini_photo_analyzer import classify_and_analyze_image
-from app.services.image_resize import resize_image_for_ai
+from app.services.image_resize import resize_image_for_ai_async
 from app.services.sleep_analysis import analyze_and_save_sleep, save_sleep_result
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,7 +57,7 @@ async def analyze_photo(
     """
     image_bytes = await file.read()
     _validate_image(file, image_bytes)
-    image_bytes = resize_image_for_ai(image_bytes)
+    image_bytes = await resize_image_for_ai_async(image_bytes)
 
     try:
         kind, result = await classify_and_analyze_image(image_bytes)
@@ -181,7 +181,7 @@ async def analyze_sleep_photo(
         mode = "lite"
     image_bytes = await file.read()
     _validate_image(file, image_bytes)
-    image_bytes = resize_image_for_ai(image_bytes)
+    image_bytes = await resize_image_for_ai_async(image_bytes)
     try:
         record, data = await analyze_and_save_sleep(session, user.id, image_bytes, mode=mode)
     except ValueError as e:
