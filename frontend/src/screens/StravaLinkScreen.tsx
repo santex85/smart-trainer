@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
   Linking,
+  AppState,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getStravaStatus, getStravaAuthorizeUrl, unlinkStrava, syncStrava } from "../api/client";
@@ -53,6 +54,15 @@ export function StravaLinkScreen({
 
   useEffect(() => {
     loadStatus();
+  }, [loadStatus]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        loadStatus();
+      }
+    });
+    return () => sub.remove();
   }, [loadStatus]);
 
   const handleConnect = async () => {

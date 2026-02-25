@@ -420,6 +420,13 @@ export async function getStravaFitness(): Promise<StravaFitness | null> {
   return api<StravaFitness | null>("/api/v1/strava/fitness");
 }
 
+export interface NutritionGoals {
+  calorie_goal?: number;
+  protein_goal?: number;
+  fat_goal?: number;
+  carbs_goal?: number;
+}
+
 export interface AthleteProfileResponse {
   weight_kg: number | null;
   weight_source: string | null;
@@ -433,6 +440,7 @@ export interface AthleteProfileResponse {
   strava_sex: string | null;
   strava_updated_at: string | null;
   display_name: string;
+  nutrition_goals?: NutritionGoals | null;
 }
 
 export async function getAthleteProfile(): Promise<AthleteProfileResponse> {

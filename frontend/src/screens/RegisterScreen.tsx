@@ -40,11 +40,11 @@ export function RegisterScreen({
   const handleRegister = async () => {
     const e = email.trim().toLowerCase();
     if (!e || !password) {
-      setError("Enter email and password");
+      setError("Введите email и пароль");
       return;
     }
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError("Пароль не менее 6 символов");
       return;
     }
     setError(null);
@@ -69,7 +69,7 @@ export function RegisterScreen({
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={styles.card}>
-            <Text style={styles.title}>Create account</Text>
+            <Text style={styles.title}>Регистрация</Text>
             <Text style={styles.hint}>Email</Text>
             <TextInput
               style={styles.input}
@@ -82,7 +82,7 @@ export function RegisterScreen({
               keyboardType="email-address"
               editable={!loading}
             />
-            <Text style={styles.hint}>Password (min 6 characters)</Text>
+            <Text style={styles.hint}>Пароль (не менее 6 символов)</Text>
             <TextInput
               style={styles.input}
               value={password}
@@ -101,11 +101,11 @@ export function RegisterScreen({
               {loading ? (
                 <ActivityIndicator size="small" color="#0f172a" />
               ) : (
-                <Text style={styles.buttonPrimaryText}>Register</Text>
+                <Text style={styles.buttonPrimaryText}>Зарегистрироваться</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.link} onPress={onGoToLogin} disabled={loading}>
-              <Text style={styles.linkText}>Already have an account? Sign in</Text>
+              <Text style={styles.linkText}>Уже есть аккаунт? Войти</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

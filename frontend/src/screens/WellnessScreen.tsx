@@ -20,6 +20,12 @@ function getTodayLocal(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function addDays(isoDate: string, days: number): string {
+  const d = new Date(isoDate + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const CALENDAR_THEME = {
   backgroundColor: "transparent",
   calendarBackground: "transparent",
@@ -46,6 +52,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
   const [loaded, setLoaded] = useState<WellnessDay | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [trendData, setTrendData] = useState<WellnessDay[]>([]);
 
   const loadDay = useCallback(async (dateStr: string) => {
     setLoading(true);
@@ -70,20 +77,25 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
     loadDay(selectedDay);
   }, [selectedDay, loadDay]);
 
+  useEffect(() => {
+    const from = addDays(today, -6);
+    getWellness(from, today).then(setTrendData).catch(() => setTrendData([]));
+  }, [today]);
+
   const handleSave = async () => {
     const sleep = sleepHours.trim() ? parseFloat(sleepHours) : undefined;
     const rhrVal = rhr.trim() ? parseFloat(rhr) : undefined;
     const hrvVal = hrv.trim() ? parseFloat(hrv) : undefined;
     if (sleep != null && (Number.isNaN(sleep) || sleep < 0 || sleep > 24)) {
-      Alert.alert("Error", "Sleep hours must be between 0 and 24.");
+      Alert.alert("Ошибка", "Сон: от 0 до 24 часов.");
       return;
     }
     if (rhrVal != null && (Number.isNaN(rhrVal) || rhrVal < 0 || rhrVal > 200)) {
-      Alert.alert("Error", "RHR must be a valid number.");
+      Alert.alert("Ошибка", "Пульс: введите число от 0 до 200.");
       return;
     }
     if (hrvVal != null && (Number.isNaN(hrvVal) || hrvVal < 0)) {
-      Alert.alert("Error", "HRV must be a non-negative number.");
+      Alert.alert("Ошибка", "HRV: положительное число.");
       return;
     }
     setSaving(true);
@@ -95,9 +107,9 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
         hrv: hrvVal,
       });
       await loadDay(selectedDay);
-      Alert.alert("Saved", "Wellness data saved.");
+      Alert.alert("Сохранено", "Данные сохранены.");
     } catch (e) {
-      Alert.alert("Error", e instanceof Error ? e.message : "Save failed.");
+      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось сохранить.");
     } finally {
       setSaving(false);
     }
@@ -107,9 +119,9 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-          <Text style={styles.backText}>Back</Text>
+          <Text style={styles.backText}>Назад</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Wellness</Text>
+        <Text style={styles.title}>Сон и здоровье</Text>
         <View style={styles.backBtn} />
       </View>
       <KeyboardAvoidingView
@@ -125,13 +137,34 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
           style={styles.calendar}
         />
         <ScrollView style={styles.formScroll} contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled">
-          <Text style={styles.sectionTitle}>Data for {selectedDay}</Text>
+          {trendData.length > 0 ? (
+            <View style={styles.trendSection}>
+              <Text style={styles.trendTitle}>Сон за 7 дней</Text>
+              <View style={styles.trendChart}>
+                {[...trendData].sort((a, b) => a.date.localeCompare(b.date)).map((day) => {
+                  const hours = day.sleep_hours ?? 0;
+                  const heightPct = Math.min(12, hours) / 12;
+                  return (
+                    <View key={day.date} style={styles.trendBarWrap}>
+                      <View style={[styles.trendBarBg, { height: 80 }]}>
+                        <View style={[styles.trendBarFill, { height: `${heightPct * 100}%` }]} />
+                      </View>
+                      <Text style={styles.trendBarLabel}>
+                        {new Date(day.date + "T12:00:00").getDate()}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+          <Text style={styles.sectionTitle}>Данные на {selectedDay}</Text>
           {loading ? (
             <ActivityIndicator size="small" color="#38bdf8" style={styles.loader} />
           ) : (
             <>
               <View style={styles.field}>
-                <Text style={styles.label}>Sleep (hours)</Text>
+                <Text style={styles.label}>Сон (часы)</Text>
                 <TextInput
                   style={styles.input}
                   value={sleepHours}
@@ -142,7 +175,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
                 />
               </View>
               <View style={styles.field}>
-                <Text style={styles.label}>Resting heart rate (bpm)</Text>
+                <Text style={styles.label}>Пульс в покое (уд/мин)</Text>
                 <TextInput
                   style={styles.input}
                   value={rhr}
@@ -165,7 +198,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
               </View>
               {loaded && (loaded.ctl != null || loaded.atl != null || loaded.tsb != null) ? (
                 <View style={styles.readOnly}>
-                  <Text style={styles.label}>Load (read-only)</Text>
+                  <Text style={styles.label}>Нагрузка (только чтение)</Text>
                   <Text style={styles.hint}>
                     CTL: {loaded.ctl != null ? loaded.ctl.toFixed(0) : "—"} · ATL: {loaded.atl != null ? loaded.atl.toFixed(0) : "—"} · TSB: {loaded.tsb != null ? loaded.tsb.toFixed(0) : "—"}
                   </Text>
@@ -179,7 +212,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
                 {saving ? (
                   <ActivityIndicator size="small" color="#0f172a" />
                 ) : (
-                  <Text style={styles.saveBtnText}>Save</Text>
+                  <Text style={styles.saveBtnText}>Сохранить</Text>
                 )}
               </TouchableOpacity>
             </>
@@ -208,6 +241,13 @@ const styles = StyleSheet.create({
   calendar: { marginBottom: 8 },
   formScroll: { flex: 1 },
   formContent: { padding: 20, paddingBottom: 40 },
+  trendSection: { marginBottom: 24 },
+  trendTitle: { fontSize: 14, fontWeight: "600", color: "#94a3b8", marginBottom: 10 },
+  trendChart: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", height: 100, gap: 4 },
+  trendBarWrap: { flex: 1, alignItems: "center" },
+  trendBarBg: { width: "100%", backgroundColor: "#1a1a2e", borderRadius: 4, justifyContent: "flex-end", overflow: "hidden" },
+  trendBarFill: { backgroundColor: "#38bdf8", borderRadius: 4, minHeight: 2 },
+  trendBarLabel: { fontSize: 10, color: "#64748b", marginTop: 4 },
   sectionTitle: { fontSize: 16, fontWeight: "600", color: "#e2e8f0", marginBottom: 16 },
   loader: { marginVertical: 20 },
   field: { marginBottom: 16 },
