@@ -22,11 +22,19 @@ from app.services.orchestrator import run_daily_decision
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-CHAT_SYSTEM = """You are a sports coach. You have the following context about the athlete. Use it to give brief, practical advice. If context is empty for a section, say you don't have that data."""
+CHAT_SYSTEM = """You are a sports coach. You have the following context about the athlete. Use it to give brief, practical advice.
+- Reply in 3–6 short bullets. If a section has no data, say "No data" for that topic; never invent numbers.
+- Only use numbers that appear in the context; if context is empty for a section, say you don't have that data."""
+
+
+# Context limits: last N days, last M workouts, max chars per section to keep prompts smaller
+CHAT_CONTEXT_DAYS = 7
+CHAT_WORKOUTS_LIMIT = 10
+CHAT_SECTION_MAX_CHARS = 1200
 
 
 async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
-    """Build a text summary of athlete data: profile, food, wellness, sleep, Strava. No passwords/tokens."""
+    """Build a compressed text summary: profile, food/wellness today + last N days, last M workouts. No passwords/tokens."""
     today = date.today()
 
     # Athlete profile (weight, height, age, ftp, display_name, sex) — no tokens
@@ -113,13 +121,13 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
             except (json.JSONDecodeError, TypeError, ValueError):
                 pass
 
-    # Sleep extractions (from photos, last 30 days)
-    sleep_from = today - timedelta(days=30)
+    # Sleep extractions (from photos, last N days only)
+    sleep_from = today - timedelta(days=CHAT_CONTEXT_DAYS)
     r = await session.execute(
         select(SleepExtraction.created_at, SleepExtraction.extracted_data).where(
             SleepExtraction.user_id == user_id,
             SleepExtraction.created_at >= datetime.combine(sleep_from, datetime.min.time()).replace(tzinfo=timezone.utc),
-        ).order_by(SleepExtraction.created_at.desc()).limit(60)
+        ).order_by(SleepExtraction.created_at.desc()).limit(20)
     )
     sleep_entries = []
     for created_at, data_json in r.all():
@@ -140,8 +148,8 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
         })
     sleep_summary = json.dumps(sleep_entries, default=str) if sleep_entries else "No sleep data from photos."
 
-    # Wellness history (last 14 days)
-    wellness_from = today - timedelta(days=14)
+    # Wellness history (last N days)
+    wellness_from = today - timedelta(days=CHAT_CONTEXT_DAYS)
     r_well = await session.execute(
         select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb).where(
             WellnessCache.user_id == user_id,
@@ -156,8 +164,8 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
             "sleep_hours": row[1], "rhr": row[2], "hrv": row[3], "ctl": row[4], "atl": row[5], "tsb": row[6],
         })
 
-    # Recent Strava activities (last 14 days, full fields)
-    from_date = today - timedelta(days=14)
+    # Recent Strava activities (last N days, capped count)
+    from_date = today - timedelta(days=CHAT_CONTEXT_DAYS)
     r = await session.execute(
         select(
             StravaActivity.name, StravaActivity.start_date, StravaActivity.type, StravaActivity.sport_type,
@@ -168,7 +176,7 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
             StravaActivity.user_id == user_id,
             StravaActivity.start_date >= datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc),
             StravaActivity.start_date < datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc),
-        ).order_by(StravaActivity.start_date.desc()).limit(50)
+        ).order_by(StravaActivity.start_date.desc()).limit(CHAT_WORKOUTS_LIMIT)
     )
     activities = r.all()
     workouts = []
@@ -190,23 +198,27 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
             "tss": tss,
         })
 
+    def _cap(s: str, limit: int = CHAT_SECTION_MAX_CHARS) -> str:
+        s = s.strip()
+        return s if len(s) <= limit else s[: limit - 3] + "..."
+
     parts = [
         "## Athlete profile (weight, height, age, FTP, name, sex)",
-        json.dumps(athlete, default=str),
+        _cap(json.dumps(athlete, default=str)),
         "## Food today (sum)",
         f"Calories: {food_sum['calories']:.0f}, Protein: {food_sum['protein_g']:.0f}g, Fat: {food_sum['fat_g']:.0f}g, Carbs: {food_sum['carbs_g']:.0f}g",
         "## Food today (entries)",
-        json.dumps(food_entries, default=str),
+        _cap(json.dumps(food_entries, default=str)),
         "## Wellness today (sleep, RHR, HRV)",
-        json.dumps(wellness_today or {}),
+        _cap(json.dumps(wellness_today or {})),
         "## Load (CTL/ATL/TSB)",
-        json.dumps(ctl_atl_tsb or {}),
-        "## Wellness history (last 14 days)",
-        json.dumps(wellness_history, default=str),
-        "## Sleep (from photos, last 30 days)",
-        sleep_summary,
-        "## Recent workouts (Strava, last 14 days)",
-        json.dumps(workouts, default=str),
+        _cap(json.dumps(ctl_atl_tsb or {})),
+        "## Wellness history (last %d days)" % CHAT_CONTEXT_DAYS,
+        _cap(json.dumps(wellness_history, default=str)),
+        "## Sleep (from photos, last %d days)" % CHAT_CONTEXT_DAYS,
+        _cap(sleep_summary),
+        "## Recent workouts (Strava, last %d)" % CHAT_WORKOUTS_LIMIT,
+        _cap(json.dumps(workouts, default=str)),
     ]
     return "\n".join(parts)
 
@@ -257,11 +269,12 @@ async def send_message(
         # Coach LLM with athlete context (nutrition, wellness, load, recent Strava workouts)
         import google.generativeai as genai
         from app.config import settings
+        from app.services.gemini_common import run_generate_content
         context = await _build_athlete_context(session, uid)
         genai.configure(api_key=settings.google_gemini_api_key)
         model = genai.GenerativeModel(settings.gemini_model)
         prompt = f"{CHAT_SYSTEM}\n\nContext:\n{context}\n\nUser message: {body.message}"
-        response = model.generate_content(prompt)
+        response = await run_generate_content(model, prompt)
         reply = response.text if response and response.text else "No response."
 
     session.add(

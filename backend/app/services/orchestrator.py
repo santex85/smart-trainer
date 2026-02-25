@@ -21,13 +21,14 @@ from app.models.strava_activity import StravaActivity
 from app.models.user import User
 from app.models.wellness_cache import WellnessCache
 from app.schemas.orchestrator import Decision, ModifiedPlanItem, OrchestratorResponse
+from app.services.gemini_common import run_generate_content
 from app.services.intervals_client import create_event, update_event
 from app.services.crypto import decrypt_value
 from app.models.intervals_credentials import IntervalsCredentials
 
 GENERATION_CONFIG = {
     "temperature": 0.3,
-    "max_output_tokens": 2048,
+    "max_output_tokens": 1024,
     "response_mime_type": "application/json",
 }
 
@@ -45,6 +46,8 @@ Hierarchy (NEVER violate):
 - Level 2 (secondary): Training load math — TSS, CTL, ATL. Use to decide intensity, but never override Level 1.
 - Level 3 (diagnostic): Prefer polarised distribution (Seiler); minimise grey zone (Zone 3); preserve quality in Zone 4+ when fresh.
 
+If context is insufficient to decide safely (e.g. missing sleep/wellness data), output Modify or Skip with a short reason — do not output Go.
+
 Output format (strict JSON):
 {
   "decision": "Go" | "Modify" | "Skip",
@@ -52,6 +55,13 @@ Output format (strict JSON):
   "modified_plan": { "title": "...", "start_date": "ISO datetime", "end_date": "ISO or null", "description": "..." } or null,
   "suggestions_next_days": "optional text for next 7-14 days" or null
 }
+
+Example (Go):
+{"decision": "Go", "reason": "Sleep and load OK.", "modified_plan": null, "suggestions_next_days": null}
+
+Example (Skip):
+{"decision": "Skip", "reason": "Poor sleep, low carbs.", "modified_plan": null, "suggestions_next_days": "Rest today; easy 30 min tomorrow if recovered."}
+
 No metaphors, no long text. Only the JSON object."""
 
 
@@ -251,7 +261,7 @@ async def run_daily_decision(
             StravaActivity.user_id == user_id,
             StravaActivity.start_date >= datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc),
             StravaActivity.start_date < datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc),
-        ).order_by(StravaActivity.start_date.desc()).limit(50)
+        ).order_by(StravaActivity.start_date.desc()).limit(10)
     )
     strava_activities = []
     for row in r_strava.all():
@@ -306,13 +316,13 @@ async def run_daily_decision(
         generation_config=GENERATION_CONFIG,
         safety_settings=SAFETY_SETTINGS,
     )
-    response = model.generate_content([SYSTEM_PROMPT, "\n\nContext:\n" + context])
+    response = await run_generate_content(model, [SYSTEM_PROMPT, "\n\nContext:\n" + context])
     if not response or not response.text:
-        return OrchestratorResponse(decision=Decision.GO, reason="No AI response; defaulting to Go.")
+        return OrchestratorResponse(decision=Decision.SKIP, reason="No AI response; defaulting to Skip.")
     try:
         result = _parse_llm_response(response.text)
     except (json.JSONDecodeError, Exception):
-        return OrchestratorResponse(decision=Decision.GO, reason="Parse error; defaulting to Go.")
+        return OrchestratorResponse(decision=Decision.SKIP, reason="Parse error; defaulting to Skip.")
 
     # On Modify: optionally push to Intervals and write to chat
     if result.decision in (Decision.MODIFY, Decision.SKIP) and result.reason:

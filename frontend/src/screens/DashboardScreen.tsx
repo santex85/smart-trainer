@@ -511,11 +511,12 @@ export function DashboardScreen({
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
       {user && onLogout ? (
         <View style={styles.userRow}>
           <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
@@ -743,16 +744,18 @@ export function DashboardScreen({
         </>
       )}
 
+      </ScrollView>
       <TouchableOpacity style={styles.fab} onPress={onOpenCamera} activeOpacity={0.8}>
         <Text style={styles.fabLabel}>📷</Text>
-        <Text style={styles.fabText}>Photo</Text>
+        <Text style={styles.fabText}>Фото</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1a1a2e" },
+  scrollView: { flex: 1 },
   userRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
   userEmail: { fontSize: 14, color: "#94a3b8", flex: 1, marginRight: 12 },
   logoutText: { fontSize: 14, color: "#38bdf8" },
@@ -853,7 +856,7 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute",
     bottom: 24,
-    right: 20,
+    left: 20,
     backgroundColor: "#38bdf8",
     paddingVertical: 14,
     paddingHorizontal: 20,

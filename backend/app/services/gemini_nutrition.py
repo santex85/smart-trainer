@@ -9,6 +9,7 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 from app.config import settings
 from app.schemas.nutrition import NutritionAnalysisResult
+from app.services.gemini_common import run_generate_content
 
 GENERATION_CONFIG = {
     "temperature": 0.2,
@@ -39,7 +40,7 @@ def _configure_genai() -> None:
     genai.configure(api_key=settings.google_gemini_api_key)
 
 
-def analyze_food_from_image(image_bytes: bytes) -> NutritionAnalysisResult:
+async def analyze_food_from_image(image_bytes: bytes) -> NutritionAnalysisResult:
     """Send image to Gemini; return validated nutrition result (Pydantic)."""
     _configure_genai()
     model = genai.GenerativeModel(
@@ -49,7 +50,7 @@ def analyze_food_from_image(image_bytes: bytes) -> NutritionAnalysisResult:
     )
     part = {"mime_type": "image/jpeg", "data": image_bytes}
     contents = [SYSTEM_PROMPT, part]
-    response = model.generate_content(contents)
+    response = await run_generate_content(model, contents)
     if not response or not response.text:
         raise ValueError("Empty response from Gemini")
     text = response.text.strip()
