@@ -66,7 +66,7 @@ export default function App() {
       <SafeAreaProvider>
         <View style={[styles.root, styles.centered]}>
           <ActivityIndicator size="large" color="#38bdf8" />
-          <Text style={styles.loadingText}>Loading…</Text>
+          <Text style={styles.loadingText}>Загрузка…</Text>
         </View>
       </SafeAreaProvider>
     );

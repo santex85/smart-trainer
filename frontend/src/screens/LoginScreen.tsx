@@ -15,14 +15,14 @@ import { login, type AuthUser } from "../api/client";
 import { setAccessToken } from "../storage/authStorage";
 
 function getErrorMessage(e: unknown): string {
-  if (!(e instanceof Error)) return "Request failed.";
+  if (!(e instanceof Error)) return "Ошибка запроса. Повторите позже.";
   try {
     const parsed = JSON.parse(e.message) as { detail?: string };
     if (typeof parsed?.detail === "string") return parsed.detail;
   } catch {
     /* ignore */
   }
-  return e.message || "Request failed.";
+  return e.message || "Ошибка запроса. Повторите позже.";
 }
 
 export function LoginScreen({

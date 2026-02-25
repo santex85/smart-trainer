@@ -59,7 +59,7 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
     const aid = athleteId.trim();
     const key = apiKey.trim();
     if (!aid || !key) {
-      Alert.alert("Error", "Enter Athlete ID and API Key.");
+      Alert.alert("Ошибка", "Введите ID атлета и API ключ.");
       return;
     }
     setSubmitLoading(true);
@@ -68,9 +68,9 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
       setAthleteId("");
       setApiKey("");
       await loadStatus();
-      Alert.alert("Done", "Intervals.icu connected.");
+      Alert.alert("Готово", "Intervals.icu подключён.");
     } catch (e) {
-      Alert.alert("Error", getErrorMessage(e));
+      Alert.alert("Ошибка", getErrorMessage(e));
     } finally {
       setSubmitLoading(false);
     }
@@ -80,9 +80,9 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
     setSyncLoading(true);
     try {
       await syncIntervals();
-      Alert.alert("Done", "Data synced from Intervals.icu. Close and check the dashboard.");
+      Alert.alert("Готово", "Данные синхронизированы из Intervals.icu. Закройте и проверьте дашборд.");
     } catch (e) {
-      Alert.alert("Sync failed", getErrorMessage(e));
+      Alert.alert("Ошибка синхронизации", getErrorMessage(e));
     } finally {
       setSyncLoading(false);
     }
@@ -96,7 +96,7 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
       await loadStatus();
       onClose();
     } catch (e) {
-      Alert.alert("Error", getErrorMessage(e));
+      Alert.alert("Ошибка", getErrorMessage(e));
     } finally {
       setUnlinkLoading(false);
     }
@@ -112,12 +112,12 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
         <View style={styles.header}>
           <Text style={styles.title}>Intervals.icu</Text>
           <TouchableOpacity onPress={onClose}>
-            <Text style={styles.close}>Close</Text>
+            <Text style={styles.close}>Закрыть</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#38bdf8" />
-          <Text style={styles.hint}>Loading…</Text>
+          <Text style={styles.hint}>Загрузка…</Text>
         </View>
       </SafeAreaView>
     );
@@ -128,15 +128,15 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
       <View style={styles.header}>
         <Text style={styles.title}>Intervals.icu</Text>
         <TouchableOpacity onPress={onClose}>
-          <Text style={styles.close}>Close</Text>
+          <Text style={styles.close}>Закрыть</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {linked && !showForm ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Connected</Text>
-            <Text style={styles.value}>Athlete ID: {linkedAthleteId ?? "—"}</Text>
+            <Text style={styles.cardTitle}>Подключено</Text>
+            <Text style={styles.value}>ID атлета: {linkedAthleteId ?? "—"}</Text>
             <TouchableOpacity
               style={[styles.buttonPrimary, syncLoading && styles.buttonDisabled]}
               onPress={handleSync}
@@ -145,15 +145,15 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
               {syncLoading ? (
                 <ActivityIndicator size="small" color="#0f172a" />
               ) : (
-                <Text style={styles.buttonPrimaryText}>Sync now</Text>
+                <Text style={styles.buttonPrimaryText}>Синхронизировать</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.buttonSecondary} onPress={() => setShowForm(true)}>
-              <Text style={styles.buttonSecondaryText}>Update API key</Text>
+              <Text style={styles.buttonSecondaryText}>Обновить API ключ</Text>
             </TouchableOpacity>
             {showUnlinkConfirm ? (
               <View style={styles.confirmBlock}>
-                <Text style={styles.confirmText}>Disconnect Intervals.icu? Recovery and workouts will no longer appear.</Text>
+                <Text style={styles.confirmText}>Отключить Intervals.icu? Восстановление и тренировки больше не будут отображаться.</Text>
                 <View style={styles.confirmRow}>
                   <TouchableOpacity
                     style={styles.buttonDanger}
@@ -163,7 +163,7 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
                     {unlinkLoading ? (
                       <ActivityIndicator size="small" color="#f87171" />
                     ) : (
-                      <Text style={styles.buttonDangerText}>Disconnect</Text>
+                      <Text style={styles.buttonDangerText}>Отключить</Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -171,13 +171,13 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
                     onPress={() => setShowUnlinkConfirm(false)}
                     disabled={unlinkLoading}
                   >
-                    <Text style={styles.buttonSecondaryText}>Cancel</Text>
+                    <Text style={styles.buttonSecondaryText}>Отмена</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
               <TouchableOpacity style={styles.buttonDanger} onPress={() => setShowUnlinkConfirm(true)}>
-                <Text style={styles.buttonDangerText}>Disconnect</Text>
+                <Text style={styles.buttonDangerText}>Отключить</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -185,24 +185,24 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
 
         {(showForm || !linked) && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{linked ? "Update API key" : "Connect Intervals.icu"}</Text>
-            <Text style={styles.label}>Athlete ID</Text>
+            <Text style={styles.cardTitle}>{linked ? "Обновить API ключ" : "Подключить Intervals.icu"}</Text>
+            <Text style={styles.label}>ID атлета</Text>
             <TextInput
               style={styles.input}
               value={athleteId}
               onChangeText={setAthleteId}
-              placeholder="e.g. a1b2c3d4"
+              placeholder="например a1b2c3d4"
               placeholderTextColor="#64748b"
               autoCapitalize="none"
               autoCorrect={false}
               editable={!submitLoading}
             />
-            <Text style={styles.label}>API Key</Text>
+            <Text style={styles.label}>API ключ</Text>
             <TextInput
               style={styles.input}
               value={apiKey}
               onChangeText={setApiKey}
-              placeholder="Your API key"
+              placeholder="Ваш API ключ"
               placeholderTextColor="#64748b"
               secureTextEntry
               autoCapitalize="none"
@@ -217,12 +217,12 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
               {submitLoading ? (
                 <ActivityIndicator size="small" color="#0f172a" />
               ) : (
-                <Text style={styles.buttonPrimaryText}>{linked ? "Save" : "Connect"}</Text>
+                <Text style={styles.buttonPrimaryText}>{linked ? "Сохранить" : "Подключить"}</Text>
               )}
             </TouchableOpacity>
             {linked && showForm && (
               <TouchableOpacity style={styles.buttonSecondary} onPress={() => { setShowForm(false); setAthleteId(""); setApiKey(""); }}>
-                <Text style={styles.buttonSecondaryText}>Cancel</Text>
+                <Text style={styles.buttonSecondaryText}>Отмена</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -230,10 +230,10 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
 
         <View style={styles.hintCard}>
           <Text style={styles.hintText}>
-            Athlete ID and API Key are in Intervals.icu: open intervals.icu in a browser, go to Settings → API (or your profile). Copy both values here.
+            ID атлета и API ключ находятся в Intervals.icu: откройте intervals.icu в браузере, зайдите в Настройки → API (или в профиль). Скопируйте оба значения сюда.
           </Text>
           <TouchableOpacity onPress={openIntervalsSettings}>
-            <Text style={styles.link}>Open intervals.icu</Text>
+            <Text style={styles.link}>Открыть intervals.icu</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

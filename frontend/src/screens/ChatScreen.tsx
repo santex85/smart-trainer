@@ -148,23 +148,11 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
           </View>
         }
       />
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickPrompts} contentContainerStyle={styles.quickPromptsContent}>
-        {["Как прошла моя неделя?", "Что съесть перед тренировкой?", "Нужен ли мне отдых?"].map((prompt) => (
-          <TouchableOpacity
-            key={prompt}
-            style={styles.quickPromptChip}
-            onPress={() => setInput(prompt)}
-          >
-            <Text style={styles.quickPromptText}>{prompt}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
           placeholder="Сообщение..."
-          placeholderTextColor="#64748b"
+          placeholderTextColor="#94a3b8"
           value={input}
           onChangeText={setInput}
           editable={!loading}
@@ -184,7 +172,7 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
         onPress={() => send(true)}
         disabled={loading}
       >
-        <Text style={styles.orchBtnText}>Решение на сегодня (Go/Modify/Skip)</Text>
+        <Text style={styles.orchBtnText}>Решение на сегодня</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
     </SafeAreaView>
@@ -203,18 +191,18 @@ const styles = StyleSheet.create({
   userBubble: { alignSelf: "flex-end", backgroundColor: "#38bdf8" },
   assistantBubble: { alignSelf: "flex-start", backgroundColor: "#16213e" },
   bubbleText: { fontSize: 15, color: "#e2e8f0" },
-  bubbleTime: { fontSize: 11, color: "#64748b", marginTop: 4 },
+  bubbleTime: { fontSize: 11, color: "#94a3b8", marginTop: 4 },
   emptyWrap: { paddingHorizontal: 16 },
-  placeholder: { color: "#64748b", textAlign: "center", marginTop: 24 },
+  placeholder: { color: "#94a3b8", textAlign: "center", marginTop: 24 },
   quickPrompts: { marginTop: 16 },
-  quickPromptsContent: { gap: 8, paddingBottom: 8 },
+  quickPromptsContent: { gap: 8, paddingBottom: 8, paddingHorizontal: 16 },
   quickPromptChip: { backgroundColor: "#16213e", paddingVertical: 10, paddingHorizontal: 14, borderRadius: 20, marginRight: 8 },
   quickPromptText: { fontSize: 14, color: "#e2e8f0" },
-  inputRow: { flexDirection: "row", padding: 12, gap: 8, alignItems: "flex-end", borderTopWidth: 1, borderTopColor: "#334155" },
+  inputRow: { flexDirection: "row", padding: 12, gap: 8, alignItems: "flex-end", borderTopWidth: 1, borderTopColor: "#334155", paddingHorizontal: 16 },
   input: { flex: 1, backgroundColor: "#16213e", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: "#e2e8f0", maxHeight: 100 },
   sendBtn: { backgroundColor: "#38bdf8", paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20, justifyContent: "center" },
   sendBtnDisabled: { opacity: 0.5 },
   sendBtnText: { color: "#0f172a", fontWeight: "600" },
-  orchBtn: { padding: 12, alignItems: "center" },
-  orchBtnText: { fontSize: 14, color: "#94a3b8" },
+  orchBtn: { padding: 12, alignItems: "center", paddingHorizontal: 16 },
+  orchBtnText: { fontSize: 14, color: "#b8c5d6" },
 });

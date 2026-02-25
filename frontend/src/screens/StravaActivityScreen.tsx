@@ -142,14 +142,14 @@ export function StravaActivityScreen({ onClose }: { onClose: () => void }) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.header}>
-          <Text style={styles.title}>Strava activity</Text>
+          <Text style={styles.title}>Тренировки Strava</Text>
           <TouchableOpacity onPress={onClose}>
-            <Text style={styles.close}>Close</Text>
+            <Text style={styles.close}>Закрыть</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.centered}>
-          <Text style={styles.emptyText}>Strava is not connected.</Text>
-          <Text style={styles.hint}>Connect Strava in settings to see your activities here.</Text>
+          <Text style={styles.emptyText}>Strava не подключена.</Text>
+          <Text style={styles.hint}>Подключите Strava в настройках, чтобы видеть тренировки.</Text>
         </View>
       </SafeAreaView>
     );
@@ -158,28 +158,28 @@ export function StravaActivityScreen({ onClose }: { onClose: () => void }) {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Strava activity</Text>
+        <Text style={styles.title}>Тренировки Strava</Text>
         <TouchableOpacity onPress={onClose}>
-          <Text style={styles.close}>Close</Text>
+          <Text style={styles.close}>Закрыть</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.monthNav}>
         <TouchableOpacity onPress={goPrevMonth} style={styles.navBtn}>
-          <Text style={styles.navBtnText}>← Prev</Text>
+          <Text style={styles.navBtnText}>← Назад</Text>
         </TouchableOpacity>
         <Text style={styles.monthTitle}>
           {new Date(viewYear, viewMonth - 1, 1).toLocaleString("default", { month: "long", year: "numeric" })}
         </Text>
         <TouchableOpacity onPress={goNextMonth} style={styles.navBtn}>
-          <Text style={styles.navBtnText}>Next →</Text>
+          <Text style={styles.navBtnText}>Вперёд →</Text>
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#38bdf8" />
-          <Text style={styles.hint}>Loading activities…</Text>
+          <Text style={styles.hint}>Загрузка тренировок…</Text>
         </View>
       ) : (
         <>
@@ -209,7 +209,7 @@ export function StravaActivityScreen({ onClose }: { onClose: () => void }) {
                       onPress={() => setExpandedActivityId(expandedActivityId === act.id ? null : act.id)}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.activityName}>{act.name || "Workout"}</Text>
+                      <Text style={styles.activityName}>{act.name || "Тренировка"}</Text>
                       {act.type ? (
                         <Text style={styles.activityType}>{act.type}</Text>
                       ) : null}
@@ -239,11 +239,11 @@ export function StravaActivityScreen({ onClose }: { onClose: () => void }) {
                     </TouchableOpacity>
                   ))
                 ) : (
-                  <Text style={styles.hint}>No activities on this day.</Text>
+                  <Text style={styles.hint}>В этот день тренировок нет.</Text>
                 )}
               </>
             ) : (
-              <Text style={styles.hint}>Select a day to see activities.</Text>
+              <Text style={styles.hint}>Выберите день, чтобы увидеть тренировки.</Text>
             )}
           </ScrollView>
         </>

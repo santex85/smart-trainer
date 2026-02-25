@@ -101,9 +101,9 @@ function NutritionProgressBar({
 const progressBarStyles = StyleSheet.create({
   container: { marginTop: 8 },
   labelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
-  label: { fontSize: 12, color: "#94a3b8" },
+  label: { fontSize: 12, color: "#b8c5d6" },
   value: { fontSize: 12, color: "#e2e8f0" },
-  track: { height: 6, backgroundColor: "#1a1a2e", borderRadius: 3, overflow: "hidden" },
+  track: { height: 6, backgroundColor: "#334155", borderRadius: 3, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 3 },
 });
 
@@ -248,35 +248,35 @@ function EditFoodEntryModal({
           </ScrollView>
           {confirmDeleteVisible ? (
             <View style={styles.deleteConfirmBox}>
-              <Text style={styles.deleteConfirmTitle}>Delete entry?</Text>
-              <Text style={styles.deleteConfirmMessage}>"{entry.name}" will be removed.</Text>
+              <Text style={styles.deleteConfirmTitle}>Удалить запись?</Text>
+              <Text style={styles.deleteConfirmMessage}>«{entry.name}» будет удалена.</Text>
               <View style={styles.deleteConfirmActions}>
                 <TouchableOpacity style={styles.modalBtnCancel} onPress={hideDeleteConfirm}>
-                  <Text style={styles.modalBtnCancelText}>Cancel</Text>
+                  <Text style={styles.modalBtnCancelText}>Отмена</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.modalBtnDelete} onPress={runDelete} disabled={deleting}>
-                  {deleting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalBtnDeleteText}>Delete</Text>}
+                  {deleting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalBtnDeleteText}>Удалить</Text>}
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
-                <Text style={styles.modalBtnCancelText}>Cancel</Text>
+                <Text style={styles.modalBtnCancelText}>Отмена</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtnDelete, (saving || deleting) && styles.modalBtnDisabled]}
                 onPress={showDeleteConfirm}
                 disabled={saving || deleting}
               >
-                <Text style={styles.modalBtnDeleteText}>Delete</Text>
+                <Text style={styles.modalBtnDeleteText}>Удалить</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtnSave, (saving || deleting) && styles.modalBtnDisabled]}
                 onPress={handleSave}
                 disabled={saving || deleting}
               >
-                {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Save</Text>}
+                {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Сохранить</Text>}
               </TouchableOpacity>
             </View>
           )}
@@ -559,6 +559,11 @@ export function DashboardScreen({
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+      <View style={styles.contentWrap}>
+      <View style={styles.brandHeader}>
+        <Text style={styles.brandTitle}>Smart Trainer</Text>
+        <Text style={styles.brandSubtitle}>Питание, сон и тренировки в одном месте</Text>
+      </View>
       {user && onLogout ? (
         <View style={styles.userRow}>
           <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
@@ -622,9 +627,9 @@ export function DashboardScreen({
             )}
             {!nutritionLoadError && nutritionDay && nutritionDay.entries.length > 0 ? (
               <>
-                <Text style={styles.value}>
-                  Съедено: {Math.round(nutritionDay.totals.calories)} ккал · Б {Math.round(nutritionDay.totals.protein_g)}g · F{" "}
-                  {Math.round(nutritionDay.totals.fat_g)}g · C {Math.round(nutritionDay.totals.carbs_g)}g
+                <Text style={styles.cardValue}>
+                  Съедено: {Math.round(nutritionDay.totals.calories)} ккал · Б {Math.round(nutritionDay.totals.protein_g)}г · Ж{" "}
+                  {Math.round(nutritionDay.totals.fat_g)}г · У {Math.round(nutritionDay.totals.carbs_g)}г
                 </Text>
                 <Text style={styles.hint}>
                   Осталось: {Math.max(0, calorieGoal - nutritionDay.totals.calories)} ккал · У{" "}
@@ -695,7 +700,7 @@ export function DashboardScreen({
             <Text style={styles.hint}>Сегодня. Данные хранятся в БД и учитываются ИИ при анализе и в чате.</Text>
             {(wellnessToday || sleepFromPhoto || athleteProfile?.weight_kg != null) ? (
               <>
-                <Text style={styles.value}>
+                <Text style={styles.cardValue}>
                   {(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours) != null
                     ? `Сон ${(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours)} ч`
                     : "Сон —"}
@@ -717,10 +722,10 @@ export function DashboardScreen({
             <Text style={styles.hint}>В стиле TrainingPeaks по TSS из Strava (последние 90 дней)</Text>
             {fitnessData ? (
               <>
-                <Text style={styles.value}>
+                <Text style={styles.cardValue}>
                   CTL {fitnessData.ctl.toFixed(0)} · ATL {fitnessData.atl.toFixed(0)} · TSB {fitnessData.tsb.toFixed(0)}
                 </Text>
-                <Text style={styles.hint}>As of {fitnessData.date}</Text>
+                <Text style={styles.hint}>На дату {fitnessData.date}</Text>
               </>
             ) : (
               <Text style={styles.placeholder}>Подключите Strava и синхронизируйте тренировки.</Text>
@@ -782,17 +787,17 @@ export function DashboardScreen({
             <Text style={styles.hint}>Последние 14 дней · тренировки из Strava</Text>
             {onOpenStravaActivity && stravaLinked && (
               <TouchableOpacity style={styles.calendarLink} onPress={onOpenStravaActivity}>
-                <Text style={styles.intervalsLinkText}>All activity (calendar)</Text>
+                <Text style={styles.intervalsLinkText}>Все тренировки (календарь)</Text>
               </TouchableOpacity>
             )}
             {activitiesLoadError && (
-              <Text style={styles.errorHint}>Couldn&apos;t load workouts. Pull to refresh or sync in Strava.</Text>
+              <Text style={styles.errorHint}>Не удалось загрузить тренировки. Потяните для обновления или синхронизируйте Strava.</Text>
             )}
             {!activitiesLoadError && activities.length > 0 ? activities.map((act) => (
                 <View key={act.id} style={styles.activityRow}>
                   <Text style={styles.calendarDate}>{formatEventDate(act.start_date)}</Text>
                   <View style={styles.activityInfo}>
-                    <Text style={styles.calendarTitle}>{act.name || "Workout"}</Text>
+                    <Text style={styles.calendarTitle}>{act.name || "Тренировка"}</Text>
                     <Text style={styles.hint}>
                       {formatDuration(act.duration_sec)}
                       {act.distance_km != null ? ` · ${act.distance_km} km` : ""}
@@ -838,7 +843,7 @@ export function DashboardScreen({
           </TouchableOpacity>
         </>
       )}
-
+      </View>
       </ScrollView>
       <TouchableOpacity style={styles.fab} onPress={onOpenCamera} activeOpacity={0.8}>
         <Text style={styles.fabLabel}>📷</Text>
@@ -852,9 +857,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1a1a2e" },
   scrollView: { flex: 1 },
   userRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
-  userEmail: { fontSize: 14, color: "#94a3b8", flex: 1, marginRight: 12 },
+  userEmail: { fontSize: 14, color: "#b8c5d6", flex: 1, marginRight: 12 },
   logoutText: { fontSize: 14, color: "#38bdf8" },
   content: { padding: 20, paddingBottom: 120 },
+  contentWrap: { maxWidth: 960, width: "100%", alignSelf: "center" as const },
+  brandHeader: { marginBottom: 12 },
+  brandTitle: { fontSize: 22, fontWeight: "700", color: "#eee", marginBottom: 2 },
+  brandSubtitle: { fontSize: 14, color: "#94a3b8" },
   title: { fontSize: 28, fontWeight: "700", color: "#eee", marginBottom: 20 },
   loader: { marginTop: 40 },
   skeletonWrap: { gap: 12 },
@@ -868,7 +877,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
-  cardTitle: { fontSize: 14, color: "#94a3b8", marginBottom: 6 },
+  cardTitle: { fontSize: 16, color: "#b8c5d6", marginBottom: 6 },
   cardTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 0 },
   cardTitleActions: { flexDirection: "row", alignItems: "center", gap: 12 },
   cardTitleLink: { paddingVertical: 4, paddingLeft: 8 },
@@ -881,14 +890,15 @@ const styles = StyleSheet.create({
   syncBtnDisabled: { opacity: 0.7 },
   syncBtnText: { fontSize: 14, color: "#0f172a", fontWeight: "600" },
   value: { fontSize: 18, color: "#e2e8f0", fontWeight: "600" },
-  placeholder: { fontSize: 16, color: "#64748b" },
-  hint: { fontSize: 12, color: "#64748b", marginTop: 4 },
+  cardValue: { fontSize: 20, fontWeight: "700", color: "#e2e8f0" },
+  placeholder: { fontSize: 16, color: "#94a3b8" },
+  hint: { fontSize: 12, color: "#94a3b8", marginTop: 4 },
   calendarLink: { marginBottom: 8, paddingVertical: 4 },
   intervalsLinkText: { fontSize: 14, color: "#38bdf8" },
   errorHint: { fontSize: 12, color: "#f87171", marginBottom: 4 },
   dateNavBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
   dateNavBtnActive: { backgroundColor: "#38bdf8" },
-  dateNavText: { fontSize: 12, color: "#94a3b8" },
+  dateNavText: { fontSize: 12, color: "#b8c5d6" },
   dateNavTextActive: { color: "#0f172a", fontWeight: "600" },
   mealRow: { marginTop: 2 },
   mealLine: { fontSize: 12, color: "#94a3b8" },
@@ -909,7 +919,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 18, fontWeight: "600", color: "#e2e8f0", marginBottom: 12 },
   modalScroll: { maxHeight: 320 },
-  modalLabel: { fontSize: 12, color: "#94a3b8", marginTop: 8, marginBottom: 4 },
+  modalLabel: { fontSize: 12, color: "#b8c5d6", marginTop: 8, marginBottom: 4 },
   modalInput: {
     backgroundColor: "#1a1a2e",
     borderRadius: 8,
@@ -924,7 +934,7 @@ const styles = StyleSheet.create({
   mealTypeBtnTextActive: { fontSize: 12, color: "#0f172a", fontWeight: "600" },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#334155" },
   modalBtnCancel: { paddingVertical: 10, paddingHorizontal: 16 },
-  modalBtnCancelText: { fontSize: 16, color: "#94a3b8" },
+  modalBtnCancelText: { fontSize: 16, color: "#b8c5d6" },
   modalBtnDelete: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#dc2626" },
   modalBtnDeleteText: { fontSize: 16, color: "#fff", fontWeight: "600" },
   modalBtnSave: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#38bdf8" },
@@ -935,7 +945,7 @@ const styles = StyleSheet.create({
   deleteConfirmMessage: { fontSize: 14, color: "#94a3b8", marginBottom: 12 },
   deleteConfirmActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
   calendarRow: { flexDirection: "row", alignItems: "center", marginTop: 10, gap: 12 },
-  calendarDate: { fontSize: 12, color: "#64748b", minWidth: 72 },
+  calendarDate: { fontSize: 12, color: "#94a3b8", minWidth: 72 },
   calendarTitle: { fontSize: 14, color: "#e2e8f0", flex: 1 },
   activityRow: { flexDirection: "row", alignItems: "flex-start", marginTop: 10, gap: 12 },
   activityInfo: { flex: 1 },

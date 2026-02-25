@@ -70,12 +70,12 @@ export function StravaLinkScreen({
       const { url } = await getStravaAuthorizeUrl();
       await Linking.openURL(url);
       Alert.alert(
-        "Authorize in browser",
-        "After authorizing Strava, return to the app and tap \"Check connection\" or close and reopen this screen.",
+        "Авторизация в браузере",
+        "После авторизации в Strava вернитесь в приложение и нажмите «Проверить подключение» или закройте и снова откройте этот экран.",
         [{ text: "OK" }]
       );
     } catch (e) {
-      Alert.alert("Error", getErrorMessage(e));
+      Alert.alert("Ошибка", getErrorMessage(e));
     }
   };
 
@@ -84,13 +84,13 @@ export function StravaLinkScreen({
     try {
       const res = await syncStrava();
       if (res.status === "queued") {
-        Alert.alert("Queued", res.message ?? "Sync will run when rate limit allows.");
+        Alert.alert("В очереди", res.message ?? "Синхронизация запустится, когда позволит лимит.");
       } else {
-        Alert.alert("Done", "Sync started. Close and check the dashboard.");
+        Alert.alert("Готово", "Синхронизация запущена. Закройте и проверьте дашборд.");
       }
       await loadStatus();
     } catch (e) {
-      Alert.alert("Sync failed", getErrorMessage(e));
+      Alert.alert("Ошибка синхронизации", getErrorMessage(e));
     } finally {
       setSyncLoading(false);
     }
@@ -104,7 +104,7 @@ export function StravaLinkScreen({
       await loadStatus();
       onClose();
     } catch (e) {
-      Alert.alert("Error", getErrorMessage(e));
+      Alert.alert("Ошибка", getErrorMessage(e));
     } finally {
       setUnlinkLoading(false);
     }
@@ -116,12 +116,12 @@ export function StravaLinkScreen({
         <View style={styles.header}>
           <Text style={styles.title}>Strava</Text>
           <TouchableOpacity onPress={onClose}>
-            <Text style={styles.close}>Close</Text>
+            <Text style={styles.close}>Закрыть</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#38bdf8" />
-          <Text style={styles.hint}>Loading…</Text>
+          <Text style={styles.hint}>Загрузка…</Text>
         </View>
       </SafeAreaView>
     );
@@ -132,21 +132,21 @@ export function StravaLinkScreen({
       <View style={styles.header}>
         <Text style={styles.title}>Strava</Text>
         <TouchableOpacity onPress={onClose}>
-          <Text style={styles.close}>Close</Text>
+          <Text style={styles.close}>Закрыть</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {linked ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Connected</Text>
-            {athleteId ? <Text style={styles.value}>Athlete ID: {athleteId}</Text> : null}
+            <Text style={styles.cardTitle}>Подключено</Text>
+            {athleteId ? <Text style={styles.value}>ID атлета: {athleteId}</Text> : null}
             <TouchableOpacity
               style={[styles.buttonSecondary, syncLoading && styles.buttonDisabled]}
               onPress={loadStatus}
               disabled={syncLoading}
             >
-              <Text style={styles.buttonSecondaryText}>Check connection</Text>
+              <Text style={styles.buttonSecondaryText}>Проверить подключение</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.buttonPrimary, syncLoading && styles.buttonDisabled]}
@@ -156,17 +156,17 @@ export function StravaLinkScreen({
               {syncLoading ? (
                 <ActivityIndicator size="small" color="#0f172a" />
               ) : (
-                <Text style={styles.buttonPrimaryText}>Sync now</Text>
+                <Text style={styles.buttonPrimaryText}>Синхронизировать</Text>
               )}
             </TouchableOpacity>
             {onViewAllActivity ? (
               <TouchableOpacity style={styles.buttonSecondary} onPress={onViewAllActivity}>
-                <Text style={styles.buttonSecondaryText}>View all activity</Text>
+                <Text style={styles.buttonSecondaryText}>Все тренировки</Text>
               </TouchableOpacity>
             ) : null}
             {showUnlinkConfirm ? (
               <View style={styles.confirmBlock}>
-                <Text style={styles.confirmText}>Disconnect Strava? Workouts from Strava will no longer appear.</Text>
+                <Text style={styles.confirmText}>Отключить Strava? Тренировки из Strava больше не будут отображаться.</Text>
                 <View style={styles.confirmRow}>
                   <TouchableOpacity
                     style={styles.buttonDanger}
@@ -176,7 +176,7 @@ export function StravaLinkScreen({
                     {unlinkLoading ? (
                       <ActivityIndicator size="small" color="#f87171" />
                     ) : (
-                      <Text style={styles.buttonDangerText}>Disconnect</Text>
+                      <Text style={styles.buttonDangerText}>Отключить</Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -184,27 +184,27 @@ export function StravaLinkScreen({
                     onPress={() => setShowUnlinkConfirm(false)}
                     disabled={unlinkLoading}
                   >
-                    <Text style={styles.buttonSecondaryText}>Cancel</Text>
+                    <Text style={styles.buttonSecondaryText}>Отмена</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
               <TouchableOpacity style={styles.buttonDanger} onPress={() => setShowUnlinkConfirm(true)}>
-                <Text style={styles.buttonDangerText}>Disconnect</Text>
+                <Text style={styles.buttonDangerText}>Отключить</Text>
               </TouchableOpacity>
             )}
           </View>
         ) : (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Connect Strava</Text>
+            <Text style={styles.cardTitle}>Подключить Strava</Text>
             <Text style={styles.hintText}>
-              Connect your Strava account to import your workouts. You will be opened in a browser to authorize.
+              Подключите аккаунт Strava, чтобы импортировать тренировки. Откроется браузер для авторизации.
             </Text>
             <Text style={styles.warningHint}>
-              Important: on the Strava page, the account shown must be yours. If you see someone else’s name, log out of Strava (or use a private window), then log in with your account and try again.
+              Важно: на странице Strava должен отображаться ваш аккаунт. Если видите чужое имя — выйдите из Strava (или откройте режим инкогнито), войдите в свой аккаунт и повторите.
             </Text>
             <TouchableOpacity style={styles.buttonPrimary} onPress={handleConnect}>
-              <Text style={styles.buttonPrimaryText}>Connect Strava</Text>
+              <Text style={styles.buttonPrimaryText}>Подключить Strava</Text>
             </TouchableOpacity>
           </View>
         )}

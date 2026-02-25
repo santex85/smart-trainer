@@ -128,7 +128,7 @@ export function CameraScreen({
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission needed", "Allow access to photos to log meals.");
+      Alert.alert("Нужен доступ", "Разрешите доступ к фото для учёта питания.");
       return;
     }
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
@@ -179,7 +179,7 @@ export function CameraScreen({
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission needed", "Allow camera to photo meals.");
+      Alert.alert("Нужен доступ", "Разрешите доступ к камере для фото еды.");
       return;
     }
     const pickerResult = await ImagePicker.launchCameraAsync({

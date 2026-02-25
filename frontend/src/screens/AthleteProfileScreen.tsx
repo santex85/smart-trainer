@@ -90,7 +90,7 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
       setProfile(updated);
       setEditing(false);
     } catch (e) {
-      Alert.alert("Error", getErrorMessage(e));
+      Alert.alert("Ошибка", getErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -105,7 +105,7 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
       setHeight(updated.height_cm != null ? String(updated.height_cm) : height);
       setFtp(updated.ftp != null ? String(updated.ftp) : ftp);
     } catch (e) {
-      Alert.alert("Error", getErrorMessage(e));
+      Alert.alert("Ошибка", getErrorMessage(e));
     } finally {
       setRefreshingStrava(false);
     }
@@ -116,9 +116,9 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose}>
-            <Text style={styles.closeText}>Close</Text>
+            <Text style={styles.closeText}>Закрыть</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Athlete</Text>
+          <Text style={styles.title}>Профиль атлета</Text>
         </View>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#38bdf8" />
@@ -131,9 +131,9 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose}>
-          <Text style={styles.closeText}>Close</Text>
+          <Text style={styles.closeText}>Закрыть</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Athlete</Text>
+        <Text style={styles.title}>Профиль атлета</Text>
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         {profile?.strava_profile_url ? (
@@ -141,12 +141,12 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
         ) : null}
         <Text style={styles.displayName}>{profile?.display_name ?? "—"}</Text>
         {profile?.strava_firstname || profile?.strava_lastname ? (
-          <Text style={styles.hint}>From Strava: {[profile.strava_firstname, profile.strava_lastname].filter(Boolean).join(" ")}</Text>
+          <Text style={styles.hint}>Из Strava: {[profile.strava_firstname, profile.strava_lastname].filter(Boolean).join(" ")}</Text>
         ) : null}
 
         {editing ? (
           <>
-            <Text style={styles.label}>Weight (kg)</Text>
+            <Text style={styles.label}>Вес (кг)</Text>
             <TextInput
               style={styles.input}
               value={weight}
@@ -178,28 +178,28 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
               style={styles.input}
               value={ftp}
               onChangeText={setFtp}
-              placeholder="Used for TSS from power"
+              placeholder="Используется для TSS по мощности"
               placeholderTextColor="#64748b"
               keyboardType="number-pad"
             />
-            <Text style={styles.hint}>Height and birth year are not in Strava; enter them here. FTP can be synced from Strava if set there.</Text>
+            <Text style={styles.hint}>Рост и год рождения не передаются из Strava — введите вручную. FTP можно синхронизировать из Strava, если он там указан.</Text>
             <View style={styles.editActions}>
               <TouchableOpacity style={styles.btnSecondary} onPress={() => setEditing(false)}>
-                <Text style={styles.btnSecondaryText}>Cancel</Text>
+                <Text style={styles.btnSecondaryText}>Отмена</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btnPrimary, saving && styles.btnDisabled]}
                 onPress={handleSave}
                 disabled={saving}
               >
-                {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.btnPrimaryText}>Save</Text>}
+                {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.btnPrimaryText}>Сохранить</Text>}
               </TouchableOpacity>
             </View>
           </>
         ) : (
           <>
             <View style={styles.row}>
-              <Text style={styles.label}>Weight</Text>
+              <Text style={styles.label}>Вес</Text>
               <Text style={styles.value}>{profile?.weight_kg != null ? `${profile.weight_kg} kg` : "—"}</Text>
               {profile?.weight_source ? <Text style={styles.source}>({profile.weight_source})</Text> : null}
             </View>
@@ -209,7 +209,7 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
               {profile?.ftp_source ? <Text style={styles.source}>({profile.ftp_source})</Text> : null}
             </View>
             <View style={styles.row}>
-              <Text style={styles.label}>Height</Text>
+              <Text style={styles.label}>Рост</Text>
               <Text style={styles.value}>{profile?.height_cm != null ? `${profile.height_cm} cm` : "—"}</Text>
             </View>
             <View style={styles.row}>
@@ -217,7 +217,7 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
               <Text style={styles.value}>{profile?.birth_year != null ? profile.birth_year : "—"}</Text>
             </View>
             <TouchableOpacity style={styles.editBtn} onPress={() => setEditing(true)}>
-              <Text style={styles.editBtnText}>Edit profile</Text>
+              <Text style={styles.editBtnText}>Редактировать профиль</Text>
             </TouchableOpacity>
           </>
         )}
@@ -231,7 +231,7 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
             {refreshingStrava ? (
               <ActivityIndicator size="small" color="#0f172a" />
             ) : (
-              <Text style={styles.stravaBtnText}>Update from Strava</Text>
+              <Text style={styles.stravaBtnText}>Обновить из Strava</Text>
             )}
           </TouchableOpacity>
         )}
