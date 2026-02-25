@@ -11,6 +11,7 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from app.config import settings
 from app.schemas.nutrition import NutritionAnalysisResult
 from app.schemas.sleep_extraction import SleepExtractionResult
+from app.services.gemini_common import run_generate_content
 
 # Reuse robust JSON parsing from sleep parser for the full response (trailing commas, truncation)
 from app.services.gemini_sleep_parser import _parse_sleep_json
@@ -64,7 +65,7 @@ def _configure_genai() -> None:
     genai.configure(api_key=settings.google_gemini_api_key)
 
 
-def classify_and_analyze_image(
+async def classify_and_analyze_image(
     image_bytes: bytes,
 ) -> tuple[str, NutritionAnalysisResult | SleepExtractionResult]:
     """
@@ -79,7 +80,7 @@ def classify_and_analyze_image(
     )
     part = {"mime_type": "image/jpeg", "data": image_bytes}
     contents = [SYSTEM_PROMPT, part]
-    response = model.generate_content(contents)
+    response = await run_generate_content(model, contents)
     if not response or not response.text:
         raise ValueError("Empty response from Gemini")
     text = response.text.strip()

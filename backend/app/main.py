@@ -17,6 +17,7 @@ logging.basicConfig(
 logging.getLogger("app").setLevel(logging.DEBUG)
 from app.config import settings
 from app.db.session import init_db
+from app.services.http_client import close_http_client, init_http_client
 from app.services.strava_sync import process_sync_queue_one
 
 scheduler = AsyncIOScheduler()
@@ -39,6 +40,7 @@ async def scheduled_orchestrator_run():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    init_http_client(timeout=30.0)
 
     async def strava_queue_worker():
         from app.db.session import async_session_maker
@@ -59,6 +61,7 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     yield
     scheduler.shutdown()
+    await close_http_client()
 
 
 app = FastAPI(

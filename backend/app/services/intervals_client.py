@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from app.config import settings
+from app.services.http_client import get_http_client
 from app.schemas.intervals import Activity, Event, EventCreate, WellnessDay
 
 
@@ -62,14 +63,14 @@ async def get_wellness(
 ) -> list[WellnessDay]:
     """GET wellness data for date range. Returns list of WellnessDay."""
     athlete_id = _normalize_athlete_id(athlete_id)
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        url = f"{BASE_URL}/athlete/{athlete_id}/wellness"
-        params = {"oldest": oldest.isoformat(), "newest": newest.isoformat()}
-        r = await client.get(url, params=params, auth=_basic_auth(api_key))
-        if r.status_code >= 400:
-            _log_response_error("GET", url, r)
-        r.raise_for_status()
-        data = r.json() if r.content else []
+    client = get_http_client()
+    url = f"{BASE_URL}/athlete/{athlete_id}/wellness"
+    params = {"oldest": oldest.isoformat(), "newest": newest.isoformat()}
+    r = await client.get(url, params=params, auth=_basic_auth(api_key))
+    if r.status_code >= 400:
+        _log_response_error("GET", url, r)
+    r.raise_for_status()
+    data = r.json() if r.content else []
     if not isinstance(data, list):
         data = [data] if data else []
     out: list[WellnessDay] = []
@@ -111,19 +112,19 @@ async def get_activities(
 ) -> list[Activity]:
     """GET completed activities (workouts) in date range."""
     athlete_id = _normalize_athlete_id(athlete_id)
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        url = f"{BASE_URL}/athlete/{athlete_id}/activities"
-        params = {
-            "oldest": oldest.isoformat(),
-            "newest": newest.isoformat(),
-            "limit": limit,
-            "fields": "id,name,start_date_local,type,distance,moving_time,icu_training_load",
-        }
-        r = await client.get(url, params=params, auth=_basic_auth(api_key))
-        if r.status_code >= 400:
-            _log_response_error("GET", url, r)
-        r.raise_for_status()
-        data = r.json() if r.content else []
+    client = get_http_client()
+    url = f"{BASE_URL}/athlete/{athlete_id}/activities"
+    params = {
+        "oldest": oldest.isoformat(),
+        "newest": newest.isoformat(),
+        "limit": limit,
+        "fields": "id,name,start_date_local,type,distance,moving_time,icu_training_load",
+    }
+    r = await client.get(url, params=params, auth=_basic_auth(api_key))
+    if r.status_code >= 400:
+        _log_response_error("GET", url, r)
+    r.raise_for_status()
+    data = r.json() if r.content else []
     if not isinstance(data, list):
         data = [data] if data else []
     out: list[Activity] = []
@@ -153,13 +154,13 @@ async def get_activities(
 
 async def get_activity_single(api_key: str, activity_id: str) -> dict | None:
     """GET single activity by id for full details (name, distance, moving_time, icu_training_load)."""
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        url = f"{BASE_URL}/activity/{activity_id}"
-        r = await client.get(url, auth=_basic_auth(api_key))
-        if r.status_code >= 400:
-            _log_response_error("GET", url, r)
-        r.raise_for_status()
-        return r.json() if r.content else None
+    client = get_http_client()
+    url = f"{BASE_URL}/activity/{activity_id}"
+    r = await client.get(url, auth=_basic_auth(api_key))
+    if r.status_code >= 400:
+        _log_response_error("GET", url, r)
+    r.raise_for_status()
+    return r.json() if r.content else None
 
 
 async def get_events(
@@ -170,14 +171,14 @@ async def get_events(
 ) -> list[Event]:
     """GET planned events (workouts) in date range."""
     athlete_id = _normalize_athlete_id(athlete_id)
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        url = f"{BASE_URL}/athlete/{athlete_id}/events"
-        params = {"oldest": oldest.isoformat(), "newest": newest.isoformat()}
-        r = await client.get(url, params=params, auth=_basic_auth(api_key))
-        if r.status_code >= 400:
-            _log_response_error("GET", url, r)
-        r.raise_for_status()
-        data = r.json() if r.content else []
+    client = get_http_client()
+    url = f"{BASE_URL}/athlete/{athlete_id}/events"
+    params = {"oldest": oldest.isoformat(), "newest": newest.isoformat()}
+    r = await client.get(url, params=params, auth=_basic_auth(api_key))
+    if r.status_code >= 400:
+        _log_response_error("GET", url, r)
+    r.raise_for_status()
+    data = r.json() if r.content else []
     if not isinstance(data, list):
         data = [data] if data else []
     out: list[Event] = []
@@ -230,11 +231,11 @@ async def create_event(
             body.update(payload.raw)
     else:
         body = payload
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        url = f"{BASE_URL}/athlete/{athlete_id}/events"
-        r = await client.post(url, json=body, auth=_basic_auth(api_key))
-        r.raise_for_status()
-        data = r.json() if r.content else {}
+    client = get_http_client()
+    url = f"{BASE_URL}/athlete/{athlete_id}/events"
+    r = await client.post(url, json=body, auth=_basic_auth(api_key))
+    r.raise_for_status()
+    data = r.json() if r.content else {}
     return Event(
         id=str(data.get("id", "")),
         start_date=datetime.fromisoformat(data["start_date"].replace("Z", "+00:00")) if data.get("start_date") else None,
@@ -267,11 +268,11 @@ async def update_event(
             body.update(payload.raw)
     else:
         body = payload
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        url = f"{BASE_URL}/athlete/{athlete_id}/events/{event_id}"
-        r = await client.put(url, json=body, auth=_basic_auth(api_key))
-        r.raise_for_status()
-        data = r.json() if r.content else {}
+    client = get_http_client()
+    url = f"{BASE_URL}/athlete/{athlete_id}/events/{event_id}"
+    r = await client.put(url, json=body, auth=_basic_auth(api_key))
+    r.raise_for_status()
+    data = r.json() if r.content else {}
     return Event(
         id=str(data.get("id", event_id)),
         start_date=datetime.fromisoformat(data["start_date"].replace("Z", "+00:00")) if data.get("start_date") else None,

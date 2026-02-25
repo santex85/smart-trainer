@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 from app.config import settings
+from app.services.http_client import get_http_client
 
 logger = logging.getLogger(__name__)
 
@@ -54,34 +55,34 @@ def strava_usage() -> tuple[int, int]:
 async def exchange_code(code: str, redirect_uri: str | None = None) -> dict[str, Any]:
     """Exchange authorization code for tokens. Does not count against activity rate limit (different endpoint)."""
     uri = redirect_uri or settings.strava_redirect_uri
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        data: dict[str, str] = {
-            "client_id": settings.strava_client_id,
-            "client_secret": settings.strava_client_secret,
-            "code": code,
-            "grant_type": "authorization_code",
-        }
-        if uri:
-            data["redirect_uri"] = uri
-        r = await client.post(STRAVA_OAUTH_URL, data=data)
-        r.raise_for_status()
-        return r.json()
+    client = get_http_client()
+    data: dict[str, str] = {
+        "client_id": settings.strava_client_id,
+        "client_secret": settings.strava_client_secret,
+        "code": code,
+        "grant_type": "authorization_code",
+    }
+    if uri:
+        data["redirect_uri"] = uri
+    r = await client.post(STRAVA_OAUTH_URL, data=data)
+    r.raise_for_status()
+    return r.json()
 
 
 async def refresh_access_token(refresh_token: str) -> dict[str, Any]:
     """Refresh access token. OAuth token endpoint has separate limits; we do not count it toward 200/15min."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.post(
-            STRAVA_OAUTH_URL,
-            data={
-                "client_id": settings.strava_client_id,
-                "client_secret": settings.strava_client_secret,
-                "refresh_token": refresh_token,
-                "grant_type": "refresh_token",
-            },
-        )
-        r.raise_for_status()
-        return r.json()
+    client = get_http_client()
+    r = await client.post(
+        STRAVA_OAUTH_URL,
+        data={
+            "client_id": settings.strava_client_id,
+            "client_secret": settings.strava_client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        },
+    )
+    r.raise_for_status()
+    return r.json()
 
 
 async def _get_activities_page(
@@ -95,16 +96,16 @@ async def _get_activities_page(
     if not strava_can_make_request():
         raise RuntimeError("Strava rate limit threshold reached; enqueue sync.")
     strava_record_request()
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.get(
-            f"{STRAVA_API_BASE}/athlete/activities",
-            params={"after": after, "before": before, "page": page, "per_page": per_page},
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        r.raise_for_status()
-        data = r.json()
-        headers = dict(r.headers) if r.headers else None
-        return data if isinstance(data, list) else [], headers
+    client = get_http_client()
+    r = await client.get(
+        f"{STRAVA_API_BASE}/athlete/activities",
+        params={"after": after, "before": before, "page": page, "per_page": per_page},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    r.raise_for_status()
+    data = r.json()
+    headers = dict(r.headers) if r.headers else None
+    return data if isinstance(data, list) else [], headers
 
 
 async def get_activities(
@@ -117,15 +118,15 @@ async def get_activities(
     if not strava_can_make_request():
         raise RuntimeError("Strava rate limit threshold reached; enqueue sync.")
     strava_record_request()
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.get(
-            f"{STRAVA_API_BASE}/athlete/activities",
-            params={"after": after_epoch, "before": before_epoch, "page": 1, "per_page": per_page},
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        r.raise_for_status()
-        data = r.json()
-        return data if isinstance(data, list) else []
+    client = get_http_client()
+    r = await client.get(
+        f"{STRAVA_API_BASE}/athlete/activities",
+        params={"after": after_epoch, "before": before_epoch, "page": 1, "per_page": per_page},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    r.raise_for_status()
+    data = r.json()
+    return data if isinstance(data, list) else []
 
 
 async def get_all_activities_paginated(
@@ -156,11 +157,11 @@ async def get_current_athlete(access_token: str) -> dict[str, Any]:
     if not strava_can_make_request():
         raise RuntimeError("Strava rate limit threshold reached; enqueue sync.")
     strava_record_request()
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.get(
-            f"{STRAVA_API_BASE}/athlete",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        r.raise_for_status()
-        data = r.json()
-        return data if isinstance(data, dict) else {}
+    client = get_http_client()
+    r = await client.get(
+        f"{STRAVA_API_BASE}/athlete",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    r.raise_for_status()
+    data = r.json()
+    return data if isinstance(data, dict) else {}

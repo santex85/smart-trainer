@@ -5,6 +5,7 @@ import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 from app.config import settings
+from app.services.gemini_common import run_generate_content
 
 # System-level instruction so the model consistently behaves as a binary classifier
 CLASSIFY_SYSTEM_INSTRUCTION = """You are an image classifier. Your only job is to decide whether an image is:
@@ -29,7 +30,7 @@ def _configure_genai() -> None:
     genai.configure(api_key=settings.google_gemini_api_key)
 
 
-def classify_image(image_bytes: bytes) -> str:
+async def classify_image(image_bytes: bytes) -> str:
     """Return 'food' or 'sleep'. Default to 'food' only if response is missing or invalid."""
     _configure_genai()
     model = genai.GenerativeModel(
@@ -39,7 +40,7 @@ def classify_image(image_bytes: bytes) -> str:
     )
     part = {"mime_type": "image/jpeg", "data": image_bytes}
     contents = [CLASSIFY_PROMPT, part]
-    response = model.generate_content(contents)
+    response = await run_generate_content(model, contents)
     if not response or not response.text:
         return "food"
     word = response.text.strip().lower().split()[0] if response.text.strip() else ""

@@ -16,7 +16,8 @@ from app.models.sleep_extraction import SleepExtraction
 from app.schemas.sleep_extraction import SleepExtractionResult
 from app.services.gemini_photo_analyzer import classify_and_analyze_image
 from app.services.image_resize import resize_image_for_ai
-from app.services.sleep_analysis import save_sleep_result
+from app.services.sleep_analysis import analyze_and_save_sleep, save_sleep_result
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/photo", tags=["photo"])
@@ -58,7 +59,7 @@ async def analyze_photo(
     image_bytes = resize_image_for_ai(image_bytes)
 
     try:
-        kind, result = classify_and_analyze_image(image_bytes)
+        kind, result = await classify_and_analyze_image(image_bytes)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception:
@@ -133,6 +134,35 @@ async def analyze_photo(
             extracted_data=data,
             created_at="",
         ),
+    )
+
+
+@router.post("/analyze-sleep", response_model=SleepExtractionResponse)
+async def analyze_sleep_photo(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    file: Annotated[UploadFile, File(description="Sleep tracker screenshot")],
+    mode: Annotated[str, Query(description="Extraction mode: lite (default) or full")] = "lite",
+) -> SleepExtractionResponse:
+    """Extract sleep data from a screenshot using the sleep parser. mode=lite (fewer tokens) or full."""
+    if mode not in ("lite", "full"):
+        mode = "lite"
+    image_bytes = await file.read()
+    _validate_image(file, image_bytes)
+    image_bytes = resize_image_for_ai(image_bytes)
+    try:
+        record, data = await analyze_and_save_sleep(session, user.id, image_bytes, mode=mode)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception:
+        logging.exception("Sleep extraction failed")
+        raise HTTPException(status_code=502, detail="Sleep extraction failed. Please try again.")
+    await session.commit()
+    await session.refresh(record)
+    return SleepExtractionResponse(
+        id=record.id,
+        extracted_data=data,
+        created_at=record.created_at.isoformat() if record.created_at else "",
     )
 
 

@@ -54,7 +54,7 @@ async def analyze_nutrition(
         raise HTTPException(status_code=400, detail="File must be a valid image (JPEG, PNG, GIF or WebP).")
     image_bytes = resize_image_for_ai(image_bytes)
     try:
-        result = analyze_food_from_image(image_bytes)
+        result = await analyze_food_from_image(image_bytes)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception:

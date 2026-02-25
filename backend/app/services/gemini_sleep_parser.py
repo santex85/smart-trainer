@@ -10,6 +10,7 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 from app.config import settings
 from app.schemas.sleep_extraction import SleepExtractionResult
+from app.services.gemini_common import run_generate_content
 
 GENERATION_CONFIG = {
     "temperature": 0.2,
@@ -25,7 +26,18 @@ SAFETY_SETTINGS = {
     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
 }
 
-SLEEP_EXTRACT_PROMPT = """You are a sleep data extraction system. This image is a screenshot from a sleep tracker (e.g. Russian: Сон, Время сна, Показатель сна, Фазы сна, Факторы влияющие на показатели сна). Interface can be in any language. Extract EVERY number, label, and graph. Do NOT round: use exact decimals (7h 54m = 7.9, 7h 9m = 7.15).
+SLEEP_EXTRACT_PROMPT_LITE = """You are a sleep data extraction system. This image is a screenshot from a sleep tracker. Interface can be in any language. Extract only the main metrics. Do NOT round: use exact decimals (7h 54m = 7.9). Prefer null over guessing — if you cannot read a value, omit it or set null.
+
+Return a JSON object with only these optional fields (null for missing):
+- date: string YYYY-MM-DD
+- sleep_hours, actual_sleep_hours: numbers (exact decimals)
+- quality_score: number 0-100
+- bedtime, wake_time: "HH:MM"
+- deep_sleep_min, rem_min, light_sleep_min, awake_min: minutes (optional, from phases if visible)
+
+Output ONLY valid JSON, no markdown."""
+
+SLEEP_EXTRACT_PROMPT = """You are a sleep data extraction system. This image is a screenshot from a sleep tracker (e.g. Russian: Сон, Время сна, Показатель сна, Фазы сна, Факторы влияющие на показатели сна). Interface can be in any language. Extract EVERY number, label, and graph. Do NOT round: use exact decimals (7h 54m = 7.9, 7h 9m = 7.15). Prefer null over guessing — if you cannot read a value, omit it or set null.
 
 Return a JSON object with only these optional fields (null for missing):
 
@@ -53,7 +65,7 @@ Other:
 - latency_min, awakenings
 - source_app, raw_notes (any comment under score, e.g. "1 период короткого сна...")
 
-Rules: No rounding. Fill factor_ratings from the factors section; fill phase minutes from graph or text; add sleep_phases timeline if you can estimate segments. Output ONLY valid JSON, no markdown."""
+Rules: No rounding. Fill factor_ratings from the factors section; fill phase minutes from graph or text; add sleep_phases timeline if you can estimate segments. Prefer null over guessing. Output ONLY valid JSON, no markdown."""
 
 
 def _configure_genai() -> None:
@@ -62,17 +74,18 @@ def _configure_genai() -> None:
     genai.configure(api_key=settings.google_gemini_api_key)
 
 
-def extract_sleep_data(image_bytes: bytes) -> SleepExtractionResult:
-    """Parse image and return structured sleep extraction result."""
+async def extract_sleep_data(image_bytes: bytes, mode: str = "lite") -> SleepExtractionResult:
+    """Parse image and return structured sleep extraction result. mode: 'lite' (default) or 'full'."""
     _configure_genai()
+    prompt = SLEEP_EXTRACT_PROMPT_LITE if mode == "lite" else SLEEP_EXTRACT_PROMPT
     model = genai.GenerativeModel(
         settings.gemini_model,
         generation_config=GENERATION_CONFIG,
         safety_settings=SAFETY_SETTINGS,
     )
     part = {"mime_type": "image/jpeg", "data": image_bytes}
-    contents = [SLEEP_EXTRACT_PROMPT, part]
-    response = model.generate_content(contents)
+    contents = [prompt, part]
+    response = await run_generate_content(model, contents)
     if not response or not response.text:
         raise ValueError("Empty response from Gemini")
     text = response.text.strip()
