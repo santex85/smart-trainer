@@ -66,15 +66,16 @@ async def list_workouts(
         ).order_by(Workout.start_date.desc())
     )
     rows = r.scalars().all()
-    # Deduplicate: by (user_id, external_id) when set; else by (start_date, name, duration_sec, tss)
+    # Deduplicate by logical workout: (start_date, name, duration_sec, tss) so that multiple
+    # DB rows for the same activity (e.g. different external_id from Intervals) collapse to one.
+    def _logical_key(row: Workout) -> str:
+        start_iso = row.start_date.isoformat() if row.start_date else ""
+        return f"{start_iso}|{row.name or ''}|{row.duration_sec or ''}|{row.tss or ''}"
+
     seen: set[str] = set()
     out: list[dict] = []
     for row in rows:
-        if row.external_id:
-            key = f"ext:{row.external_id}"
-        else:
-            start_iso = row.start_date.isoformat() if row.start_date else ""
-            key = f"manual:{start_iso}|{row.name or ''}|{row.duration_sec or ''}|{row.tss or ''}"
+        key = _logical_key(row)
         if key in seen:
             continue
         seen.add(key)

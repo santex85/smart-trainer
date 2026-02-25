@@ -566,20 +566,6 @@ export function DashboardScreen({
   }, []);
 
   const load = useCallback(async () => {
-    // #region agent log
-    fetch("http://127.0.0.1:7473/ingest/fed664d4-b533-42b4-b1b4-63de2b9a9c42", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5aeb89" },
-      body: JSON.stringify({
-        sessionId: "5aeb89",
-        location: "DashboardScreen.tsx:load:entry",
-        message: "load() invoked",
-        data: { timestamp: Date.now() },
-        timestamp: Date.now(),
-        hypothesisId: "H2",
-      }),
-    }).catch(() => {});
-    // #endregion
     setNutritionLoadError(false);
     try {
       const activitiesStart = addDays(today, -14);
@@ -608,35 +594,6 @@ export function DashboardScreen({
       setWellnessToday(wellnessList);
       setSleepFromPhoto(wellnessList?.sleep_hours != null ? null : sleepFromPhotoResult);
       setAthleteProfile(profile);
-      // #region agent log
-      const wl = workoutsList ?? [];
-      const workoutIds = wl.map((a) => a.id);
-      const uniqueWorkoutIds = new Set(workoutIds);
-      const nutritionEntries = nResult.ok && nResult.data ? nResult.data.entries : [];
-      const entryIds = nutritionEntries.map((e) => e.id);
-      const uniqueEntryIds = new Set(entryIds);
-      fetch("http://127.0.0.1:7473/ingest/fed664d4-b533-42b4-b1b4-63de2b9a9c42", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5aeb89" },
-        body: JSON.stringify({
-          sessionId: "5aeb89",
-          location: "DashboardScreen.tsx:load",
-          message: "load completed",
-          data: {
-            workoutCount: wl.length,
-            workoutIds,
-            uniqueWorkoutCount: uniqueWorkoutIds.size,
-            hasDuplicateWorkouts: workoutIds.length !== uniqueWorkoutIds.size,
-            nutritionEntryCount: entryIds.length,
-            entryIds,
-            uniqueEntryCount: uniqueEntryIds.size,
-            hasDuplicateEntries: entryIds.length !== uniqueEntryIds.size,
-          },
-          timestamp: Date.now(),
-          hypothesisId: "H1_H3_H5",
-        }),
-      }).catch(() => {});
-      // #endregion
       setWorkouts(workoutsList ?? []);
       setWorkoutFitness(fitness ?? null);
     } catch {
