@@ -12,7 +12,9 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.athlete_profile import AthleteProfile
 from app.models.user import User
+from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
+from app.models.intervals_credentials import IntervalsCredentials
 from app.schemas.workout import WorkoutCreate, WorkoutUpdate
 from app.services.fit_parser import parse_fit_session
 from app.services.load_metrics import compute_fitness_from_workouts
@@ -151,8 +153,30 @@ async def get_fitness(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict | None:
-    """Compute CTL/ATL/TSB from workouts (manual + FIT) over the last 90 days. Returns None if no workouts."""
-    return await compute_fitness_from_workouts(session, user.id)
+    """Return CTL/ATL/TSB: from Intervals.icu (wellness_cache) when linked, else from our workout-based calculation."""
+    uid = user.id
+    # If Intervals is linked, use synced wellness (CTL/ATL/TSB from Intervals)
+    r = await session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == uid))
+    if r.scalar_one_or_none():
+        w = await session.execute(
+            select(WellnessCache)
+            .where(WellnessCache.user_id == uid, WellnessCache.ctl.isnot(None))
+            .order_by(WellnessCache.date.desc())
+            .limit(1)
+        )
+        row = w.scalar_one_or_none()
+        if row and (row.ctl is not None or row.atl is not None):
+            ctl = row.ctl or 0.0
+            atl = row.atl or 0.0
+            tsb = row.tsb if row.tsb is not None else (ctl - atl)
+            return {
+                "ctl": round(ctl, 1),
+                "atl": round(atl, 1),
+                "tsb": round(tsb, 1),
+                "date": row.date.isoformat(),
+            }
+        return None
+    return await compute_fitness_from_workouts(session, uid)
 
 
 def _estimate_tss_from_fit(

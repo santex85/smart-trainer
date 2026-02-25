@@ -923,7 +923,7 @@ export function DashboardScreen({
                 </TouchableOpacity>
               </View>
             </View>
-            <Text style={styles.hint}>Последние 14 дней · ручной ввод и FIT</Text>
+            <Text style={styles.hint}>Последние 14 дней · ручной ввод, FIT и Intervals.icu</Text>
             {workouts.length > 0 ? workouts.map((act) => (
               <View key={act.id} style={styles.activityRow}>
                 <Text style={styles.calendarDate}>{formatEventDate(act.start_date)}</Text>
@@ -937,7 +937,7 @@ export function DashboardScreen({
                 </View>
               </View>
             )) : (
-              <Text style={styles.placeholder}>Нет тренировок. Нажмите «+ Добавить» или загрузите FIT.</Text>
+              <Text style={styles.placeholder}>Нет тренировок. Подключите Intervals.icu и нажмите «Синхронизировать» или добавьте вручную / загрузите FIT.</Text>
             )}
           </View>
 

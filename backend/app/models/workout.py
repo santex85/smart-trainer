@@ -18,7 +18,8 @@ class Workout(Base):
     duration_sec: Mapped[int | None] = mapped_column(Integer, nullable=True)
     distance_m: Mapped[float | None] = mapped_column(Float, nullable=True)
     tss: Mapped[float | None] = mapped_column(Float, nullable=True)
-    source: Mapped[str] = mapped_column(String(16), nullable=False, default="manual")  # manual | fit
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="manual")  # manual | fit | intervals
+    external_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # Intervals.icu activity id
     fit_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)  # for FIT dedup
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw: Mapped[dict | None] = mapped_column(JSON, nullable=True)

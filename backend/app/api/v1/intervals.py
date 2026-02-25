@@ -16,6 +16,7 @@ from app.models.intervals_credentials import IntervalsCredentials
 from app.models.user import User
 from app.services.crypto import decrypt_value, encrypt_value
 from app.services.intervals_client import get_activities, get_activity_single, get_events
+from app.services.intervals_sync import sync_intervals_to_db
 
 router = APIRouter(prefix="/intervals", tags=["intervals"])
 
@@ -85,8 +86,29 @@ async def trigger_sync(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    """Placeholder: Intervals sync (wellness is now independent)."""
-    return {"status": "synced", "user_id": user.id}
+    """Fetch activities and wellness from Intervals.icu and save to our DB."""
+    uid = user.id
+    r = await session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == uid))
+    creds = r.scalar_one_or_none()
+    if not creds:
+        raise HTTPException(status_code=400, detail="Intervals.icu is not linked.")
+    api_key = decrypt_value(creds.encrypted_token_or_key)
+    if not api_key:
+        logging.warning("Intervals.icu: API key decryption failed for user_id=%s", uid)
+        raise HTTPException(status_code=500, detail="Invalid stored credentials.")
+    try:
+        activities_count, wellness_count = await sync_intervals_to_db(
+            session, uid, creds.athlete_id, api_key
+        )
+    except Exception as e:
+        logging.exception("Intervals sync failed for user_id=%s: %s", uid, e)
+        raise HTTPException(status_code=502, detail="Intervals.icu sync failed.")
+    return {
+        "status": "synced",
+        "user_id": uid,
+        "activities_synced": activities_count,
+        "wellness_days_synced": wellness_count,
+    }
 
 
 @router.get("/events")
