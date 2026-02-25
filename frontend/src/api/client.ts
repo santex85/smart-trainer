@@ -1,5 +1,11 @@
 import { Platform } from "react-native";
-import { getAccessToken, removeAccessToken } from "../storage/authStorage";
+import {
+  clearAuth,
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+  setRefreshToken,
+} from "../storage/authStorage";
 import { devLog } from "../utils/devLog";
 
 // When EXPO_PUBLIC_API_URL is explicitly "" (Docker build), use same origin so nginx can proxy /api
@@ -11,9 +17,25 @@ export function setOnUnauthorized(cb: (() => void) | null) {
   onUnauthorized = cb;
 }
 
+async function doRefreshToken(): Promise<boolean> {
+  const refresh = await getRefreshToken();
+  if (!refresh) return false;
+  const res = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refresh }),
+  });
+  if (res.status !== 200) return false;
+  const data = (await res.json()) as { access_token: string; refresh_token: string };
+  await setAccessToken(data.access_token);
+  await setRefreshToken(data.refresh_token);
+  return true;
+}
+
 export async function api<T>(
   path: string,
-  options: RequestInit & { body?: unknown } = {}
+  options: RequestInit & { body?: unknown } = {},
+  retriedAfterRefresh = false
 ): Promise<T> {
   const { body, ...rest } = options;
   const token = await getAccessToken();
@@ -29,7 +51,10 @@ export async function api<T>(
     body: body !== undefined ? (typeof body === "string" ? body : JSON.stringify(body)) : undefined,
   });
   if (res.status === 401) {
-    await removeAccessToken();
+    if (!retriedAfterRefresh && (await doRefreshToken())) {
+      return api<T>(path, options, true);
+    }
+    await clearAuth();
     onUnauthorized?.();
     const err = await res.text();
     throw new Error(err || "Unauthorized");
@@ -94,7 +119,10 @@ export async function uploadPhoto(file: { uri: string; name?: string; type?: str
   const text = await res.text();
   devLog(`uploadPhoto: response status=${res.status} body=${text.slice(0, 120)}${text.length > 120 ? "…" : ""}`);
   if (res.status === 401) {
-    await removeAccessToken();
+    if (await doRefreshToken()) {
+      return uploadPhoto(file, mealType);
+    }
+    await clearAuth();
     onUnauthorized?.();
     devLog(`uploadPhoto: 401 Unauthorized`, "error");
     throw new Error("Unauthorized");
@@ -144,7 +172,10 @@ export async function uploadPhotoForAnalysis(
   const text = await res.text();
   devLog(`uploadPhotoForAnalysis: status=${res.status} body=${text.slice(0, 150)}…`);
   if (res.status === 401) {
-    await removeAccessToken();
+    if (await doRefreshToken()) {
+      return uploadPhotoForAnalysis(file, mealType, save);
+    }
+    await clearAuth();
     onUnauthorized?.();
     throw new Error("Unauthorized");
   }
@@ -341,7 +372,10 @@ export async function uploadFitWorkout(file: Blob | { uri: string; name: string 
     body: form,
   });
   if (res.status === 401) {
-    await removeAccessToken();
+    if (await doRefreshToken()) {
+      return uploadFitWorkout(file);
+    }
+    await clearAuth();
     onUnauthorized?.();
     throw new Error("Unauthorized");
   }
@@ -542,7 +576,9 @@ export interface AuthUser {
 }
 export interface AuthResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
+  expires_in: number;
   user: AuthUser;
 }
 

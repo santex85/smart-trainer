@@ -63,6 +63,11 @@ npx expo start
 - `GET /api/v1/chat/history`, `POST /api/v1/chat/send` — chat with AI coach
 - `POST /api/v1/chat/orchestrator/run` — run daily decision (Go/Modify/Skip) from wellness + workouts + Intervals events
 
+## Web (production)
+
+- **robots.txt** and **favicon**: in `frontend/public/` (robots.txt, favicon.svg). For Expo web build, copy these to the served root if your setup does not use a public folder.
+- **Gzip**: Caddy and nginx enable gzip by default for static assets. For a custom server, enable gzip for `application/javascript` and text MIME types to reduce JS bundle transfer size.
+
 ## Roadmap (done in this repo)
 
 - Sprint 1: Backend + Gemini nutrition

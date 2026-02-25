@@ -183,6 +183,30 @@ async def get_nutrition_day(
     return NutritionDayResponse(date=day, entries=entries, totals=totals)
 
 
+@router.get("/entries/{entry_id}", response_model=NutritionDayEntry)
+async def get_nutrition_entry(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    entry_id: Annotated[int, Path(description="Food log entry ID")],
+) -> NutritionDayEntry:
+    """Get a single food log entry by ID. Returns 404 if not found or not owned."""
+    result = await session.execute(select(FoodLog).where(FoodLog.id == entry_id))
+    entry = result.scalar_one_or_none()
+    if not entry or entry.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Entry not found.")
+    return NutritionDayEntry(
+        id=entry.id,
+        name=entry.name,
+        portion_grams=entry.portion_grams,
+        calories=entry.calories,
+        protein_g=entry.protein_g,
+        fat_g=entry.fat_g,
+        carbs_g=entry.carbs_g,
+        meal_type=entry.meal_type,
+        timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
+    )
+
+
 @router.patch("/entries/{entry_id}", response_model=NutritionDayEntry)
 async def update_nutrition_entry(
     session: Annotated[AsyncSession, Depends(get_db)],

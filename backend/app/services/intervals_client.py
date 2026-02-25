@@ -132,10 +132,21 @@ async def get_activities(
     data = r.json() if r.content else []
     if not isinstance(data, list):
         data = [data] if data else []
+    def _normalize_activity_id(raw_id: Any) -> str:
+        """Canonical string id so 123, 123.0, '123' all become '123' (avoids duplicate rows)."""
+        if raw_id is None:
+            return ""
+        if isinstance(raw_id, (int, float)):
+            try:
+                return str(int(float(raw_id)))
+            except (ValueError, OverflowError):
+                return str(raw_id)
+        return str(raw_id).strip()
+
     out: list[Activity] = []
     for item in data:
         if isinstance(item, dict):
-            sid = str(item.get("id", ""))
+            sid = _normalize_activity_id(item.get("id"))
             start_raw = item.get("start_date") or item.get("startDate") or item.get("start_date_local")
             start = None
             if isinstance(start_raw, str):

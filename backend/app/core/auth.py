@@ -1,5 +1,7 @@
 """Password hashing and JWT creation/verification."""
 
+import hashlib
+import secrets
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
@@ -7,6 +9,10 @@ import bcrypt
 from jose import JWTError, jwt
 
 from app.config import settings
+
+
+def _refresh_token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def hash_password(password: str) -> str:
@@ -30,6 +36,16 @@ def create_access_token(user_id: int, email: str) -> str:
         settings.secret_key,
         algorithm=settings.jwt_algorithm,
     )
+
+
+def create_refresh_token() -> str:
+    """Generate a new refresh token (plain string; caller must hash and store)."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_refresh_token(token: str) -> str:
+    """SHA256 hash of refresh token for storage."""
+    return _refresh_token_hash(token)
 
 
 def decode_token(token: str) -> dict[str, Any]:

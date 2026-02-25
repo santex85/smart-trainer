@@ -12,17 +12,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { register, type AuthUser } from "../api/client";
-import { setAccessToken } from "../storage/authStorage";
+import { t } from "../i18n";
+import { setAccessToken, setRefreshToken } from "../storage/authStorage";
 
 function getErrorMessage(e: unknown): string {
-  if (!(e instanceof Error)) return "Ошибка запроса. Повторите позже.";
+  if (!(e instanceof Error)) return t("auth.requestError");
   try {
     const parsed = JSON.parse(e.message) as { detail?: string };
     if (typeof parsed?.detail === "string") return parsed.detail;
   } catch {
     /* ignore */
   }
-  return e.message || "Ошибка запроса. Повторите позже.";
+  return e.message || t("auth.requestError");
 }
 
 export function RegisterScreen({
@@ -40,11 +41,11 @@ export function RegisterScreen({
   const handleRegister = async () => {
     const e = email.trim().toLowerCase();
     if (!e || !password) {
-      setError("Введите email и пароль");
+      setError(t("auth.emailRequired"));
       return;
     }
     if (password.length < 6) {
-      setError("Пароль не менее 6 символов");
+      setError(t("auth.passwordMinLength"));
       return;
     }
     setError(null);
@@ -52,6 +53,7 @@ export function RegisterScreen({
     try {
       const res = await register(e, password);
       await setAccessToken(res.access_token);
+      await setRefreshToken(res.refresh_token);
       onSuccess(res.user);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -82,7 +84,7 @@ export function RegisterScreen({
               keyboardType="email-address"
               editable={!loading}
             />
-            <Text style={styles.hint}>Пароль (не менее 6 символов)</Text>
+            <Text style={styles.hint}>{t("auth.passwordHint")}</Text>
             <TextInput
               style={styles.input}
               value={password}
@@ -105,7 +107,7 @@ export function RegisterScreen({
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.link} onPress={onGoToLogin} disabled={loading}>
-              <Text style={styles.linkText}>Уже есть аккаунт? Войти</Text>
+              <Text style={styles.linkText}>{t("auth.haveAccount")}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

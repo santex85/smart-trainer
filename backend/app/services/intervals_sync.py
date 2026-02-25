@@ -50,9 +50,18 @@ async def sync_intervals_to_db(
     activities = await get_activities(athlete_id, api_key, oldest, newest, limit=500)
     wellness_days = await get_wellness(athlete_id, api_key, oldest, newest)
 
+    # Deduplicate activities by external_id (same activity may appear with different id representation)
+    seen_ids: set[str] = set()
+    activities_deduped = []
+    for a in activities:
+        if not a.id or a.id in seen_ids:
+            continue
+        seen_ids.add(a.id)
+        activities_deduped.append(a)
+
     # Upsert workouts by (user_id, external_id)
     count_workouts = 0
-    for a in activities:
+    for a in activities_deduped:
         if not a.id:
             continue
         raw = dict(a.raw or {})

@@ -4,6 +4,7 @@ returns Go/Modify/Skip with optional modified plan. TZ: Level 1 (sleep, HRV, RHR
 cannot be overridden by Level 2 (TSS, CTL, ATL). Level 3: polarised intensity (Seiler).
 """
 import json
+import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -63,7 +64,48 @@ Example (Go):
 Example (Skip):
 {"decision": "Skip", "reason": "Poor sleep, low carbs.", "modified_plan": null, "suggestions_next_days": "Rest today; easy 30 min tomorrow if recovered."}
 
-No metaphors, no long text. Only the JSON object."""
+No metaphors, no long text. Output only a single JSON object, no markdown code fences."""
+
+logger = logging.getLogger(__name__)
+
+
+def _normalize_decision(raw: Any) -> Decision:
+    """Map various LLM outputs to Decision enum."""
+    s = (str(raw).strip() if raw is not None else "").lower()
+    if s == "go":
+        return Decision.GO
+    if s == "modify":
+        return Decision.MODIFY
+    if s == "skip":
+        return Decision.SKIP
+    return Decision.GO
+
+
+def _parse_llm_response(text: str) -> OrchestratorResponse:
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    data = json.loads(text)
+    decision = _normalize_decision(data.get("decision", "Go"))
+    modified = data.get("modified_plan")
+    modified_item = None
+    if modified and isinstance(modified, dict) and modified.get("title") and modified.get("start_date"):
+        try:
+            modified_item = ModifiedPlanItem.model_validate(modified, strict=False)
+        except Exception:
+            modified_item = None
+    reason = data.get("reason") or ""
+    if isinstance(reason, str) and len(reason) > 1000:
+        reason = reason[:1000]
+    suggestions = data.get("suggestions_next_days")
+    if suggestions is not None and isinstance(suggestions, str) and len(suggestions) > 2000:
+        suggestions = suggestions[:2000]
+    return OrchestratorResponse(
+        decision=decision,
+        reason=reason,
+        modified_plan=modified_item,
+        suggestions_next_days=suggestions,
+    )
 
 
 def _build_context(
@@ -95,27 +137,6 @@ def _build_context(
         json.dumps(recent_workouts or [], default=str),
     ]
     return "\n".join(parts)
-
-
-def _parse_llm_response(text: str) -> OrchestratorResponse:
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-    data = json.loads(text)
-    decision = data.get("decision", "Go")
-    if isinstance(decision, str):
-        decision = Decision(decision) if decision in ("Go", "Modify", "Skip") else Decision.GO
-    modified = data.get("modified_plan")
-    if modified and isinstance(modified, dict):
-        modified = ModifiedPlanItem(**modified)
-    else:
-        modified = None
-    return OrchestratorResponse(
-        decision=decision,
-        reason=data.get("reason", ""),
-        modified_plan=modified,
-        suggestions_next_days=data.get("suggestions_next_days"),
-    )
 
 
 async def run_daily_decision(
@@ -320,7 +341,13 @@ async def run_daily_decision(
         return OrchestratorResponse(decision=Decision.SKIP, reason="No AI response; defaulting to Skip.")
     try:
         result = _parse_llm_response(response.text)
-    except (json.JSONDecodeError, Exception):
+    except (json.JSONDecodeError, Exception) as e:
+        raw_preview = (response.text or "")[:500].replace("\n", " ")
+        logger.warning(
+            "Orchestrator parse failed: %s. Raw response preview: %s",
+            type(e).__name__,
+            raw_preview,
+        )
         return OrchestratorResponse(decision=Decision.SKIP, reason="Parse error; defaulting to Skip.")
 
     # On Modify: optionally push to Intervals and write to chat

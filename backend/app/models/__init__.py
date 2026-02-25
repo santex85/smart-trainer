@@ -9,6 +9,7 @@ from app.models.strava_sync_queue import StravaSyncQueue
 from app.models.sleep_extraction import SleepExtraction
 from app.models.athlete_profile import AthleteProfile
 from app.models.workout import Workout
+from app.models.refresh_token import RefreshToken
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "SleepExtraction",
     "AthleteProfile",
     "Workout",
+    "RefreshToken",
 ]

@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "web": { "favicon": "./assets/icon.png" },
     "splash": { "image": "./assets/splash.png", "resizeMode": "contain", "backgroundColor": "#1a1a2e" },
     "assetBundlePatterns": ["**/*"],
     "ios": { "supportsTablet": true, "bundleIdentifier": "com.smarttrainer.app", "infoPlist": { "NSCameraUsageDescription": "Photo your meals for nutrition tracking.", "NSMicrophoneUsageDescription": "Optional for voice messages." } },

@@ -12,17 +12,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { login, type AuthUser } from "../api/client";
-import { setAccessToken } from "../storage/authStorage";
+import { t } from "../i18n";
+import { setAccessToken, setRefreshToken } from "../storage/authStorage";
 
 function getErrorMessage(e: unknown): string {
-  if (!(e instanceof Error)) return "Ошибка запроса. Повторите позже.";
+  if (!(e instanceof Error)) return t("auth.requestError");
   try {
     const parsed = JSON.parse(e.message) as { detail?: string };
     if (typeof parsed?.detail === "string") return parsed.detail;
   } catch {
     /* ignore */
   }
-  return e.message || "Ошибка запроса. Повторите позже.";
+  return e.message || t("auth.requestError");
 }
 
 export function LoginScreen({
@@ -40,7 +41,7 @@ export function LoginScreen({
   const handleLogin = async () => {
     const e = email.trim().toLowerCase();
     if (!e || !password) {
-      setError("Введите email и пароль");
+      setError(t("auth.emailRequired"));
       return;
     }
     setError(null);
@@ -48,6 +49,7 @@ export function LoginScreen({
     try {
       const res = await login(e, password);
       await setAccessToken(res.access_token);
+      await setRefreshToken(res.refresh_token);
       onSuccess(res.user);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -78,7 +80,7 @@ export function LoginScreen({
               keyboardType="email-address"
               editable={!loading}
             />
-            <Text style={styles.hint}>Пароль</Text>
+            <Text style={styles.hint}>{t("auth.password")}</Text>
             <TextInput
               style={styles.input}
               value={password}
@@ -97,7 +99,7 @@ export function LoginScreen({
               {loading ? (
                 <ActivityIndicator size="small" color="#0f172a" />
               ) : (
-                <Text style={styles.buttonPrimaryText}>Войти</Text>
+                <Text style={styles.buttonPrimaryText}>{t("auth.login")}</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.link} onPress={onGoToRegister} disabled={loading}>

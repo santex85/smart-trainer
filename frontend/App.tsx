@@ -6,7 +6,7 @@ import { NavigationContainer, createNavigationContainerRef } from "@react-naviga
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { getMe, setOnUnauthorized } from "./src/api/client";
-import { getAccessToken, removeAccessToken } from "./src/storage/authStorage";
+import { clearAuth, getAccessToken } from "./src/storage/authStorage";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { RegisterScreen } from "./src/screens/RegisterScreen";
@@ -15,6 +15,7 @@ import { ChatScreen } from "./src/screens/ChatScreen";
 import { AthleteProfileScreen } from "./src/screens/AthleteProfileScreen";
 import { IntervalsLinkScreen } from "./src/screens/IntervalsLinkScreen";
 import type { AuthUser } from "./src/api/client";
+import { t } from "./src/i18n";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -30,7 +31,7 @@ export default function App() {
 
   useEffect(() => {
     setOnUnauthorized(() => {
-      removeAccessToken();
+      clearAuth();
       setUser(null);
     });
   }, []);
@@ -50,7 +51,7 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await removeAccessToken();
+    await clearAuth();
     setUser(null);
   };
 
@@ -59,7 +60,7 @@ export default function App() {
       <SafeAreaProvider>
         <View style={[styles.root, styles.centered]}>
           <ActivityIndicator size="large" color="#38bdf8" />
-          <Text style={styles.loadingText}>Загрузка…</Text>
+          <Text style={styles.loadingText}>{t("app.loading")}</Text>
         </View>
       </SafeAreaProvider>
     );
@@ -115,7 +116,7 @@ export default function App() {
           >
             <Tab.Screen
               name="Home"
-              options={{ tabBarLabel: "Главная" }}
+              options={{ tabBarLabel: t("tabs.home") }}
             >
               {({ navigation }) => (
                 <DashboardScreen
@@ -132,7 +133,7 @@ export default function App() {
             </Tab.Screen>
             <Tab.Screen
               name="Chat"
-              options={{ tabBarLabel: "Чат" }}
+              options={{ tabBarLabel: t("tabs.chat") }}
             >
               {({ navigation }) => (
                 <ChatScreen onClose={() => navigation.navigate("Home")} />
@@ -140,7 +141,7 @@ export default function App() {
             </Tab.Screen>
             <Tab.Screen
               name="Profile"
-              options={{ tabBarLabel: "Профиль" }}
+              options={{ tabBarLabel: t("tabs.profile") }}
             >
               {({ navigation }) => (
                 <AthleteProfileScreen onClose={() => navigation.navigate("Home")} />

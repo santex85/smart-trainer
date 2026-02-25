@@ -35,6 +35,7 @@ import {
   type WorkoutItem,
   type WorkoutFitness,
 } from "../api/client";
+import { t } from "../i18n";
 
 const CALORIE_GOAL = 2200;
 const CARBS_GOAL = 250;
@@ -565,6 +566,20 @@ export function DashboardScreen({
   }, []);
 
   const load = useCallback(async () => {
+    // #region agent log
+    fetch("http://127.0.0.1:7473/ingest/fed664d4-b533-42b4-b1b4-63de2b9a9c42", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5aeb89" },
+      body: JSON.stringify({
+        sessionId: "5aeb89",
+        location: "DashboardScreen.tsx:load:entry",
+        message: "load() invoked",
+        data: { timestamp: Date.now() },
+        timestamp: Date.now(),
+        hypothesisId: "H2",
+      }),
+    }).catch(() => {});
+    // #endregion
     setNutritionLoadError(false);
     try {
       const activitiesStart = addDays(today, -14);
@@ -593,6 +608,35 @@ export function DashboardScreen({
       setWellnessToday(wellnessList);
       setSleepFromPhoto(wellnessList?.sleep_hours != null ? null : sleepFromPhotoResult);
       setAthleteProfile(profile);
+      // #region agent log
+      const wl = workoutsList ?? [];
+      const workoutIds = wl.map((a) => a.id);
+      const uniqueWorkoutIds = new Set(workoutIds);
+      const nutritionEntries = nResult.ok && nResult.data ? nResult.data.entries : [];
+      const entryIds = nutritionEntries.map((e) => e.id);
+      const uniqueEntryIds = new Set(entryIds);
+      fetch("http://127.0.0.1:7473/ingest/fed664d4-b533-42b4-b1b4-63de2b9a9c42", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5aeb89" },
+        body: JSON.stringify({
+          sessionId: "5aeb89",
+          location: "DashboardScreen.tsx:load",
+          message: "load completed",
+          data: {
+            workoutCount: wl.length,
+            workoutIds,
+            uniqueWorkoutCount: uniqueWorkoutIds.size,
+            hasDuplicateWorkouts: workoutIds.length !== uniqueWorkoutIds.size,
+            nutritionEntryCount: entryIds.length,
+            entryIds,
+            uniqueEntryCount: uniqueEntryIds.size,
+            hasDuplicateEntries: entryIds.length !== uniqueEntryIds.size,
+          },
+          timestamp: Date.now(),
+          hypothesisId: "H1_H3_H5",
+        }),
+      }).catch(() => {});
+      // #endregion
       setWorkouts(workoutsList ?? []);
       setWorkoutFitness(fitness ?? null);
     } catch {
@@ -633,7 +677,7 @@ export function DashboardScreen({
 
   const onSelectFitFile = useCallback(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") {
-      Alert.alert("FIT", "Загрузка FIT доступна в веб-версии. Откройте приложение в браузере.");
+      Alert.alert("FIT", t("fit.webOnly"));
       return;
     }
     const input = document.createElement("input");
@@ -680,17 +724,17 @@ export function DashboardScreen({
       <View style={styles.contentWrap}>
       <View style={styles.brandHeader}>
         <Text style={styles.brandTitle}>Smart Trainer</Text>
-        <Text style={styles.brandSubtitle}>Питание, сон и тренировки в одном месте</Text>
+        <Text style={styles.brandSubtitle}>{t("app.brandSubtitle")}</Text>
       </View>
       {user && onLogout ? (
         <View style={styles.userRow}>
           <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
           <TouchableOpacity onPress={onLogout}>
-            <Text style={styles.logoutText}>Выйти</Text>
+            <Text style={styles.logoutText}>{t("app.logout")}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
-      <Text style={styles.title}>Сегодня</Text>
+      <Text style={styles.title}>{t("today")}</Text>
 
       {loading ? (
         <View style={styles.skeletonWrap}>
@@ -718,64 +762,64 @@ export function DashboardScreen({
         <>
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
-              <Text style={styles.cardTitle}>Питание (остаток по целям)</Text>
+              <Text style={styles.cardTitle}>{t("nutrition.title")}</Text>
               <View style={styles.cardTitleActions}>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(addDays(nutritionDate, -1))}
                   style={styles.dateNavBtn}
                 >
-                  <Text style={styles.dateNavText}>Вчера</Text>
+                  <Text style={styles.dateNavText}>{t("yesterday")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(today)}
                   style={[styles.dateNavBtn, nutritionDate === today && styles.dateNavBtnActive]}
                 >
-                  <Text style={[styles.dateNavText, nutritionDate === today && styles.dateNavTextActive]}>Сегодня</Text>
+                  <Text style={[styles.dateNavText, nutritionDate === today && styles.dateNavTextActive]}>{t("today")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(addDays(nutritionDate, 1))}
                   style={styles.dateNavBtn}
                 >
-                  <Text style={styles.dateNavText}>Завтра</Text>
+                  <Text style={styles.dateNavText}>{t("tomorrow")}</Text>
                 </TouchableOpacity>
               </View>
             </View>
             {nutritionLoadError && (
-              <Text style={styles.errorHint}>Не удалось загрузить питание. Потяните для обновления.</Text>
+              <Text style={styles.errorHint}>{t("nutrition.loadError")}</Text>
             )}
             {!nutritionLoadError && nutritionDay && nutritionDay.entries.length > 0 ? (
               <>
                 <Text style={styles.cardValue}>
-                  Съедено: {Math.round(nutritionDay.totals.calories)} ккал · Б {Math.round(nutritionDay.totals.protein_g)}г · Ж{" "}
-                  {Math.round(nutritionDay.totals.fat_g)}г · У {Math.round(nutritionDay.totals.carbs_g)}г
+                  {t("nutrition.eaten")}: {Math.round(nutritionDay.totals.calories)} {t("nutrition.kcal")} · {t("nutrition.proteinShort")} {Math.round(nutritionDay.totals.protein_g)}{t("nutrition.grams")} · {t("nutrition.fatShort")}{" "}
+                  {Math.round(nutritionDay.totals.fat_g)}{t("nutrition.grams")} · {t("nutrition.carbsShort")} {Math.round(nutritionDay.totals.carbs_g)}{t("nutrition.grams")}
                 </Text>
                 <Text style={styles.hint}>
-                  Осталось: {Math.max(0, calorieGoal - nutritionDay.totals.calories)} ккал · У{" "}
-                  {Math.max(0, carbsGoal - nutritionDay.totals.carbs_g)}г · Б {Math.max(0, proteinGoal - nutritionDay.totals.protein_g)}г · Ж{" "}
-                  {Math.max(0, fatGoal - nutritionDay.totals.fat_g)}г
+                  {t("nutrition.left")}: {Math.max(0, calorieGoal - nutritionDay.totals.calories)} {t("nutrition.kcal")} · {t("nutrition.carbsShort")}{" "}
+                  {Math.max(0, carbsGoal - nutritionDay.totals.carbs_g)}г · Б {Math.max(0, proteinGoal - nutritionDay.totals.protein_g)}{t("nutrition.grams")} · {t("nutrition.fatShort")}{" "}
+                  {Math.max(0, fatGoal - nutritionDay.totals.fat_g)}{t("nutrition.grams")}
                 </Text>
                 <NutritionProgressBar
                   current={nutritionDay.totals.calories}
                   goal={calorieGoal}
-                  label="Ккал"
+                  label={t("nutrition.caloriesLabel")}
                   color="#38bdf8"
                 />
                 <NutritionProgressBar
                   current={nutritionDay.totals.protein_g}
                   goal={proteinGoal}
-                  label="Белки"
+                  label={t("nutrition.proteinLabel")}
                   color="#22c55e"
                 />
                 <NutritionProgressBar
                   current={nutritionDay.totals.fat_g}
                   goal={fatGoal}
-                  label="Жиры"
+                  label={t("nutrition.fatLabel")}
                   color="#f59e0b"
                 />
                 <NutritionProgressBar
                   current={nutritionDay.totals.carbs_g}
                   goal={carbsGoal}
-                  label="Углеводы"
+                  label={t("nutrition.carbsLabel")}
                   color="#8b5cf6"
                 />
                 {nutritionDay.entries.map((entry) => (
@@ -793,29 +837,29 @@ export function DashboardScreen({
               </>
             ) : !nutritionLoadError && nutritionDay ? (
               <>
-                <Text style={styles.placeholder}>Отмечайте приёмы пищи камерой →</Text>
-                <Text style={styles.hint}>Цель: {calorieGoal} ккал · У: {carbsGoal}г · Б: {proteinGoal}г · Ж: {fatGoal}г</Text>
-                <NutritionProgressBar current={nutritionDay.totals.calories} goal={calorieGoal} label="Ккал" color="#38bdf8" />
-                <NutritionProgressBar current={nutritionDay.totals.protein_g} goal={proteinGoal} label="Белки" color="#22c55e" />
-                <NutritionProgressBar current={nutritionDay.totals.fat_g} goal={fatGoal} label="Жиры" color="#f59e0b" />
-                <NutritionProgressBar current={nutritionDay.totals.carbs_g} goal={carbsGoal} label="Углеводы" color="#8b5cf6" />
+                <Text style={styles.placeholder}>{t("nutrition.placeholder")}</Text>
+                <Text style={styles.hint}>{t("nutrition.goal")}: {calorieGoal} {t("nutrition.kcal")} · {t("nutrition.carbsShort")}: {carbsGoal}{t("nutrition.grams")} · {t("nutrition.proteinShort")}: {proteinGoal}{t("nutrition.grams")} · {t("nutrition.fatShort")}: {fatGoal}{t("nutrition.grams")}</Text>
+                <NutritionProgressBar current={nutritionDay.totals.calories} goal={calorieGoal} label={t("nutrition.caloriesLabel")} color="#38bdf8" />
+                <NutritionProgressBar current={nutritionDay.totals.protein_g} goal={proteinGoal} label={t("nutrition.proteinLabel")} color="#22c55e" />
+                <NutritionProgressBar current={nutritionDay.totals.fat_g} goal={fatGoal} label={t("nutrition.fatLabel")} color="#f59e0b" />
+                <NutritionProgressBar current={nutritionDay.totals.carbs_g} goal={carbsGoal} label={t("nutrition.carbsLabel")} color="#8b5cf6" />
               </>
             ) : !nutritionLoadError ? (
               <>
-                <Text style={styles.placeholder}>Отмечайте приёмы пищи камерой →</Text>
-                <Text style={styles.hint}>Цель: {calorieGoal} ккал · У: {carbsGoal}г · Б: {proteinGoal}г · Ж: {fatGoal}г</Text>
+                <Text style={styles.placeholder}>{t("nutrition.placeholder")}</Text>
+                <Text style={styles.hint}>{t("nutrition.goal")}: {calorieGoal} {t("nutrition.kcal")} · {t("nutrition.carbsShort")}: {carbsGoal}{t("nutrition.grams")} · {t("nutrition.proteinShort")}: {proteinGoal}{t("nutrition.grams")} · {t("nutrition.fatShort")}: {fatGoal}{t("nutrition.grams")}</Text>
               </>
             ) : null}
           </View>
 
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
-              <Text style={styles.cardTitle}>Сон и здоровье</Text>
+              <Text style={styles.cardTitle}>{t("wellness.title")}</Text>
               <TouchableOpacity onPress={() => setWellnessEditVisible(true)}>
-                <Text style={styles.intervalsLinkText}>Изменить</Text>
+                <Text style={styles.intervalsLinkText}>{t("wellness.edit")}</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.hint}>Сегодня. Данные хранятся в БД и учитываются ИИ при анализе и в чате.</Text>
+            <Text style={styles.hint}>{t("wellness.hint")}</Text>
             {(wellnessToday || sleepFromPhoto || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
               <>
                 <Text style={styles.cardValue}>
@@ -907,7 +951,7 @@ export function DashboardScreen({
 
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
-              <Text style={styles.cardTitle}>Тренировки</Text>
+              <Text style={styles.cardTitle}>{t("workouts.title")}</Text>
               <View style={styles.cardTitleActions}>
                 <TouchableOpacity
                   onPress={onSelectFitFile}
@@ -917,11 +961,11 @@ export function DashboardScreen({
                   {fitUploading ? (
                     <ActivityIndicator size="small" color="#38bdf8" />
                   ) : (
-                    <Text style={styles.intervalsLinkText}>Загрузить FIT</Text>
+                    <Text style={styles.intervalsLinkText}>{t("workouts.uploadFit")}</Text>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setWorkoutAddVisible(true)}>
-                  <Text style={styles.intervalsLinkText}>+ Добавить</Text>
+                  <Text style={styles.intervalsLinkText}>{t("workouts.add")}</Text>
                 </TouchableOpacity>
               </View>
             </View>

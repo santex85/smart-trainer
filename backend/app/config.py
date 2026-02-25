@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
+    refresh_token_expire_days: int = 7
+    cors_origins: str = "http://localhost:8081,http://localhost:19006,http://localhost:19000"
+    enable_hsts: bool = False  # Set True in production behind HTTPS
     debug: bool = False
     # Orchestrator run schedule: comma-separated hours (0-23), e.g. "7,16" for 07:00 and 16:00
     orchestrator_cron_hours: str = "7,16"

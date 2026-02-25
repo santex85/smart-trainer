@@ -22,6 +22,7 @@ import {
   type SleepExtractedData,
   type WellnessPhotoResult,
 } from "../api/client";
+import { t } from "../i18n";
 import { devLog, getLogs, clearLogs, subscribe, isDevLogEnabled, type LogEntry } from "../utils/devLog";
 
 function getErrorMessage(e: unknown): string {
@@ -391,7 +392,7 @@ export function CameraScreen({
               <>
                 <Text style={styles.resultName}>{photoResult.food.name}</Text>
                 <Text style={styles.resultMacros}>
-                  {photoResult.food.calories} ккал · Б {photoResult.food.protein_g}г · Ж {photoResult.food.fat_g}г · У {photoResult.food.carbs_g}г
+                  {photoResult.food.calories} {t("nutrition.kcal")} · {t("nutrition.proteinShort")} {photoResult.food.protein_g}{t("nutrition.grams")} · {t("nutrition.fatShort")} {photoResult.food.fat_g}{t("nutrition.grams")} · {t("nutrition.carbsShort")} {photoResult.food.carbs_g}{t("nutrition.grams")}
                 </Text>
                 <Text style={styles.hint}>Порция: {photoResult.food.portion_grams}г</Text>
               </>

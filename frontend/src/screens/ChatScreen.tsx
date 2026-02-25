@@ -39,7 +39,33 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
   const loadHistory = useCallback(async () => {
     try {
       const list = await getChatHistory(50);
-      setMessages(Array.isArray(list) ? list : []);
+      const messages = Array.isArray(list) ? list : [];
+      // #region agent log
+      const contents = messages.map((m) => `${m.role}:${(m.content || "").slice(0, 40)}`);
+      const seen = new Set<string>();
+      let duplicateContentCount = 0;
+      contents.forEach((c) => {
+        if (seen.has(c)) duplicateContentCount++;
+        else seen.add(c);
+      });
+      fetch("http://127.0.0.1:7473/ingest/fed664d4-b533-42b4-b1b4-63de2b9a9c42", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5aeb89" },
+        body: JSON.stringify({
+          sessionId: "5aeb89",
+          location: "ChatScreen.tsx:loadHistory",
+          message: "chat history loaded",
+          data: {
+            messageCount: messages.length,
+            duplicateContentCount,
+            firstThree: contents.slice(0, 3),
+          },
+          timestamp: Date.now(),
+          hypothesisId: "H4",
+        }),
+      }).catch(() => {});
+      // #endregion
+      setMessages(messages);
     } catch {
       setMessages([]);
     } finally {
