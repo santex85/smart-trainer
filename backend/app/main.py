@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import sys
 from contextlib import asynccontextmanager
@@ -5,10 +6,10 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.v1 import auth, athlete_profile, chat, intervals, nutrition, photo, users, wellness, workouts
 
-# Ensure app loggers (Intervals, sync, etc.) print to stdout so you see them in the terminal
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -21,25 +22,47 @@ from app.services.http_client import close_http_client, init_http_client
 
 scheduler = AsyncIOScheduler()
 
+ORCHESTRATOR_CONCURRENCY = 5
+
+logger = logging.getLogger(__name__)
+
+
+async def _run_for_user(user_id: int, today, semaphore: asyncio.Semaphore):
+    from app.db.session import async_session_maker
+    from app.services.orchestrator import run_daily_decision
+    async with semaphore:
+        try:
+            async with async_session_maker() as session:
+                await run_daily_decision(session, user_id, today)
+                await session.commit()
+        except Exception:
+            logger.exception("Orchestrator failed for user_id=%s", user_id)
+
 
 async def scheduled_orchestrator_run():
-    """Run orchestrator (daily decision) for every user at configured hours."""
+    """Run orchestrator (daily decision) for every user concurrently (bounded)."""
     from datetime import date
     from sqlalchemy import select
     from app.db.session import async_session_maker
     from app.models.user import User
-    from app.services.orchestrator import run_daily_decision
     async with async_session_maker() as session:
-        r = await session.execute(select(User))
-        for user in r.scalars().all():
-            await run_daily_decision(session, user.id, date.today())
-        await session.commit()
+        r = await session.execute(select(User.id))
+        user_ids = [row[0] for row in r.all()]
+    if not user_ids:
+        return
+    today = date.today()
+    sem = asyncio.Semaphore(ORCHESTRATOR_CONCURRENCY)
+    await asyncio.gather(*[_run_for_user(uid, today, sem) for uid in user_ids])
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     init_http_client(timeout=30.0)
+
+    if settings.google_gemini_api_key:
+        import google.generativeai as genai
+        genai.configure(api_key=settings.google_gemini_api_key)
 
     # Orchestrator: run at configured hours (e.g. 07:00 and 16:00)
     try:
@@ -62,6 +85,7 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
