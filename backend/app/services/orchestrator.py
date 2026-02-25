@@ -168,6 +168,7 @@ async def run_daily_decision(
             "sleep_hours": w.sleep_hours,
             "rhr": w.rhr,
             "hrv": w.hrv,
+            "weight_kg": w.weight_kg,
         }
         if w.ctl is not None or w.atl is not None or w.tsb is not None:
             ctl_atl_tsb = {"ctl": w.ctl, "atl": w.atl, "tsb": w.tsb}
@@ -243,7 +244,7 @@ async def run_daily_decision(
     # Wellness history (last 7 days)
     wellness_from = today - timedelta(days=7)
     r_wh = await session.execute(
-        select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb).where(
+        select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb, WellnessCache.weight_kg).where(
             WellnessCache.user_id == user_id,
             WellnessCache.date >= wellness_from,
             WellnessCache.date <= today,
@@ -253,7 +254,7 @@ async def run_daily_decision(
     for row in r_wh.all():
         wellness_history.append({
             "date": row[0].isoformat() if row[0] else None,
-            "sleep_hours": row[1], "rhr": row[2], "hrv": row[3], "ctl": row[4], "atl": row[5], "tsb": row[6],
+            "sleep_hours": row[1], "rhr": row[2], "hrv": row[3], "ctl": row[4], "atl": row[5], "tsb": row[6], "weight_kg": row[7],
         })
 
     # Recent workouts: from unified workout store (manual + FIT)

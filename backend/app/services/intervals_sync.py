@@ -112,6 +112,8 @@ async def sync_intervals_to_db(
                 existing.rhr = float(w.rhr)
             if existing.hrv is None and w.hrv is not None:
                 existing.hrv = float(w.hrv)
+            if existing.weight_kg is None and w.weight_kg is not None:
+                existing.weight_kg = float(w.weight_kg)
         else:
             session.add(
                 WellnessCache(
@@ -123,6 +125,7 @@ async def sync_intervals_to_db(
                     ctl=w.ctl,
                     atl=w.atl,
                     tsb=w.tsb,
+                    weight_kg=float(w.weight_kg) if w.weight_kg is not None else None,
                 )
             )
         count_wellness += 1

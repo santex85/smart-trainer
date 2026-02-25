@@ -12,6 +12,7 @@ class WellnessUpsertBody(BaseModel):
     sleep_hours: float | None = None
     rhr: float | None = None
     hrv: float | None = None
+    weight_kg: float | None = None
 
 
 class WellnessDayResponse(BaseModel):
@@ -24,3 +25,4 @@ class WellnessDayResponse(BaseModel):
     ctl: float | None = None
     atl: float | None = None
     tsb: float | None = None
+    weight_kg: float | None = None

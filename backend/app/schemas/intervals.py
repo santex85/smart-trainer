@@ -16,6 +16,7 @@ class WellnessDay(BaseModel):
     ctl: float | None = None
     atl: float | None = None
     tsb: float | None = None
+    weight_kg: float | None = None  # API field "weight", assumed kg
     raw: dict[str, Any] | None = None
 
 

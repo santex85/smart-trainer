@@ -241,6 +241,7 @@ export interface WellnessDay {
   ctl?: number;
   atl?: number;
   tsb?: number;
+  weight_kg?: number;
 }
 
 export interface EventItem {

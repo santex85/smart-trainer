@@ -816,7 +816,7 @@ export function DashboardScreen({
               </TouchableOpacity>
             </View>
             <Text style={styles.hint}>Сегодня. Данные хранятся в БД и учитываются ИИ при анализе и в чате.</Text>
-            {(wellnessToday || sleepFromPhoto || athleteProfile?.weight_kg != null) ? (
+            {(wellnessToday || sleepFromPhoto || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
               <>
                 <Text style={styles.cardValue}>
                   {(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours) != null
@@ -824,7 +824,9 @@ export function DashboardScreen({
                     : "Сон —"}
                   {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
                   {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
-                  {athleteProfile?.weight_kg != null ? ` · Вес ${athleteProfile.weight_kg} кг` : " · Вес —"}
+                  {(wellnessToday?.weight_kg ?? athleteProfile?.weight_kg) != null
+                    ? ` · Вес ${wellnessToday?.weight_kg ?? athleteProfile?.weight_kg} кг`
+                    : " · Вес —"}
                 </Text>
                 {(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours) == null && (
                   <Text style={styles.hint}>Введите сон вручную (Изменить) или загрузите фото сна через камеру.</Text>
