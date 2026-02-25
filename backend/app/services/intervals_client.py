@@ -88,6 +88,9 @@ async def get_wellness(
             tsb_val = item.get("tsb") or item.get("trainingStressBalance")
             if tsb_val is None and ctl_val is not None and atl_val is not None:
                 tsb_val = float(ctl_val) - float(atl_val)
+            weight_val = item.get("weight")
+            sport_info_raw = item.get("sportInfo")
+            sport_info = sport_info_raw if isinstance(sport_info_raw, list) else None
             out.append(
                 WellnessDay(
                     date=day or oldest,
@@ -97,6 +100,8 @@ async def get_wellness(
                     ctl=float(ctl_val) if isinstance(ctl_val, (int, float)) else None,
                     atl=float(atl_val) if isinstance(atl_val, (int, float)) else None,
                     tsb=float(tsb_val) if isinstance(tsb_val, (int, float)) else None,
+                    weight_kg=float(weight_val) if isinstance(weight_val, (int, float)) else None,
+                    sport_info=sport_info,
                     raw=item,
                 )
             )

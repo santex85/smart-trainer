@@ -16,6 +16,8 @@ class WellnessDay(BaseModel):
     ctl: float | None = None
     atl: float | None = None
     tsb: float | None = None
+    weight_kg: float | None = None  # API field "weight", assumed kg
+    sport_info: list[dict[str, Any]] | None = None  # Intervals sportInfo: [{type, eftp, wPrime, pMax}]
     raw: dict[str, Any] | None = None
 
 

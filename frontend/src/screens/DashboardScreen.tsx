@@ -816,7 +816,7 @@ export function DashboardScreen({
               </TouchableOpacity>
             </View>
             <Text style={styles.hint}>Сегодня. Данные хранятся в БД и учитываются ИИ при анализе и в чате.</Text>
-            {(wellnessToday || sleepFromPhoto || athleteProfile?.weight_kg != null) ? (
+            {(wellnessToday || sleepFromPhoto || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
               <>
                 <Text style={styles.cardValue}>
                   {(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours) != null
@@ -824,7 +824,9 @@ export function DashboardScreen({
                     : "Сон —"}
                   {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
                   {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
-                  {athleteProfile?.weight_kg != null ? ` · Вес ${athleteProfile.weight_kg} кг` : " · Вес —"}
+                  {(wellnessToday?.weight_kg ?? athleteProfile?.weight_kg) != null
+                    ? ` · Вес ${wellnessToday?.weight_kg ?? athleteProfile?.weight_kg} кг`
+                    : " · Вес —"}
                 </Text>
                 {(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours) == null && (
                   <Text style={styles.hint}>Введите сон вручную (Изменить) или загрузите фото сна через камеру.</Text>
@@ -924,6 +926,17 @@ export function DashboardScreen({
               </View>
             </View>
             <Text style={styles.hint}>Последние 14 дней · ручной ввод, FIT и Intervals.icu</Text>
+            {wellnessToday?.sport_info?.length ? (() => {
+              const ride = wellnessToday.sport_info.find((s) => s.type === "Ride") ?? wellnessToday.sport_info[0];
+              const eftp = ride?.eftp != null ? Math.round(ride.eftp) : null;
+              const pmax = ride?.pMax != null ? Math.round(ride.pMax) : null;
+              const show = eftp != null || pmax != null;
+              return show ? (
+                <Text style={[styles.hint, { marginBottom: 6 }]}>
+                  {eftp != null ? `eFTP ${eftp}` : ""}{eftp != null && pmax != null ? " · " : ""}{pmax != null ? `pMax ${pmax}` : ""}
+                </Text>
+              ) : null;
+            })() : null}
             {workouts.length > 0 ? workouts.map((act) => (
               <View key={act.id} style={styles.activityRow}>
                 <Text style={styles.calendarDate}>{formatEventDate(act.start_date)}</Text>

@@ -97,7 +97,7 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
     wellness_today = None
     ctl_atl_tsb = None
     if w:
-        wellness_today = {"sleep_hours": w.sleep_hours, "rhr": w.rhr, "hrv": w.hrv}
+        wellness_today = {"sleep_hours": w.sleep_hours, "rhr": w.rhr, "hrv": w.hrv, "weight_kg": w.weight_kg}
         ctl_atl_tsb = {"ctl": w.ctl, "atl": w.atl, "tsb": w.tsb}
     if wellness_today is None:
         wellness_today = {}
@@ -151,7 +151,7 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
     # Wellness history (last N days)
     wellness_from = today - timedelta(days=CHAT_CONTEXT_DAYS)
     r_well = await session.execute(
-        select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb).where(
+        select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb, WellnessCache.weight_kg).where(
             WellnessCache.user_id == user_id,
             WellnessCache.date >= wellness_from,
             WellnessCache.date <= today,
@@ -161,7 +161,7 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
     for row in r_well.all():
         wellness_history.append({
             "date": row[0].isoformat() if row[0] else None,
-            "sleep_hours": row[1], "rhr": row[2], "hrv": row[3], "ctl": row[4], "atl": row[5], "tsb": row[6],
+            "sleep_hours": row[1], "rhr": row[2], "hrv": row[3], "ctl": row[4], "atl": row[5], "tsb": row[6], "weight_kg": row[7],
         })
 
     # Recent workouts (manual/FIT)

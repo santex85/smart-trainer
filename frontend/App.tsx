@@ -161,6 +161,10 @@ export default function App() {
                 setRefreshSleepTrigger((t) => t + 1);
                 setCameraVisible(false);
               }}
+              onWellnessSaved={() => {
+                setRefreshSleepTrigger((t) => t + 1);
+                setCameraVisible(false);
+              }}
             />
           </View>
         )}

@@ -1,15 +1,14 @@
 """
-Single-call Gemini: classify image as food or sleep and return analysis in one round-trip.
+Single-call Gemini: classify image as food, sleep, or wellness (RHR/HRV) and return analysis in one round-trip.
 """
 from __future__ import annotations
-
-import json
 
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 from app.config import settings
 from app.schemas.nutrition import NutritionAnalysisResult
+from app.schemas.photo import WellnessPhotoResult
 from app.schemas.sleep_extraction import SleepExtractionResult
 from app.services.gemini_common import run_generate_content
 
@@ -31,30 +30,27 @@ SAFETY_SETTINGS = {
 }
 
 SYSTEM_PROMPT = """You are an image analyzer. In ONE response you must:
-1) Classify the image as either "food" or "sleep".
-2) If food: analyze the meal and fill the "food" object; leave "sleep" null.
-3) If sleep: extract sleep data and fill the "sleep" object; leave "food" null.
+1) Classify the image as "food", "sleep", or "wellness".
+2) If food: fill "food" object; set "sleep" and "wellness" to null.
+3) If sleep: fill "sleep" object; set "food" and "wellness" to null.
+4) If wellness: fill "wellness" object with rhr and/or hrv; set "food" and "sleep" to null.
 
 Classification:
 - "food": a photo of a real meal, plate, or dish (actual food on a table/plate).
 - "sleep": any screenshot, chart, or report from a sleep/health app showing sleep data (duration, stages, quality score, graphs, Oura/Garmin/Whoop/Apple Health/Fitbit, any UI with sleep hours or phases).
+- "wellness": a screenshot or photo showing RHR (resting heart rate / пульс в покое) and/or HRV (heart rate variability), e.g. from Garmin Connect, Whoop, Oura, Apple Health, Fitbit, watch app, or any UI displaying these numbers.
 
-Output ONLY a single JSON object with exactly these three fields:
-- type: string, either "food" or "sleep"
-- food: object or null (see below; non-null only when type is "food")
-- sleep: object or null (see below; non-null only when type is "sleep")
+Output ONLY a single JSON object with exactly these fields:
+- type: string, either "food", "sleep", or "wellness"
+- food: object or null (non-null only when type is "food")
+- sleep: object or null (non-null only when type is "sleep")
+- wellness: object or null (non-null only when type is "wellness"). When present: { "rhr": number or null, "hrv": number or null }. Extract the resting heart rate (bpm) and HRV (e.g. ms or score) from the image; use null if not visible.
 
-When type is "food", set "food" to an object with exactly: name (short dish name), portion_grams, calories, protein_g, fat_g, carbs_g. All numbers non-negative. Estimate dish density, hidden ingredients (oils, sauces), portion volume. No explanations. Set "sleep" to null.
+When type is "food", set "food" to an object with exactly: name (short dish name), portion_grams, calories, protein_g, fat_g, carbs_g. All numbers non-negative. Set "sleep" and "wellness" to null.
 
-When type is "sleep", set "sleep" to an object with optional fields (null for missing). Extract from sleep tracker screens (any language, e.g. Сон, Фазы сна, Факторы влияющие на показатели сна). Do NOT round: use exact decimals (7h 54m = 7.9). Fields:
-- date (YYYY-MM-DD), sleep_hours, sleep_minutes, actual_sleep_hours, actual_sleep_minutes, time_in_bed_min
-- quality_score (0-100), score_delta, efficiency_pct, rest_min
-- bedtime, wake_time (HH:MM), sleep_periods (array of strings like "22:47 - 04:23")
-- deep_sleep_min, rem_min, light_sleep_min, awake_min (minutes; estimate from "Фазы сна" graph if needed)
-- factor_ratings: object with keys actual_sleep_time, deep_sleep, rem_sleep, rest, latency; values exact labels from image (e.g. "Внимание", "Удовлетворительно", "Хорошо", "Отлично")
-- sleep_phases: array of {"start":"HH:MM","end":"HH:MM","phase":"deep"|"rem"|"light"|"awake"}
-- latency_min, awakenings, source_app, raw_notes
-Set "food" to null.
+When type is "sleep", set "sleep" to an object with optional fields (null for missing). Extract from sleep tracker screens. Do NOT round: use exact decimals. Fields: date, sleep_hours, sleep_minutes, actual_sleep_hours, actual_sleep_minutes, time_in_bed_min, quality_score, score_delta, efficiency_pct, rest_min, bedtime, wake_time, sleep_periods, deep_sleep_min, rem_min, light_sleep_min, awake_min, factor_ratings, sleep_phases, latency_min, awakenings, source_app, raw_notes. Set "food" and "wellness" to null.
+
+When type is "wellness", set "wellness" to { "rhr": <number or null>, "hrv": <number or null> }. Extract only visible values. Set "food" and "sleep" to null.
 
 Output ONLY valid JSON. No markdown, no code fences."""
 
@@ -67,10 +63,10 @@ def _configure_genai() -> None:
 
 async def classify_and_analyze_image(
     image_bytes: bytes,
-) -> tuple[str, NutritionAnalysisResult | SleepExtractionResult]:
+) -> tuple[str, NutritionAnalysisResult | SleepExtractionResult | WellnessPhotoResult]:
     """
-    Single Gemini call: classify image as food or sleep and return the analysis.
-    Returns ("food", NutritionAnalysisResult) or ("sleep", SleepExtractionResult).
+    Single Gemini call: classify image as food, sleep, or wellness and return the analysis.
+    Returns ("food", NutritionAnalysisResult), ("sleep", SleepExtractionResult), or ("wellness", WellnessPhotoResult).
     """
     _configure_genai()
     model = genai.GenerativeModel(
@@ -89,7 +85,7 @@ async def classify_and_analyze_image(
     data = _parse_sleep_json(text)
 
     kind = (data.get("type") or "food").strip().lower()
-    if kind not in ("food", "sleep"):
+    if kind not in ("food", "sleep", "wellness"):
         kind = "food"
 
     if kind == "food":
@@ -97,6 +93,22 @@ async def classify_and_analyze_image(
         if not food_payload or not isinstance(food_payload, dict):
             raise ValueError("Model returned type 'food' but food object is missing or invalid")
         return "food", NutritionAnalysisResult(**food_payload)
+
+    if kind == "wellness":
+        wellness_payload = data.get("wellness")
+        if not wellness_payload or not isinstance(wellness_payload, dict):
+            raise ValueError("Model returned type 'wellness' but wellness object is missing or invalid")
+        rhr = wellness_payload.get("rhr")
+        hrv = wellness_payload.get("hrv")
+        if isinstance(rhr, (int, float)):
+            rhr = int(rhr)
+        else:
+            rhr = None
+        if isinstance(hrv, (int, float)):
+            hrv = float(hrv)
+        else:
+            hrv = None
+        return "wellness", WellnessPhotoResult(rhr=rhr, hrv=hrv)
 
     # kind == "sleep"
     sleep_payload = data.get("sleep")

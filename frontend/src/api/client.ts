@@ -204,9 +204,15 @@ export interface SleepExtractionResponse {
   created_at: string;
 }
 
+export interface WellnessPhotoResult {
+  rhr?: number | null;
+  hrv?: number | null;
+}
+
 export type PhotoAnalyzeResponse =
   | { type: "food"; food: NutritionResult }
-  | { type: "sleep"; sleep: SleepExtractionResponse };
+  | { type: "sleep"; sleep: SleepExtractionResponse }
+  | { type: "wellness"; wellness: WellnessPhotoResult };
 
 export interface NutritionDayEntry {
   id: number;
@@ -241,6 +247,8 @@ export interface WellnessDay {
   ctl?: number;
   atl?: number;
   tsb?: number;
+  weight_kg?: number;
+  sport_info?: Array<{ type?: string; eftp?: number; wPrime?: number; pMax?: number }>;
 }
 
 export interface EventItem {

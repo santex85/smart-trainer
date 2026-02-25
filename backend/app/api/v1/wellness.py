@@ -25,6 +25,8 @@ def _row_to_response(row: WellnessCache) -> dict:
         "ctl": row.ctl,
         "atl": row.atl,
         "tsb": row.tsb,
+        "weight_kg": row.weight_kg,
+        "sport_info": row.sport_info,
     }
 
 
@@ -72,6 +74,8 @@ async def upsert_wellness(
             row.rhr = body.rhr
         if body.hrv is not None:
             row.hrv = body.hrv
+        if body.weight_kg is not None:
+            row.weight_kg = body.weight_kg
     else:
         session.add(
             WellnessCache(
@@ -80,6 +84,7 @@ async def upsert_wellness(
                 sleep_hours=body.sleep_hours,
                 rhr=body.rhr,
                 hrv=body.hrv,
+                weight_kg=body.weight_kg,
             )
         )
     await session.commit()

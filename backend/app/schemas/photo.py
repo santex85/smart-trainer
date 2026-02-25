@@ -16,4 +16,16 @@ class PhotoSleepResponse(BaseModel):
     sleep: SleepExtractionResponse
 
 
-PhotoAnalyzeResponse = Union[PhotoFoodResponse, PhotoSleepResponse]
+class WellnessPhotoResult(BaseModel):
+    """RHR/HRV extracted from a wellness screenshot."""
+
+    rhr: int | None = None
+    hrv: float | None = None
+
+
+class PhotoWellnessResponse(BaseModel):
+    type: Literal["wellness"] = "wellness"
+    wellness: WellnessPhotoResult
+
+
+PhotoAnalyzeResponse = Union[PhotoFoodResponse, PhotoSleepResponse, PhotoWellnessResponse]

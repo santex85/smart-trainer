@@ -1,6 +1,7 @@
 from datetime import date
 from sqlalchemy import Float, Date, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import JSON
 from app.db.base import Base
 
 
@@ -16,5 +17,7 @@ class WellnessCache(Base):
     ctl: Mapped[float | None] = mapped_column(Float, nullable=True)  # chronic training load
     atl: Mapped[float | None] = mapped_column(Float, nullable=True)  # acute training load
     tsb: Mapped[float | None] = mapped_column(Float, nullable=True)  # training stress balance
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)  # from Intervals or manual
+    sport_info: Mapped[list | dict | None] = mapped_column(JSON, nullable=True)  # Intervals sportInfo: [{type, eftp, wPrime, pMax}]
 
     user: Mapped["User"] = relationship("User", back_populates="wellness_cache")

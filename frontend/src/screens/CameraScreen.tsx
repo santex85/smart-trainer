@@ -16,9 +16,11 @@ import {
   uploadPhotoForAnalysis,
   createNutritionEntry,
   saveSleepFromPreview,
+  createOrUpdateWellness,
   type NutritionResult,
   type SleepExtractionResponse,
   type SleepExtractedData,
+  type WellnessPhotoResult,
 } from "../api/client";
 import { devLog, getLogs, clearLogs, subscribe, isDevLogEnabled, type LogEntry } from "../utils/devLog";
 
@@ -91,16 +93,21 @@ export function CameraScreen({
   onClose,
   onSaved,
   onSleepSaved,
+  onWellnessSaved,
 }: {
   onClose: () => void;
   onSaved?: (result: NutritionResult) => void;
   onSleepSaved?: (result: SleepExtractionResponse) => void;
+  onWellnessSaved?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedPhotoUri, setSelectedPhotoUri] = useState<string | null>(null);
   const [photoResult, setPhotoResult] = useState<
-    { type: "food"; food: NutritionResult } | { type: "sleep"; sleep: SleepExtractionResponse } | null
+    | { type: "food"; food: NutritionResult }
+    | { type: "sleep"; sleep: SleepExtractionResponse }
+    | { type: "wellness"; wellness: WellnessPhotoResult }
+    | null
   >(null);
   const [selectedMealType, setSelectedMealType] = useState<string>("other");
   const [editedFood, setEditedFood] = useState<{
@@ -116,6 +123,7 @@ export function CameraScreen({
   const isPreview = (): boolean => {
     if (!photoResult) return false;
     if (photoResult.type === "food") return (photoResult.food.id ?? 0) === 0;
+    if (photoResult.type === "wellness") return true;
     return (photoResult.sleep.id ?? 0) === 0;
   };
 
@@ -246,6 +254,14 @@ export function CameraScreen({
           date: today,
         });
         onSaved?.({ ...photoResult.food, ...payload });
+      } else if (photoResult.type === "wellness") {
+        const today = new Date().toISOString().slice(0, 10);
+        await createOrUpdateWellness({
+          date: today,
+          rhr: photoResult.wellness.rhr ?? undefined,
+          hrv: photoResult.wellness.hrv ?? undefined,
+        });
+        onWellnessSaved?.();
       } else {
         const saved = await saveSleepFromPreview(photoResult.sleep.extracted_data);
         onSleepSaved?.(saved);
@@ -435,10 +451,43 @@ export function CameraScreen({
           </View>
         )}
 
+        {photoResult?.type === "wellness" && !loading && (
+          <View style={styles.result}>
+            {selectedPhotoUri ? (
+              <Image source={{ uri: selectedPhotoUri }} style={styles.photoThumbnail} resizeMode="cover" />
+            ) : null}
+            <Text style={styles.resultName}>Распознаны пульс и HRV</Text>
+            <View style={styles.sleepLines}>
+              {photoResult.wellness.rhr != null && (
+                <Text style={styles.sleepLine}>Пульс в покое (RHR): {photoResult.wellness.rhr} уд/мин</Text>
+              )}
+              {photoResult.wellness.hrv != null && (
+                <Text style={styles.sleepLine}>HRV: {photoResult.wellness.hrv}</Text>
+              )}
+              {photoResult.wellness.rhr == null && photoResult.wellness.hrv == null && (
+                <Text style={styles.hint}>Не удалось извлечь RHR или HRV.</Text>
+              )}
+            </View>
+            <Text style={styles.resultWhere}>Проверьте данные и нажмите Сохранить.</Text>
+            <View style={styles.previewActions}>
+              <TouchableOpacity
+                style={[styles.doneBtn, styles.saveBtn]}
+                onPress={handleSave}
+                disabled={saving}
+              >
+                <Text style={styles.doneBtnText}>{saving ? "…" : "Сохранить"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel} disabled={saving}>
+                <Text style={styles.cancelBtnText}>Отмена</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {!photoResult && !loading && (
           <>
             <Text style={styles.flowHint}>
-              Выберите фото — мы определим, еда это или данные сна, и обработаем.
+              Выберите фото — мы определим: еда, сон или пульс/HRV, и обработаем.
             </Text>
             <View style={styles.actions}>
               <TouchableOpacity style={styles.button} onPress={takePhoto}>

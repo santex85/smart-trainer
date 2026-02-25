@@ -9,8 +9,9 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.food_log import FoodLog, MealType
 from app.models.user import User
+from app.models.wellness_cache import WellnessCache
 from app.schemas.nutrition import NutritionAnalyzeResponse
-from app.schemas.photo import PhotoAnalyzeResponse, PhotoFoodResponse, PhotoSleepResponse
+from app.schemas.photo import PhotoAnalyzeResponse, PhotoFoodResponse, PhotoSleepResponse, PhotoWellnessResponse, WellnessPhotoResult
 from app.schemas.sleep_extraction import SleepExtractionResponse
 from app.models.sleep_extraction import SleepExtraction
 from app.schemas.sleep_extraction import SleepExtractionResult
@@ -107,6 +108,37 @@ async def analyze_photo(
                 fat_g=result.fat_g,
                 carbs_g=result.carbs_g,
             ),
+        )
+
+    if kind == "wellness":
+        result_wellness: WellnessPhotoResult = result
+        today = date.today()
+        if save and (result_wellness.rhr is not None or result_wellness.hrv is not None):
+            r = await session.execute(
+                select(WellnessCache).where(
+                    WellnessCache.user_id == user.id,
+                    WellnessCache.date == today,
+                )
+            )
+            row = r.scalar_one_or_none()
+            if row:
+                if result_wellness.rhr is not None:
+                    row.rhr = float(result_wellness.rhr)
+                if result_wellness.hrv is not None:
+                    row.hrv = float(result_wellness.hrv)
+            else:
+                session.add(
+                    WellnessCache(
+                        user_id=user.id,
+                        date=today,
+                        rhr=float(result_wellness.rhr) if result_wellness.rhr is not None else None,
+                        hrv=float(result_wellness.hrv) if result_wellness.hrv is not None else None,
+                    )
+                )
+            await session.commit()
+        return PhotoWellnessResponse(
+            type="wellness",
+            wellness=WellnessPhotoResult(rhr=result_wellness.rhr, hrv=result_wellness.hrv),
         )
 
     # kind == "sleep"

@@ -66,7 +66,20 @@ async def list_workouts(
         ).order_by(Workout.start_date.desc())
     )
     rows = r.scalars().all()
-    return [_row_to_response(row) for row in rows]
+    # Deduplicate: by (user_id, external_id) when set; else by (start_date, name, duration_sec, tss)
+    seen: set[str] = set()
+    out: list[dict] = []
+    for row in rows:
+        if row.external_id:
+            key = f"ext:{row.external_id}"
+        else:
+            start_iso = row.start_date.isoformat() if row.start_date else ""
+            key = f"manual:{start_iso}|{row.name or ''}|{row.duration_sec or ''}|{row.tss or ''}"
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(_row_to_response(row))
+    return out
 
 
 @router.post("", response_model=dict, status_code=201)
