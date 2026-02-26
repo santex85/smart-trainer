@@ -207,15 +207,9 @@ async def save_sleep_from_preview(
     """
     Save previously extracted sleep data (e.g. from analyze with save=false).
     """
-    stored = body.model_dump(mode="json")
-    record = SleepExtraction(
-        user_id=user.id,
-        extracted_data=json.dumps(stored, ensure_ascii=False),
-    )
-    session.add(record)
+    record, data = await save_sleep_result(session, user.id, body)
     await session.commit()
     await session.refresh(record)
-    data = json.loads(record.extracted_data)
     return SleepExtractionResponse(
         id=record.id,
         extracted_data=data,

@@ -18,7 +18,6 @@ from app.config import settings
 from app.models.athlete_profile import AthleteProfile
 from app.models.chat_message import ChatMessage, MessageRole
 from app.models.food_log import FoodLog
-from app.models.sleep_extraction import SleepExtraction
 from app.models.user import User
 from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
@@ -240,24 +239,6 @@ async def run_daily_decision(
             ctl_atl_tsb = {"ctl": fitness["ctl"], "atl": fitness["atl"], "tsb": fitness["tsb"]}
     if wellness_today is None:
         wellness_today = {}
-    if wellness_today.get("sleep_hours") is None:
-        from_dt_sleep = datetime.combine(today - timedelta(days=3), datetime.min.time()).replace(tzinfo=timezone.utc)
-        r2 = await session.execute(
-            select(SleepExtraction.extracted_data).where(
-                SleepExtraction.user_id == user_id,
-                SleepExtraction.created_at >= from_dt_sleep,
-            ).order_by(SleepExtraction.created_at.desc()).limit(1)
-        )
-        row2 = r2.one_or_none()
-        if row2:
-            try:
-                data = json.loads(row2[0]) if isinstance(row2[0], str) else row2[0]
-                hours = data.get("actual_sleep_hours") or data.get("sleep_hours")
-                if hours is not None:
-                    wellness_today["sleep_hours"] = float(hours)
-                    wellness_today["sleep_source"] = "photo"
-            except (json.JSONDecodeError, TypeError, ValueError):
-                pass
 
     user_row = r_user.one_or_none()
     email = user_row[0] if user_row else None

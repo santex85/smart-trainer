@@ -134,24 +134,6 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
         ctl_atl_tsb = {"ctl": w.ctl, "atl": w.atl, "tsb": w.tsb}
     if wellness_today is None:
         wellness_today = {}
-    if wellness_today.get("sleep_hours") is None:
-        sleep_from_3 = today - timedelta(days=3)
-        r_w_sleep = await session.execute(
-            select(SleepExtraction.extracted_data).where(
-                SleepExtraction.user_id == user_id,
-                SleepExtraction.created_at >= datetime.combine(sleep_from_3, datetime.min.time()).replace(tzinfo=timezone.utc),
-            ).order_by(SleepExtraction.created_at.desc()).limit(1)
-        )
-        row_w = r_w_sleep.one_or_none()
-        if row_w:
-            try:
-                data = json.loads(row_w[0]) if isinstance(row_w[0], str) else row_w[0]
-                hours = data.get("actual_sleep_hours") or data.get("sleep_hours")
-                if hours is not None:
-                    wellness_today["sleep_hours"] = float(hours)
-                    wellness_today["sleep_source"] = "photo"
-            except (json.JSONDecodeError, TypeError, ValueError):
-                pass
 
     sleep_entries = []
     for created_at, data_json in r_sleep_list.all():

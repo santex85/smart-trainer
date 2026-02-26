@@ -20,7 +20,6 @@ import {
   runOrchestrator,
   getWellness,
   createOrUpdateWellness,
-  getSleepExtractions,
   getAthleteProfile,
   updateAthleteProfile,
   getWorkouts,
@@ -545,7 +544,6 @@ export function DashboardScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [wellnessToday, setWellnessToday] = useState<WellnessDay | null>(null);
-  const [sleepFromPhoto, setSleepFromPhoto] = useState<{ sleep_hours?: number; actual_sleep_hours?: number; sleep_date?: string } | null>(null);
   const [athleteProfile, setAthleteProfile] = useState<AthleteProfileResponse | null>(null);
   const [wellnessEditVisible, setWellnessEditVisible] = useState(false);
   const [workoutAddVisible, setWorkoutAddVisible] = useState(false);
@@ -574,7 +572,7 @@ export function DashboardScreen({
     setNutritionLoadError(false);
     try {
       const activitiesStart = addDays(today, -14);
-      const [nResult, wellnessList, sleepFromPhotoResult, profile, workoutsList, fitness] = await Promise.all([
+      const [nResult, wellnessList, profile, workoutsList, fitness] = await Promise.all([
         getNutritionDay(nutritionDate).then((n) => ({ ok: true as const, data: n })).catch(() => ({ ok: false as const, data: null })),
         getWellness(addDays(today, -6), addDays(today, 1)).then((w) => {
           if (!w || w.length === 0) return null;
@@ -584,16 +582,6 @@ export function DashboardScreen({
           const withSleep = w.filter((d) => (d?.sleep_hours ?? 0) > 0).sort((a, b) => String(b?.date ?? "").localeCompare(String(a?.date ?? "")));
           return withSleep[0] ?? null;
         }).catch(() => null),
-        getSleepExtractions(addDays(today, -59), today).then((list) => {
-          if (!list || list.length === 0) return null;
-          const todayNorm = today.slice(0, 10);
-          const norm = (d: string | null | undefined) => (d ? String(d).slice(0, 10) : "");
-          const withHours = (arr: typeof list) => arr.find((x) => (x.actual_sleep_hours ?? x.sleep_hours) != null);
-          const forToday = list.filter((x) => norm(x.sleep_date) === todayNorm);
-          const chosen = withHours(forToday) ?? withHours(list);
-          if (!chosen) return null;
-          return { sleep_hours: chosen.sleep_hours, actual_sleep_hours: chosen.actual_sleep_hours, sleep_date: chosen.sleep_date ?? undefined };
-        }).catch(() => null),
         getAthleteProfile().catch(() => null),
         getWorkouts(activitiesStart, today).catch(() => []),
         getWorkoutFitness().catch(() => null),
@@ -601,7 +589,6 @@ export function DashboardScreen({
       setNutritionDay(nResult.ok ? nResult.data : null);
       setNutritionLoadError(!nResult.ok);
       setWellnessToday(wellnessList);
-      setSleepFromPhoto(wellnessList?.sleep_hours != null ? null : sleepFromPhotoResult);
       setAthleteProfile(profile);
       setWorkouts(workoutsList ?? []);
       setWorkoutFitness(fitness ?? null);
@@ -609,7 +596,6 @@ export function DashboardScreen({
       setNutritionDay(null);
       setNutritionLoadError(true);
       setWellnessToday(null);
-      setSleepFromPhoto(null);
       setAthleteProfile(null);
       setWorkouts([]);
       setWorkoutFitness(null);
@@ -837,19 +823,17 @@ export function DashboardScreen({
               </TouchableOpacity>
             </View>
             <Text style={styles.hint}>{t("wellness.hint")}</Text>
-            {(wellnessToday || sleepFromPhoto || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
+            {(wellnessToday || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
               <>
                 <Text style={styles.cardValue}>
-                  {(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours) != null
-                    ? `Сон ${(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours)} ч`
-                    : "Сон —"}
+                  {wellnessToday?.sleep_hours != null ? `Сон ${wellnessToday.sleep_hours} ч` : "Сон —"}
                   {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
                   {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
                   {(wellnessToday?.weight_kg ?? athleteProfile?.weight_kg) != null
                     ? ` · Вес ${wellnessToday?.weight_kg ?? athleteProfile?.weight_kg} кг`
                     : " · Вес —"}
                 </Text>
-                {(wellnessToday?.sleep_hours ?? sleepFromPhoto?.actual_sleep_hours ?? sleepFromPhoto?.sleep_hours) == null && (
+                {wellnessToday?.sleep_hours == null && (
                   <Text style={styles.hint}>Введите сон вручную (Изменить) или загрузите фото сна через камеру.</Text>
                 )}
               </>
