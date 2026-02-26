@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class SleepPhaseSegment(BaseModel):
@@ -38,6 +38,18 @@ class SleepExtractionResult(BaseModel):
         None,
         description='e.g. {"actual_sleep_time": "Внимание", "deep_sleep": "Удовлетворительно", "rem_sleep": "Внимание", "rest": "Хорошо", "latency": "Отлично"}',
     )
+
+    @field_validator("factor_ratings", mode="before")
+    @classmethod
+    def coerce_factor_ratings(cls, v: object) -> dict[str, str] | None:
+        """Accept dict or None; if Gemini returns a string (e.g. free text), use None."""
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            return v
+        if isinstance(v, str):
+            return None
+        return None
 
     # Таймлайн фаз из графика: сегменты по времени (оценка по длине полос)
     sleep_phases: list[dict[str, Any]] | None = Field(
