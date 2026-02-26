@@ -530,7 +530,7 @@ export function DashboardScreen({
   onOpenChat: () => void;
   onOpenAthleteProfile?: () => void;
   onOpenIntervals?: () => void;
-  onSyncIntervals?: () => Promise<void>;
+  onSyncIntervals?: () => Promise<{ activities_synced?: number; wellness_days_synced?: number } | void>;
   refreshNutritionTrigger?: number;
   refreshSleepTrigger?: number;
   refreshWellnessTrigger?: number;
@@ -872,7 +872,14 @@ export function DashboardScreen({
                     onPress={async () => {
                       setIntervalsSyncLoading(true);
                       try {
-                        await onSyncIntervals();
+                        const result = await onSyncIntervals();
+                        const activities = result?.activities_synced ?? 0;
+                        const wellness = result?.wellness_days_synced ?? 0;
+                        const message =
+                          activities > 0 || wellness > 0
+                            ? `Синхронизировано: ${activities} тренировок, ${wellness} дн. wellness.`
+                            : "Готово. Данных за период нет.";
+                        Alert.alert("Синхронизация Intervals", message);
                       } catch (e) {
                         Alert.alert("Ошибка синхронизации", e instanceof Error ? e.message : "Не удалось синхронизировать");
                       } finally {

@@ -103,6 +103,17 @@ async def trigger_sync(
     except Exception as e:
         logging.exception("Intervals sync failed for user_id=%s: %s", uid, e)
         raise HTTPException(status_code=502, detail="Intervals.icu sync failed.")
+    logging.info(
+        "Intervals sync completed for user_id=%s: activities_synced=%s, wellness_days_synced=%s",
+        uid,
+        activities_count,
+        wellness_count,
+    )
+    if wellness_count == 0:
+        logging.warning(
+            "Intervals sync returned 0 wellness days for user_id=%s; Intervals.icu may have no wellness data for the range.",
+            uid,
+        )
     return {
         "status": "synced",
         "user_id": uid,

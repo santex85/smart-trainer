@@ -511,8 +511,15 @@ export async function unlinkIntervals(): Promise<{ status: string }> {
   return api<{ status: string }>("/api/v1/intervals/unlink", { method: "POST" });
 }
 
-export async function syncIntervals(): Promise<{ status: string; user_id?: number }> {
-  return api<{ status: string; user_id?: number }>("/api/v1/intervals/sync", { method: "POST" });
+export interface SyncIntervalsResponse {
+  status: string;
+  user_id?: number;
+  activities_synced?: number;
+  wellness_days_synced?: number;
+}
+
+export async function syncIntervals(): Promise<SyncIntervalsResponse> {
+  return api<SyncIntervalsResponse>("/api/v1/intervals/sync", { method: "POST" });
 }
 
 export interface NutritionGoals {

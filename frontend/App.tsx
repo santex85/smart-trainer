@@ -128,8 +128,9 @@ export default function App() {
                   onOpenAthleteProfile={() => navigation.navigate("Profile")}
                   onOpenIntervals={() => setIntervalsVisible(true)}
                   onSyncIntervals={async () => {
-                    await syncIntervals();
+                    const result = await syncIntervals();
                     setRefreshWellnessTrigger((t) => t + 1);
+                    return result;
                   }}
                   refreshNutritionTrigger={refreshNutritionTrigger}
                   refreshSleepTrigger={refreshSleepTrigger}

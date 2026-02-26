@@ -1,5 +1,6 @@
 """Sync Intervals.icu data into our DB: activities -> workouts, wellness -> wellness_cache (sleep, RHR, HRV, CTL/ATL/TSB)."""
 
+import logging
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -50,6 +51,24 @@ async def sync_intervals_to_db(
     oldest = newest - timedelta(days=SYNC_DAYS)
     activities = await get_activities(athlete_id, api_key, oldest, newest, limit=500)
     wellness_days = await get_wellness(athlete_id, api_key, oldest, newest)
+
+    if not wellness_days:
+        logging.warning(
+            "Intervals.icu get_wellness returned no days for range %s..%s (user_id=%s)",
+            oldest.isoformat(),
+            newest.isoformat(),
+            user_id,
+        )
+    else:
+        first_date = wellness_days[0].date.isoformat() if wellness_days[0].date else "?"
+        last_date = wellness_days[-1].date.isoformat() if wellness_days[-1].date else "?"
+        logging.info(
+            "Intervals.icu get_wellness returned %s days for user_id=%s (first=%s, last=%s)",
+            len(wellness_days),
+            user_id,
+            first_date,
+            last_date,
+        )
 
     # Deduplicate activities by external_id (same activity may appear with different id representation)
     seen_ids: set[str] = set()
