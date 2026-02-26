@@ -51,6 +51,26 @@ class SleepExtractionResult(BaseModel):
             return None
         return None
 
+    @field_validator("sleep_phases", mode="before")
+    @classmethod
+    def coerce_sleep_phases(cls, v: object) -> list[dict[str, Any]] | None:
+        """Accept list of dicts only; if Gemini returns a string (e.g. full text block), use None."""
+        if v is None:
+            return None
+        if isinstance(v, list) and all(isinstance(x, dict) for x in v):
+            return v
+        return None
+
+    @field_validator("sleep_periods", mode="before")
+    @classmethod
+    def coerce_sleep_periods(cls, v: object) -> list[str] | None:
+        """Accept list of strings only; if Gemini returns count (int), use None."""
+        if v is None:
+            return None
+        if isinstance(v, list) and all(isinstance(x, str) for x in v):
+            return v
+        return None
+
     # Таймлайн фаз из графика: сегменты по времени (оценка по длине полос)
     sleep_phases: list[dict[str, Any]] | None = Field(
         None,
