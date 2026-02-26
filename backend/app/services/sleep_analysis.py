@@ -8,7 +8,6 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.sql import func
 
 from app.models.sleep_extraction import SleepExtraction
 from app.models.wellness_cache import WellnessCache
@@ -23,10 +22,25 @@ def _payload_for_storage(result: SleepExtractionResult) -> dict[str, Any]:
 
 
 def _sleep_date_from_result(result: SleepExtractionResult) -> date_cls:
-    if result.date:
+    if not result.date:
+        return date_cls.today()
+    s = str(result.date).strip()
+    # ISO YYYY-MM-DD
+    if len(s) >= 10 and s[4] == "-" and s[7] == "-":
         try:
-            return date_cls.fromisoformat(str(result.date)[:10])
+            return date_cls.fromisoformat(s[:10])
         except ValueError:
+            pass
+    # D/M or D/M/YYYY (e.g. "26/2" or "26/2/2026")
+    parts = s.replace("-", "/").split("/")
+    if len(parts) >= 2:
+        try:
+            day = int(parts[0])
+            month = int(parts[1])
+            year = int(parts[2]) if len(parts) >= 3 else date_cls.today().year
+            if 1 <= month <= 12 and 1 <= day <= 31 and 2000 <= year <= 2100:
+                return date_cls(year, month, day)
+        except (ValueError, IndexError):
             pass
     return date_cls.today()
 
@@ -60,8 +74,7 @@ async def _upsert_sleep_into_wellness_cache(
     stmt = stmt.on_conflict_do_update(
         constraint="uq_wellness_cache_user_id_date",
         set_={
-            # Do not overwrite manual/Intervals values; only fill if missing.
-            "sleep_hours": func.coalesce(WellnessCache.sleep_hours, stmt.excluded.sleep_hours),
+            "sleep_hours": stmt.excluded.sleep_hours,
         },
     )
     await session.execute(stmt)
