@@ -5,6 +5,7 @@ import logging
 from datetime import date, timedelta
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -99,6 +100,23 @@ async def trigger_sync(
     try:
         activities_count, wellness_count = await sync_intervals_to_db(
             session, uid, creds.athlete_id, api_key
+        )
+    except httpx.TimeoutException as e:
+        logging.exception("Intervals sync failed for user_id=%s: %s", uid, e)
+        raise HTTPException(
+            status_code=503,
+            detail="Sync timed out. Intervals.icu is slow; try again later.",
+        )
+    except httpx.HTTPStatusError as e:
+        logging.exception("Intervals sync failed for user_id=%s: %s", uid, e)
+        if e.response.status_code in (401, 403):
+            raise HTTPException(
+                status_code=503,
+                detail="Invalid Intervals.icu API key or athlete ID. Check Settings.",
+            )
+        raise HTTPException(
+            status_code=503,
+            detail="Intervals.icu sync failed. Try again later or check your connection.",
         )
     except Exception as e:
         logging.exception("Intervals sync failed for user_id=%s: %s", uid, e)

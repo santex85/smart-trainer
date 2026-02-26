@@ -66,7 +66,8 @@ async def get_wellness(
     client = get_http_client()
     url = f"{BASE_URL}/athlete/{athlete_id}/wellness"
     params = {"oldest": oldest.isoformat(), "newest": newest.isoformat()}
-    r = await client.get(url, params=params, auth=_basic_auth(api_key))
+    timeout = settings.intervals_sync_timeout_seconds
+    r = await client.get(url, params=params, auth=_basic_auth(api_key), timeout=timeout)
     if r.status_code >= 400:
         _log_response_error("GET", url, r)
     r.raise_for_status()
@@ -125,7 +126,8 @@ async def get_activities(
         "limit": limit,
         "fields": "id,name,start_date_local,type,distance,moving_time,icu_training_load",
     }
-    r = await client.get(url, params=params, auth=_basic_auth(api_key))
+    timeout = settings.intervals_sync_timeout_seconds
+    r = await client.get(url, params=params, auth=_basic_auth(api_key), timeout=timeout)
     if r.status_code >= 400:
         _log_response_error("GET", url, r)
     r.raise_for_status()
