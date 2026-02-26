@@ -16,5 +16,5 @@ class ChatThread(Base):
 
     user: Mapped["User"] = relationship("User", back_populates="chat_threads")
     messages: Mapped[list["ChatMessage"]] = relationship(
-        "ChatMessage", back_populates="thread", cascade="all, delete-orphan", order_by="timestamp"
+        "ChatMessage", back_populates="thread", cascade="all, delete-orphan", order_by="ChatMessage.timestamp"
     )
