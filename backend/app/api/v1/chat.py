@@ -1,24 +1,27 @@
-"""Chat with AI coach: history, send message, optional orchestrator run."""
+"""Chat with AI coach: history, send message, optional orchestrator run, optional FIT upload."""
 
 import asyncio
+import hashlib
 import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.athlete_profile import AthleteProfile
 from app.models.chat_message import ChatMessage, MessageRole
+from app.models.chat_thread import ChatThread
 from app.models.food_log import FoodLog
 from app.models.sleep_extraction import SleepExtraction
 from app.models.user import User
 from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
+from app.services.fit_parser import parse_fit_session
 from app.services.orchestrator import run_daily_decision
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -199,21 +202,144 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
     return "\n".join(parts)
 
 
+def _fit_data_to_summary(data: dict) -> str:
+    """Build a short text summary of parsed FIT session for AI context."""
+    parts = []
+    start = data.get("start_date")
+    if start:
+        parts.append(f"Date/time: {start}")
+    if data.get("duration_sec"):
+        m = data["duration_sec"] // 60
+        parts.append(f"Duration: {m} min")
+    if data.get("distance_m"):
+        parts.append(f"Distance: {data['distance_m'] / 1000:.1f} km")
+    if data.get("sport"):
+        parts.append(f"Sport: {data['sport']}")
+    if data.get("avg_heart_rate") is not None:
+        parts.append(f"Avg HR: {data['avg_heart_rate']} bpm")
+    if data.get("max_heart_rate") is not None:
+        parts.append(f"Max HR: {data['max_heart_rate']} bpm")
+    if data.get("avg_power") is not None:
+        parts.append(f"Avg power: {data['avg_power']} W")
+    if data.get("normalized_power") is not None:
+        parts.append(f"NP: {data['normalized_power']} W")
+    if data.get("total_calories") is not None:
+        parts.append(f"Calories: {data['total_calories']}")
+    return "; ".join(parts) if parts else "No session data"
+
+
 class SendMessageBody(BaseModel):
     message: str
     run_orchestrator: bool = False  # if True, run daily decision and include in context
+    thread_id: int | None = None  # if None, use default (first) thread or create one
+
+
+class CreateThreadBody(BaseModel):
+    title: str | None = None
+
+
+async def _get_or_create_default_thread(session: AsyncSession, user_id: int) -> ChatThread:
+    """Return first thread for user or create one 'Основной'."""
+    r = await session.execute(
+        select(ChatThread).where(ChatThread.user_id == user_id).order_by(ChatThread.id.asc()).limit(1)
+    )
+    thread = r.scalar_one_or_none()
+    if thread:
+        return thread
+    thread = ChatThread(user_id=user_id, title="Основной")
+    session.add(thread)
+    await session.flush()
+    return thread
+
+
+@router.get("/threads", response_model=list[dict])
+async def list_threads(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> list[dict]:
+    """List chat threads for the current user, ordered by created_at desc."""
+    uid = user.id
+    r = await session.execute(
+        select(ChatThread).where(ChatThread.user_id == uid).order_by(ChatThread.created_at.desc())
+    )
+    threads = r.scalars().all()
+    return [
+        {"id": t.id, "title": t.title, "created_at": t.created_at.isoformat() if t.created_at else None}
+        for t in threads
+    ]
+
+
+@router.post("/threads", response_model=dict)
+async def create_thread(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    body: CreateThreadBody | None = None,
+) -> dict:
+    """Create a new chat thread."""
+    uid = user.id
+    title = (body.title if body else "") or ""
+    title = title.strip() or "Новый чат"
+    thread = ChatThread(user_id=uid, title=title)
+    session.add(thread)
+    await session.commit()
+    await session.refresh(thread)
+    return {"id": thread.id, "title": thread.title, "created_at": thread.created_at.isoformat() if thread.created_at else None}
+
+
+@router.delete("/threads/{thread_id}")
+async def delete_thread(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    thread_id: int,
+) -> None:
+    """Delete a thread and all its messages (cascade)."""
+    uid = user.id
+    r = await session.execute(select(ChatThread).where(ChatThread.id == thread_id, ChatThread.user_id == uid))
+    thread = r.scalar_one_or_none()
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    await session.delete(thread)
+    await session.commit()
+
+
+@router.post("/threads/{thread_id}/clear")
+async def clear_thread(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    thread_id: int,
+) -> dict:
+    """Delete all messages in the thread; thread remains."""
+    uid = user.id
+    r = await session.execute(select(ChatThread).where(ChatThread.id == thread_id, ChatThread.user_id == uid))
+    thread = r.scalar_one_or_none()
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    await session.execute(delete(ChatMessage).where(ChatMessage.thread_id == thread_id))
+    await session.commit()
+    return {"ok": True}
 
 
 @router.get("/history")
 async def get_history(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
+    thread_id: int | None = None,
     limit: int = 50,
 ) -> list[dict]:
-    """Return recent chat messages (user + assistant)."""
+    """Return recent chat messages for a thread. If thread_id omitted, use default thread."""
     uid = user.id
+    if thread_id is None:
+        thread = await _get_or_create_default_thread(session, uid)
+        thread_id = thread.id
+    else:
+        r = await session.execute(select(ChatThread).where(ChatThread.id == thread_id, ChatThread.user_id == uid))
+        if r.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="Thread not found")
     r = await session.execute(
-        select(ChatMessage).where(ChatMessage.user_id == uid).order_by(ChatMessage.timestamp.desc()).limit(limit)
+        select(ChatMessage)
+        .where(ChatMessage.user_id == uid, ChatMessage.thread_id == thread_id)
+        .order_by(ChatMessage.timestamp.desc())
+        .limit(limit)
     )
     rows = r.scalars().all()
     return [
@@ -230,8 +356,17 @@ async def send_message(
 ) -> dict:
     """Append user message, optionally run orchestrator, then get AI reply and return it."""
     uid = user.id
+    thread_id = body.thread_id
+    if thread_id is None:
+        thread = await _get_or_create_default_thread(session, uid)
+        thread_id = thread.id
+    else:
+        r = await session.execute(select(ChatThread).where(ChatThread.id == thread_id, ChatThread.user_id == uid))
+        if r.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="Thread not found")
+
     session.add(
-        ChatMessage(user_id=uid, role=MessageRole.user.value, content=body.message)
+        ChatMessage(user_id=uid, thread_id=thread_id, role=MessageRole.user.value, content=body.message)
     )
     await session.flush()
 
@@ -242,7 +377,6 @@ async def send_message(
         if result.suggestions_next_days:
             reply += f"\n\n{result.suggestions_next_days}"
     else:
-        # Coach LLM with athlete context (nutrition, wellness, load, recent workouts)
         import google.generativeai as genai
         from app.config import settings
         from app.services.gemini_common import run_generate_content
@@ -253,7 +387,114 @@ async def send_message(
         reply = response.text if response and response.text else "No response."
 
     session.add(
-        ChatMessage(user_id=uid, role=MessageRole.assistant.value, content=reply)
+        ChatMessage(user_id=uid, thread_id=thread_id, role=MessageRole.assistant.value, content=reply)
+    )
+    await session.commit()
+    return {"reply": reply}
+
+
+@router.post("/send-with-file", response_model=dict)
+async def send_message_with_file(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    message: Annotated[str, Form()] = "",
+    run_orchestrator: Annotated[str, Form()] = "false",
+    thread_id: Annotated[str | None, Form()] = None,
+    save_workout: Annotated[str, Form()] = "false",
+    file: Annotated[UploadFile | None, File()] = None,
+) -> dict:
+    """Send a message with optional FIT file. Uses multipart/form-data. When file is .fit, adds workout summary to context and optionally saves to diary."""
+    uid = user.id
+    run_orch = run_orchestrator.strip().lower() in ("true", "1")
+    tid = int(thread_id) if (thread_id and str(thread_id).strip()) else None
+    save_w = save_workout.strip().lower() in ("true", "1")
+
+    if tid is None:
+        thread = await _get_or_create_default_thread(session, uid)
+        tid = thread.id
+    else:
+        r = await session.execute(select(ChatThread).where(ChatThread.id == tid, ChatThread.user_id == uid))
+        if r.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="Thread not found")
+
+    fit_summary: str | None = None
+    fit_data: dict | None = None
+    user_content = (message or "").strip()
+
+    if file and file.filename and file.filename.lower().endswith(".fit"):
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="Empty FIT file.")
+        fit_data = parse_fit_session(content)
+        if not fit_data:
+            raise HTTPException(status_code=400, detail="Could not parse FIT file or no session found.")
+        fit_summary = _fit_data_to_summary(fit_data)
+        if not user_content:
+            user_content = f"Приложен FIT-файл тренировки. {fit_summary[:300]}"
+
+        if save_w and fit_data:
+            checksum = hashlib.sha256(content).hexdigest()
+            r = await session.execute(select(Workout).where(Workout.user_id == uid, Workout.fit_checksum == checksum))
+            if r.scalar_one_or_none() is None:
+                from app.api.v1.workouts import _estimate_tss_from_fit
+
+                start_date = fit_data["start_date"]
+                if isinstance(start_date, datetime) and start_date.tzinfo is None:
+                    start_date = start_date.replace(tzinfo=timezone.utc)
+                r2 = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
+                profile = r2.scalar_one_or_none()
+                ftp = None
+                if profile and (profile.ftp is not None or profile.strava_ftp is not None):
+                    ftp = float(profile.ftp if profile.ftp is not None else profile.strava_ftp)
+                duration_sec = fit_data.get("duration_sec") or 0
+                tss = _estimate_tss_from_fit(
+                    duration_sec,
+                    fit_data.get("avg_power"),
+                    fit_data.get("normalized_power"),
+                    ftp,
+                    fit_data.get("sport"),
+                )
+                sport_name = (fit_data.get("sport") or "Workout").capitalize()
+                w = Workout(
+                    user_id=uid,
+                    start_date=start_date,
+                    name=sport_name,
+                    type=sport_name,
+                    duration_sec=duration_sec or None,
+                    distance_m=fit_data.get("distance_m"),
+                    tss=tss if tss > 0 else None,
+                    source="fit",
+                    fit_checksum=checksum,
+                    raw=fit_data.get("raw"),
+                )
+                session.add(w)
+
+    session.add(
+        ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.user.value, content=user_content or "(сообщение)")
+    )
+    await session.flush()
+
+    reply = ""
+    if run_orch:
+        result = await run_daily_decision(session, uid, date.today())
+        reply = f"Decision: {result.decision.value}. {result.reason}"
+        if result.suggestions_next_days:
+            reply += f"\n\n{result.suggestions_next_days}"
+    else:
+        import google.generativeai as genai
+        from app.config import settings
+        from app.services.gemini_common import run_generate_content
+
+        context = await _build_athlete_context(session, uid)
+        if fit_summary:
+            context += "\n\n## Uploaded workout (this message)\n" + fit_summary
+        model = genai.GenerativeModel(settings.gemini_model)
+        prompt = f"{CHAT_SYSTEM}\n\nContext:\n{context}\n\nUser message: {user_content or 'Разбери приложенную тренировку.'}"
+        response = await run_generate_content(model, prompt)
+        reply = response.text if response and response.text else "No response."
+
+    session.add(
+        ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.assistant.value, content=reply)
     )
     await session.commit()
     return {"reply": reply}

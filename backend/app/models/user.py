@@ -17,6 +17,9 @@ class User(Base):
     food_logs: Mapped[list["FoodLog"]] = relationship("FoodLog", back_populates="user")
     wellness_cache: Mapped[list["WellnessCache"]] = relationship("WellnessCache", back_populates="user")
     chat_messages: Mapped[list["ChatMessage"]] = relationship("ChatMessage", back_populates="user")
+    chat_threads: Mapped[list["ChatThread"]] = relationship(
+        "ChatThread", back_populates="user", cascade="all, delete-orphan"
+    )
     intervals_credentials: Mapped["IntervalsCredentials | None"] = relationship(
         "IntervalsCredentials", back_populates="user", uselist=False
     )

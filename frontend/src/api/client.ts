@@ -561,15 +561,87 @@ export async function updateAthleteProfile(body: {
   });
 }
 
-export async function getChatHistory(limit = 50): Promise<ChatMessage[]> {
-  return api<ChatMessage[]>(`/api/v1/chat/history?limit=${limit}`);
+export interface ChatThreadItem {
+  id: number;
+  title: string;
+  created_at: string | null;
 }
 
-export async function sendChatMessage(message: string, runOrchestrator = false): Promise<{ reply: string }> {
+export async function getChatThreads(): Promise<ChatThreadItem[]> {
+  return api<ChatThreadItem[]>("/api/v1/chat/threads");
+}
+
+export async function createChatThread(title?: string): Promise<ChatThreadItem> {
+  return api<ChatThreadItem>("/api/v1/chat/threads", {
+    method: "POST",
+    body: title ? { title } : {},
+  });
+}
+
+export async function deleteChatThread(threadId: number): Promise<void> {
+  return api<void>(`/api/v1/chat/threads/${threadId}`, { method: "DELETE" });
+}
+
+export async function clearChatThread(threadId: number): Promise<{ ok: boolean }> {
+  return api<{ ok: boolean }>(`/api/v1/chat/threads/${threadId}/clear`, { method: "POST" });
+}
+
+export async function getChatHistory(threadId: number | null, limit = 50): Promise<ChatMessage[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (threadId != null) params.set("thread_id", String(threadId));
+  return api<ChatMessage[]>(`/api/v1/chat/history?${params}`);
+}
+
+export async function sendChatMessage(
+  message: string,
+  runOrchestrator = false,
+  threadId?: number | null
+): Promise<{ reply: string }> {
   return api<{ reply: string }>("/api/v1/chat/send", {
     method: "POST",
-    body: { message, run_orchestrator: runOrchestrator },
+    body: { message, run_orchestrator: runOrchestrator, thread_id: threadId ?? undefined },
   });
+}
+
+/** Send a message with an attached FIT file (multipart). Optionally save the workout to the diary. */
+export async function sendChatMessageWithFit(
+  message: string,
+  file: Blob | { uri: string; name: string },
+  threadId?: number | null,
+  saveWorkout = false
+): Promise<{ reply: string }> {
+  const API_BASE =
+    process.env.EXPO_PUBLIC_API_URL === "" ? "" : (process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000");
+  const token = await getAccessToken();
+  const form = new FormData();
+  form.append("message", message);
+  form.append("run_orchestrator", "false");
+  if (threadId != null) form.append("thread_id", String(threadId));
+  form.append("save_workout", saveWorkout ? "true" : "false");
+  if (file instanceof Blob) {
+    form.append("file", file, "workout.fit");
+  } else {
+    const blob = await fetch(file.uri).then((r) => r.blob());
+    form.append("file", blob, file.name || "workout.fit");
+  }
+  const res = await fetch(`${API_BASE}/api/v1/chat/send-with-file`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (res.status === 401) {
+    if (await doRefreshToken()) {
+      return sendChatMessageWithFit(message, file, threadId, saveWorkout);
+    }
+    await clearAuth();
+    onUnauthorized?.();
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || `Upload failed: ${res.status}`);
+  }
+  return res.json() as Promise<{ reply: string }>;
 }
 
 export async function runOrchestrator(): Promise<{ decision: string; reason: string; modified_plan?: unknown; suggestions_next_days?: string }> {

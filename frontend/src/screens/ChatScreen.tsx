@@ -10,9 +10,20 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getChatHistory, sendChatMessage, runOrchestrator, type ChatMessage } from "../api/client";
+import {
+  getChatHistory,
+  sendChatMessage,
+  sendChatMessageWithFit,
+  runOrchestrator,
+  getChatThreads,
+  createChatThread,
+  clearChatThread,
+  type ChatMessage,
+  type ChatThreadItem,
+} from "../api/client";
 
 function formatChatTime(isoOrTimestamp: string): string {
   try {
@@ -30,42 +41,50 @@ function formatChatTime(isoOrTimestamp: string): string {
 }
 
 export function ChatScreen({ onClose }: { onClose: () => void }) {
+  const [threads, setThreads] = useState<ChatThreadItem[]>([]);
+  const [currentThreadId, setCurrentThreadId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [attachedFit, setAttachedFit] = useState<Blob | { uri: string; name: string } | null>(null);
+  const [saveWorkout, setSaveWorkout] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const flatRef = useRef<FlatList>(null);
 
-  const loadHistory = useCallback(async () => {
+  const pickFitFile = useCallback(() => {
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      const inputEl = document.createElement("input");
+      inputEl.type = "file";
+      inputEl.accept = ".fit";
+      inputEl.onchange = async (e: Event) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        setAttachedFit(file);
+      };
+      inputEl.click();
+      return;
+    }
+    const openDocPicker = async () => {
+      try {
+        const { getDocumentAsync } = await import("expo-document-picker");
+        const result = await getDocumentAsync({
+          type: "*/*",
+          copyToCacheDirectory: true,
+        });
+        if (result.canceled) return;
+        const doc = result.assets[0];
+        setAttachedFit({ uri: doc.uri, name: doc.name || "workout.fit" });
+      } catch (err) {
+        Alert.alert("Ошибка", "Не удалось выбрать файл");
+      }
+    };
+    openDocPicker();
+  }, []);
+
+  const loadHistoryForThread = useCallback(async (threadId: number | null) => {
     try {
-      const list = await getChatHistory(50);
-      const messages = Array.isArray(list) ? list : [];
-      // #region agent log
-      const contents = messages.map((m) => `${m.role}:${(m.content || "").slice(0, 40)}`);
-      const seen = new Set<string>();
-      let duplicateContentCount = 0;
-      contents.forEach((c) => {
-        if (seen.has(c)) duplicateContentCount++;
-        else seen.add(c);
-      });
-      fetch("http://127.0.0.1:7473/ingest/fed664d4-b533-42b4-b1b4-63de2b9a9c42", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "5aeb89" },
-        body: JSON.stringify({
-          sessionId: "5aeb89",
-          location: "ChatScreen.tsx:loadHistory",
-          message: "chat history loaded",
-          data: {
-            messageCount: messages.length,
-            duplicateContentCount,
-            firstThree: contents.slice(0, 3),
-          },
-          timestamp: Date.now(),
-          hypothesisId: "H4",
-        }),
-      }).catch(() => {});
-      // #endregion
-      setMessages(messages);
+      const list = await getChatHistory(threadId, 50);
+      setMessages(Array.isArray(list) ? list : []);
     } catch {
       setMessages([]);
     } finally {
@@ -73,9 +92,64 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
     }
   }, []);
 
+  const loadThreads = useCallback(async () => {
+    try {
+      const list = await getChatThreads();
+      const nextThreads = Array.isArray(list) ? list : [];
+      setThreads(nextThreads);
+      if (nextThreads.length === 0) {
+        const created = await createChatThread("Основной");
+        setThreads([created]);
+        setCurrentThreadId(created.id);
+        await loadHistoryForThread(created.id);
+      } else {
+        const firstId = nextThreads[0].id;
+        setCurrentThreadId(firstId);
+        setLoadingHistory(true);
+        await loadHistoryForThread(firstId);
+      }
+    } catch {
+      setThreads([]);
+      setCurrentThreadId(null);
+      setMessages([]);
+      setLoadingHistory(false);
+    }
+  }, [loadHistoryForThread]);
+
   useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+    setLoadingHistory(true);
+    loadThreads();
+  }, []);
+
+  const selectThread = useCallback(
+    (threadId: number) => {
+      setCurrentThreadId(threadId);
+      setLoadingHistory(true);
+      loadHistoryForThread(threadId);
+    },
+    [loadHistoryForThread]
+  );
+
+  const onNewChat = useCallback(async () => {
+    try {
+      const created = await createChatThread("Новый чат");
+      setThreads((prev) => [created, ...prev]);
+      setCurrentThreadId(created.id);
+      setMessages([]);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const onClearChat = useCallback(async () => {
+    if (currentThreadId == null) return;
+    try {
+      await clearChatThread(currentThreadId);
+      setMessages([]);
+    } catch {
+      // ignore
+    }
+  }, [currentThreadId]);
 
   const send = async (runOrch = false) => {
     if (runOrch) {
@@ -98,12 +172,16 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
       return;
     }
     const text = input.trim();
-    if (!text || loading) return;
+    if ((!text && !attachedFit) || loading) return;
+    const userContent = text || "Приложен FIT-файл тренировки.";
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    setMessages((prev) => [...prev, { role: "user", content: userContent }]);
+    if (attachedFit) setAttachedFit(null);
     setLoading(true);
     try {
-      const { reply } = await sendChatMessage(text, false);
+      const { reply } = attachedFit
+        ? await sendChatMessageWithFit(text, attachedFit, currentThreadId ?? undefined, saveWorkout)
+        : await sendChatMessage(text, false, currentThreadId ?? undefined);
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (e) {
@@ -139,11 +217,45 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
     >
       <View style={styles.header}>
         <Text style={styles.title}>AI-тренер</Text>
-        <TouchableOpacity onPress={onClose}>
-          <Text style={styles.close}>Закрыть</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={onNewChat} style={styles.headerBtn}>
+            <Text style={styles.headerBtnText}>Новый чат</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onClearChat} style={styles.headerBtn} disabled={currentThreadId == null}>
+            <Text style={styles.headerBtnText}>Очистить</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onClose}>
+            <Text style={styles.close}>Закрыть</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {threads.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabsScroll}
+          contentContainerStyle={styles.tabsContent}
+        >
+          {threads.map((t) => (
+            <TouchableOpacity
+              key={t.id}
+              style={[styles.tab, t.id === currentThreadId && styles.tabActive]}
+              onPress={() => selectThread(t.id)}
+            >
+              <Text style={[styles.tabText, t.id === currentThreadId && styles.tabTextActive]} numberOfLines={1}>
+                {t.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : null}
+
+      {loadingHistory ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#38bdf8" />
+        </View>
+      ) : (
       <FlatList
         ref={flatRef}
         data={messages}
@@ -174,21 +286,39 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
           </View>
         }
       />
+      )}
+      {attachedFit ? (
+        <View style={styles.attachedRow}>
+          <Text style={styles.attachedText}>Прикреплён FIT</Text>
+          <TouchableOpacity onPress={() => setAttachedFit(null)} style={styles.attachedRemove}>
+            <Text style={styles.attachedRemoveText}>Убрать</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setSaveWorkout((v) => !v)}
+            style={[styles.saveWorkoutChip, saveWorkout && styles.saveWorkoutChipActive]}
+          >
+            <Text style={styles.saveWorkoutChipText}>{saveWorkout ? "В дневник ✓" : "Добавить в дневник"}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <View style={styles.inputRow}>
+        <TouchableOpacity onPress={pickFitFile} style={styles.attachBtn} disabled={loading || loadingHistory}>
+          <Text style={styles.attachBtnText}>FIT</Text>
+        </TouchableOpacity>
         <TextInput
           style={styles.input}
-          placeholder="Сообщение..."
+          placeholder="Сообщение или прикрепите FIT..."
           placeholderTextColor="#94a3b8"
           value={input}
           onChangeText={setInput}
-          editable={!loading}
+          editable={!loading && !loadingHistory}
           multiline
           maxLength={2000}
         />
         <TouchableOpacity
-          style={[styles.sendBtn, loading && styles.sendBtnDisabled]}
+          style={[styles.sendBtn, (loading || loadingHistory) && styles.sendBtnDisabled]}
           onPress={() => send(false)}
-          disabled={loading || !input.trim()}
+          disabled={loading || loadingHistory || (!input.trim() && !attachedFit)}
         >
           <Text style={styles.sendBtnText}>Отправить</Text>
         </TouchableOpacity>
@@ -210,7 +340,16 @@ const styles = StyleSheet.create({
   flex1: { flex: 1 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: "#334155" },
   title: { fontSize: 20, fontWeight: "700", color: "#eee" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 12 },
+  headerBtn: { paddingVertical: 4, paddingHorizontal: 8 },
+  headerBtnText: { fontSize: 14, color: "#94a3b8" },
   close: { fontSize: 16, color: "#38bdf8" },
+  tabsScroll: { maxHeight: 44, borderBottomWidth: 1, borderBottomColor: "#334155" },
+  tabsContent: { paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexDirection: "row", alignItems: "center" },
+  tab: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, marginRight: 8, backgroundColor: "#16213e" },
+  tabActive: { backgroundColor: "#38bdf8" },
+  tabText: { fontSize: 14, color: "#94a3b8" },
+  tabTextActive: { color: "#0f172a", fontWeight: "600" },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   listContent: { padding: 16, paddingBottom: 24 },
   bubble: { maxWidth: "85%", padding: 12, borderRadius: 16, marginBottom: 8 },
@@ -224,7 +363,16 @@ const styles = StyleSheet.create({
   quickPromptsContent: { gap: 8, paddingBottom: 8, paddingHorizontal: 16 },
   quickPromptChip: { backgroundColor: "#16213e", paddingVertical: 10, paddingHorizontal: 14, borderRadius: 20, marginRight: 8 },
   quickPromptText: { fontSize: 14, color: "#e2e8f0" },
+  attachedRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 8, gap: 8, borderTopWidth: 1, borderTopColor: "#334155", backgroundColor: "#0f172a" },
+  attachedText: { fontSize: 14, color: "#94a3b8" },
+  attachedRemove: { paddingVertical: 4, paddingHorizontal: 8 },
+  attachedRemoveText: { fontSize: 14, color: "#38bdf8" },
+  saveWorkoutChip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12, backgroundColor: "#16213e" },
+  saveWorkoutChipActive: { backgroundColor: "#38bdf8" },
+  saveWorkoutChipText: { fontSize: 13, color: "#e2e8f0" },
   inputRow: { flexDirection: "row", padding: 12, gap: 8, alignItems: "flex-end", borderTopWidth: 1, borderTopColor: "#334155", paddingHorizontal: 16 },
+  attachBtn: { alignSelf: "center", paddingVertical: 10, paddingHorizontal: 14, borderRadius: 20, backgroundColor: "#16213e", justifyContent: "center" },
+  attachBtnText: { fontSize: 14, color: "#38bdf8", fontWeight: "600" },
   input: { flex: 1, backgroundColor: "#16213e", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, color: "#e2e8f0", maxHeight: 100 },
   sendBtn: { backgroundColor: "#38bdf8", paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20, justifyContent: "center" },
   sendBtnDisabled: { opacity: 0.5 },
