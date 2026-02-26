@@ -24,7 +24,7 @@ function getErrorMessage(e: unknown): string {
   return e.message || "Request failed.";
 }
 
-export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
+export function IntervalsLinkScreen({ onClose, onSynced }: { onClose: () => void; onSynced?: () => void }) {
   const [statusLoading, setStatusLoading] = useState(true);
   const [linked, setLinked] = useState(false);
   const [athleteId, setAthleteId] = useState("");
@@ -80,6 +80,7 @@ export function IntervalsLinkScreen({ onClose }: { onClose: () => void }) {
     setSyncLoading(true);
     try {
       await syncIntervals();
+      onSynced?.();
       Alert.alert("Готово", "Данные синхронизированы из Intervals.icu. Закройте и проверьте дашборд.");
     } catch (e) {
       Alert.alert("Ошибка синхронизации", getErrorMessage(e));

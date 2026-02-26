@@ -519,8 +519,10 @@ export function DashboardScreen({
   onOpenChat,
   onOpenAthleteProfile,
   onOpenIntervals,
+  onSyncIntervals,
   refreshNutritionTrigger = 0,
   refreshSleepTrigger = 0,
+  refreshWellnessTrigger = 0,
 }: {
   user?: AuthUser | null;
   onLogout?: () => void;
@@ -528,8 +530,10 @@ export function DashboardScreen({
   onOpenChat: () => void;
   onOpenAthleteProfile?: () => void;
   onOpenIntervals?: () => void;
+  onSyncIntervals?: () => Promise<void>;
   refreshNutritionTrigger?: number;
   refreshSleepTrigger?: number;
+  refreshWellnessTrigger?: number;
 }) {
   const [workouts, setWorkouts] = useState<WorkoutItem[]>([]);
   const [workoutFitness, setWorkoutFitness] = useState<WorkoutFitness | null>(null);
@@ -551,6 +555,7 @@ export function DashboardScreen({
     reason: string;
     suggestions_next_days?: string;
   } | null>(null);
+  const [intervalsSyncLoading, setIntervalsSyncLoading] = useState(false);
 
   const today = getTodayLocal();
 
@@ -581,9 +586,13 @@ export function DashboardScreen({
         }).catch(() => null),
         getSleepExtractions(addDays(today, -59), today).then((list) => {
           if (!list || list.length === 0) return null;
-          const withHours = list.find((x) => (x.actual_sleep_hours ?? x.sleep_hours) != null);
-          if (!withHours) return null;
-          return { sleep_hours: withHours.sleep_hours, actual_sleep_hours: withHours.actual_sleep_hours, sleep_date: withHours.sleep_date ?? undefined };
+          const todayNorm = today.slice(0, 10);
+          const norm = (d: string | null | undefined) => (d ? String(d).slice(0, 10) : "");
+          const withHours = (arr: typeof list) => arr.find((x) => (x.actual_sleep_hours ?? x.sleep_hours) != null);
+          const forToday = list.filter((x) => norm(x.sleep_date) === todayNorm);
+          const chosen = withHours(forToday) ?? withHours(list);
+          if (!chosen) return null;
+          return { sleep_hours: chosen.sleep_hours, actual_sleep_hours: chosen.actual_sleep_hours, sleep_date: chosen.sleep_date ?? undefined };
         }).catch(() => null),
         getAthleteProfile().catch(() => null),
         getWorkouts(activitiesStart, today).catch(() => []),
@@ -612,7 +621,7 @@ export function DashboardScreen({
 
   useEffect(() => {
     load();
-  }, [load, refreshNutritionTrigger, refreshSleepTrigger]);
+  }, [load, refreshNutritionTrigger, refreshSleepTrigger, refreshWellnessTrigger]);
 
   const setNutritionDateAndLoad = useCallback(
     (dateStr: string) => {
@@ -852,11 +861,34 @@ export function DashboardScreen({
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>Фитнес (CTL / ATL / TSB)</Text>
-              {onOpenIntervals ? (
-                <TouchableOpacity onPress={onOpenIntervals}>
-                  <Text style={styles.intervalsLinkText}>Intervals.icu</Text>
-                </TouchableOpacity>
-              ) : null}
+              <View style={styles.intervalsActionsRow}>
+                {onOpenIntervals ? (
+                  <TouchableOpacity onPress={onOpenIntervals}>
+                    <Text style={styles.intervalsLinkText}>Intervals.icu</Text>
+                  </TouchableOpacity>
+                ) : null}
+                {onSyncIntervals ? (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      setIntervalsSyncLoading(true);
+                      try {
+                        await onSyncIntervals();
+                      } catch (e) {
+                        Alert.alert("Ошибка синхронизации", e instanceof Error ? e.message : "Не удалось синхронизировать");
+                      } finally {
+                        setIntervalsSyncLoading(false);
+                      }
+                    }}
+                    disabled={intervalsSyncLoading}
+                  >
+                    {intervalsSyncLoading ? (
+                      <ActivityIndicator size="small" color="#38bdf8" />
+                    ) : (
+                      <Text style={styles.intervalsLinkText}>Синхронизировать</Text>
+                    )}
+                  </TouchableOpacity>
+                ) : null}
+              </View>
             </View>
             <Text style={styles.hint}>По TSS из тренировок. Подключите Intervals.icu для планов и синхронизации.</Text>
             {workoutFitness ? (
@@ -1050,6 +1082,7 @@ const styles = StyleSheet.create({
   placeholder: { fontSize: 16, color: "#94a3b8" },
   hint: { fontSize: 12, color: "#94a3b8", marginTop: 4 },
   calendarLink: { marginBottom: 8, paddingVertical: 4 },
+  intervalsActionsRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   intervalsLinkText: { fontSize: 14, color: "#38bdf8" },
   errorHint: { fontSize: 12, color: "#f87171", marginBottom: 4 },
   dateNavBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },

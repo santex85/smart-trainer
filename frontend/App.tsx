@@ -5,7 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { getMe, setOnUnauthorized } from "./src/api/client";
+import { getMe, setOnUnauthorized, syncIntervals } from "./src/api/client";
 import { clearAuth, getAccessToken } from "./src/storage/authStorage";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
@@ -28,6 +28,7 @@ export default function App() {
   const [intervalsVisible, setIntervalsVisible] = useState(false);
   const [refreshNutritionTrigger, setRefreshNutritionTrigger] = useState(0);
   const [refreshSleepTrigger, setRefreshSleepTrigger] = useState(0);
+  const [refreshWellnessTrigger, setRefreshWellnessTrigger] = useState(0);
 
   useEffect(() => {
     setOnUnauthorized(() => {
@@ -126,8 +127,13 @@ export default function App() {
                   onOpenChat={() => navigation.navigate("Chat")}
                   onOpenAthleteProfile={() => navigation.navigate("Profile")}
                   onOpenIntervals={() => setIntervalsVisible(true)}
+                  onSyncIntervals={async () => {
+                    await syncIntervals();
+                    setRefreshWellnessTrigger((t) => t + 1);
+                  }}
                   refreshNutritionTrigger={refreshNutritionTrigger}
                   refreshSleepTrigger={refreshSleepTrigger}
+                  refreshWellnessTrigger={refreshWellnessTrigger}
                 />
               )}
             </Tab.Screen>
@@ -172,7 +178,10 @@ export default function App() {
 
         {intervalsVisible && (
           <View style={styles.modal}>
-            <IntervalsLinkScreen onClose={() => setIntervalsVisible(false)} />
+            <IntervalsLinkScreen
+              onClose={() => setIntervalsVisible(false)}
+              onSynced={() => setRefreshWellnessTrigger((t) => t + 1)}
+            />
           </View>
         )}
 
