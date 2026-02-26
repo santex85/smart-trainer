@@ -157,60 +157,49 @@ async def run_daily_decision(
     from_dt = datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc)
     to_dt = datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
 
-    # Parallel fetch of independent DB queries
-    (
-        r_food,
-        r_wellness,
-        r_user,
-        r_prof,
-        r_fe,
-        r_wh,
-        r_workouts,
-        r_creds,
-    ) = await asyncio.gather(
-        session.execute(
-            select(
-                FoodLog.calories,
-                FoodLog.protein_g,
-                FoodLog.fat_g,
-                FoodLog.carbs_g,
-            ).where(
-                FoodLog.user_id == user_id,
-                FoodLog.timestamp >= datetime.combine(oldest_food, datetime.min.time()),
-                FoodLog.timestamp < datetime.combine(newest_food + timedelta(days=1), datetime.min.time()),
-            )
-        ),
-        session.execute(
-            select(WellnessCache).where(
-                WellnessCache.user_id == user_id,
-                WellnessCache.date == today,
-            )
-        ),
-        session.execute(select(User.email).where(User.id == user_id)),
-        session.execute(select(AthleteProfile).where(AthleteProfile.user_id == user_id)),
-        session.execute(
-            select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type).where(
-                FoodLog.user_id == user_id,
-                FoodLog.timestamp >= datetime.combine(today, datetime.min.time()),
-                FoodLog.timestamp < datetime.combine(today + timedelta(days=1), datetime.min.time()),
-            )
-        ),
-        session.execute(
-            select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb, WellnessCache.weight_kg).where(
-                WellnessCache.user_id == user_id,
-                WellnessCache.date >= wellness_from,
-                WellnessCache.date <= today,
-            ).order_by(WellnessCache.date.asc())
-        ),
-        session.execute(
-            select(Workout).where(
-                Workout.user_id == user_id,
-                Workout.start_date >= from_dt,
-                Workout.start_date < to_dt,
-            ).order_by(Workout.start_date.desc()).limit(10)
-        ),
-        session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == user_id)),
+    # Sequential fetch (one session cannot run concurrent executes)
+    r_food = await session.execute(
+        select(
+            FoodLog.calories,
+            FoodLog.protein_g,
+            FoodLog.fat_g,
+            FoodLog.carbs_g,
+        ).where(
+            FoodLog.user_id == user_id,
+            FoodLog.timestamp >= datetime.combine(oldest_food, datetime.min.time()),
+            FoodLog.timestamp < datetime.combine(newest_food + timedelta(days=1), datetime.min.time()),
+        )
     )
+    r_wellness = await session.execute(
+        select(WellnessCache).where(
+            WellnessCache.user_id == user_id,
+            WellnessCache.date == today,
+        )
+    )
+    r_user = await session.execute(select(User.email).where(User.id == user_id))
+    r_prof = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == user_id))
+    r_fe = await session.execute(
+        select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type).where(
+            FoodLog.user_id == user_id,
+            FoodLog.timestamp >= datetime.combine(today, datetime.min.time()),
+            FoodLog.timestamp < datetime.combine(today + timedelta(days=1), datetime.min.time()),
+        )
+    )
+    r_wh = await session.execute(
+        select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb, WellnessCache.weight_kg).where(
+            WellnessCache.user_id == user_id,
+            WellnessCache.date >= wellness_from,
+            WellnessCache.date <= today,
+        ).order_by(WellnessCache.date.asc())
+    )
+    r_workouts = await session.execute(
+        select(Workout).where(
+            Workout.user_id == user_id,
+            Workout.start_date >= from_dt,
+            Workout.start_date < to_dt,
+        ).order_by(Workout.start_date.desc()).limit(10)
+    )
+    r_creds = await session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == user_id))
 
     # Process food sum
     rows = r_food.all()

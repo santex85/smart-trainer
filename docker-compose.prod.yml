@@ -23,6 +23,7 @@ services:
   backend:
     ports: []
     volumes: []
+    restart: unless-stopped
 
   frontend:
     ports: []
