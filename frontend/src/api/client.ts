@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   clearAuth,
   getAccessToken,
@@ -15,6 +16,48 @@ const API_BASE =
 let onUnauthorized: (() => void) | null = null;
 export function setOnUnauthorized(cb: (() => void) | null) {
   onUnauthorized = cb;
+}
+
+type OfflineMutation = {
+  path: string;
+  method: string;
+  body?: unknown;
+  created_at: string;
+};
+
+const OFFLINE_QUEUE_KEY = "@smart_trainer/offline_mutations";
+
+async function enqueueOfflineMutation(path: string, method: string, body?: unknown): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as OfflineMutation[]) : [];
+    parsed.push({ path, method, body, created_at: new Date().toISOString() });
+    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(parsed.slice(-100)));
+  } catch {
+    // ignore queue persistence errors
+  }
+}
+
+export async function flushOfflineMutations(): Promise<number> {
+  const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
+  if (!raw) return 0;
+  const queue = JSON.parse(raw) as OfflineMutation[];
+  if (!queue.length) return 0;
+
+  const remaining: OfflineMutation[] = [];
+  let flushed = 0;
+  for (const item of queue) {
+    try {
+      await api(item.path, { method: item.method, body: item.body });
+      flushed += 1;
+    } catch {
+      remaining.push(item);
+      // stop at first failure to preserve order
+      break;
+    }
+  }
+  await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remaining));
+  return flushed;
 }
 
 async function doRefreshToken(): Promise<boolean> {
@@ -45,11 +88,21 @@ export async function api<T>(
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...rest,
-    headers,
-    body: body !== undefined ? (typeof body === "string" ? body : JSON.stringify(body)) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...rest,
+      headers,
+      body: body !== undefined ? (typeof body === "string" ? body : JSON.stringify(body)) : undefined,
+    });
+  } catch (e) {
+    const method = String(rest.method || "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD") {
+      await enqueueOfflineMutation(path, method, body);
+      throw new Error("No network. Action queued and will retry when online.");
+    }
+    throw e;
+  }
   if (res.status === 401) {
     if (!retriedAfterRefresh && (await doRefreshToken())) {
       return api<T>(path, options, true);

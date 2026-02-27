@@ -12,7 +12,10 @@ import {
   TextInput,
   Pressable,
   Platform,
+  LayoutAnimation,
 } from "react-native";
+import * as Haptics from "expo-haptics";
+import { Swipeable } from "react-native-gesture-handler";
 import {
   getNutritionDay,
   updateNutritionEntry,
@@ -34,6 +37,7 @@ import {
   type WorkoutItem,
   type WorkoutFitness,
 } from "../api/client";
+import { useTheme } from "../theme";
 import { t } from "../i18n";
 
 const CALORIE_GOAL = 2200;
@@ -554,6 +558,7 @@ export function DashboardScreen({
     suggestions_next_days?: string;
   } | null>(null);
   const [intervalsSyncLoading, setIntervalsSyncLoading] = useState(false);
+  const { colors, toggleTheme } = useTheme();
 
   const today = getTodayLocal();
 
@@ -612,6 +617,7 @@ export function DashboardScreen({
 
   const setNutritionDateAndLoad = useCallback(
     (dateStr: string) => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setNutritionDate(dateStr);
       loadNutritionForDate(dateStr);
     },
@@ -639,6 +645,25 @@ export function DashboardScreen({
     load();
   };
 
+  const handleQuickDelete = (entry: NutritionDayEntry) => {
+    Alert.alert("Удалить запись?", `«${entry.name}» будет удалена.`, [
+      { text: "Отмена", style: "cancel" },
+      {
+        text: "Удалить",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deleteNutritionEntry(entry.id);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            loadNutritionForDate(nutritionDate);
+          } catch (e) {
+            Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить");
+          }
+        },
+      },
+    ]);
+  };
+
   const onSelectFitFile = useCallback(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") {
       Alert.alert("FIT", t("fit.webOnly"));
@@ -664,11 +689,13 @@ export function DashboardScreen({
   }, [load]);
 
   const onRunAnalysisNow = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setAnalysisLoading(true);
     setLastAnalysisResult(null);
     try {
       const result = await runOrchestrator();
       setLastAnalysisResult(result);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       load();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Request failed";
@@ -679,7 +706,7 @@ export function DashboardScreen({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
@@ -693,6 +720,12 @@ export function DashboardScreen({
       {user && onLogout ? (
         <View style={styles.userRow}>
           <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
+          <TouchableOpacity onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            toggleTheme();
+          }}>
+            <Text style={styles.logoutText}>Тема</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={onLogout}>
             <Text style={styles.logoutText}>{t("app.logout")}</Text>
           </TouchableOpacity>
@@ -724,7 +757,7 @@ export function DashboardScreen({
         </View>
       ) : (
         <>
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>{t("nutrition.title")}</Text>
               <View style={styles.cardTitleActions}>
@@ -787,16 +820,24 @@ export function DashboardScreen({
                   color="#8b5cf6"
                 />
                 {nutritionDay.entries.map((entry) => (
-                  <TouchableOpacity
+                  <Swipeable
                     key={entry.id}
-                    onPress={() => setEntryToEdit(entry)}
-                    style={styles.mealRow}
-                    activeOpacity={0.7}
+                    renderRightActions={() => (
+                      <TouchableOpacity style={styles.deleteAction} onPress={() => handleQuickDelete(entry)}>
+                        <Text style={styles.deleteActionText}>Удалить</Text>
+                      </TouchableOpacity>
+                    )}
                   >
-                    <Text style={styles.mealLine}>
-                      {entry.name}: {Math.round(entry.calories)} kcal
-                    </Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setEntryToEdit(entry)}
+                      style={styles.mealRow}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.mealLine}>
+                        {entry.name}: {Math.round(entry.calories)} kcal
+                      </Text>
+                    </TouchableOpacity>
+                  </Swipeable>
                 ))}
               </>
             ) : !nutritionLoadError && nutritionDay ? (
@@ -816,7 +857,7 @@ export function DashboardScreen({
             ) : null}
           </View>
 
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>{t("wellness.title")}</Text>
               <TouchableOpacity onPress={() => setWellnessEditVisible(true)}>
@@ -843,7 +884,7 @@ export function DashboardScreen({
             )}
           </View>
 
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>Фитнес (CTL / ATL / TSB)</Text>
               <View style={styles.intervalsActionsRow}>
@@ -941,7 +982,7 @@ export function DashboardScreen({
             />
           ) : null}
 
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>{t("workouts.title")}</Text>
               <View style={styles.cardTitleActions}>
@@ -991,7 +1032,7 @@ export function DashboardScreen({
           </View>
 
           {lastAnalysisResult ? (
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
               <Text style={styles.cardTitle}>Результат анализа</Text>
               <Text style={styles.analysisDecision}>Решение: {lastAnalysisResult.decision}</Text>
               <Text style={styles.value}>{lastAnalysisResult.reason}</Text>
@@ -1083,6 +1124,8 @@ const styles = StyleSheet.create({
   dateNavTextActive: { color: "#0f172a", fontWeight: "600" },
   mealRow: { marginTop: 2 },
   mealLine: { fontSize: 12, color: "#94a3b8" },
+  deleteAction: { backgroundColor: "#dc2626", justifyContent: "center", alignItems: "center", paddingHorizontal: 16, marginTop: 2, borderRadius: 8 },
+  deleteActionText: { color: "#fff", fontWeight: "600" },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

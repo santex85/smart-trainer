@@ -12,6 +12,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   getChatHistory,
@@ -24,6 +25,7 @@ import {
   type ChatMessage,
   type ChatThreadItem,
 } from "../api/client";
+import { useTheme } from "../theme";
 
 function formatChatTime(isoOrTimestamp: string): string {
   try {
@@ -41,6 +43,7 @@ function formatChatTime(isoOrTimestamp: string): string {
 }
 
 export function ChatScreen({ onClose }: { onClose: () => void }) {
+  const { colors } = useTheme();
   const [threads, setThreads] = useState<ChatThreadItem[]>([]);
   const [currentThreadId, setCurrentThreadId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -132,6 +135,7 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
 
   const onNewChat = useCallback(async () => {
     try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       const created = await createChatThread("Новый чат");
       setThreads((prev) => [created, ...prev]);
       setCurrentThreadId(created.id);
@@ -183,6 +187,7 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
         ? await sendChatMessageWithFit(text, attachedFit, currentThreadId ?? undefined, saveWorkout)
         : await sendChatMessage(text, false, currentThreadId ?? undefined);
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (e) {
       setMessages((prev) => [
@@ -196,26 +201,26 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
 
   if (loadingHistory) {
     return (
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
         <View style={styles.header}>
           <Text style={styles.title}>AI-тренер</Text>
           <TouchableOpacity onPress={onClose}><Text style={styles.close}>Закрыть</Text></TouchableOpacity>
         </View>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#38bdf8" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
     <KeyboardAvoidingView
       style={styles.flex1}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={80}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { borderBottomColor: colors.surfaceBorder }]}>
         <Text style={styles.title}>AI-тренер</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={onNewChat} style={styles.headerBtn}>
@@ -306,9 +311,9 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
           <Text style={styles.attachBtnText}>FIT</Text>
         </TouchableOpacity>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: colors.surface, color: colors.text }]}
           placeholder="Сообщение или прикрепите FIT..."
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={colors.textMuted}
           value={input}
           onChangeText={setInput}
           editable={!loading && !loadingHistory}
@@ -316,11 +321,11 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
           maxLength={2000}
         />
         <TouchableOpacity
-          style={[styles.sendBtn, (loading || loadingHistory) && styles.sendBtnDisabled]}
+          style={[styles.sendBtn, { backgroundColor: colors.primary }, (loading || loadingHistory) && styles.sendBtnDisabled]}
           onPress={() => send(false)}
           disabled={loading || loadingHistory || (!input.trim() && !attachedFit)}
         >
-          <Text style={styles.sendBtnText}>Отправить</Text>
+          <Text style={[styles.sendBtnText, { color: colors.primaryText }]}>Отправить</Text>
         </TouchableOpacity>
       </View>
       <TouchableOpacity

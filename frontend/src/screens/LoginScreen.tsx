@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { login, type AuthUser } from "../api/client";
 import { t } from "../i18n";
 import { setAccessToken, setRefreshToken } from "../storage/authStorage";
+import { useTheme } from "../theme";
 
 function getErrorMessage(e: unknown): string {
   if (!(e instanceof Error)) return t("auth.requestError");
@@ -33,6 +34,7 @@ export function LoginScreen({
   onSuccess: (user: AuthUser) => void;
   onGoToRegister: () => void;
 }) {
+  const { colors } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -59,51 +61,51 @@ export function LoginScreen({
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={20}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.card}>
-            <Text style={styles.title}>Вход</Text>
-            <Text style={styles.hint}>Email</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.title, { color: colors.text }]}>Вход</Text>
+            <Text style={[styles.hint, { color: colors.textMuted }]}>Email</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text }]}
               value={email}
               onChangeText={setEmail}
               placeholder="you@example.com"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="email-address"
               editable={!loading}
             />
-            <Text style={styles.hint}>{t("auth.password")}</Text>
+            <Text style={[styles.hint, { color: colors.textMuted }]}>{t("auth.password")}</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text }]}
               value={password}
               onChangeText={setPassword}
               placeholder="••••••••"
-              placeholderTextColor="#64748b"
+              placeholderTextColor={colors.textMuted}
               secureTextEntry
               editable={!loading}
             />
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <TouchableOpacity
-              style={[styles.buttonPrimary, loading && styles.buttonDisabled]}
+              style={[styles.buttonPrimary, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator size="small" color="#0f172a" />
+                <ActivityIndicator size="small" color={colors.primaryText} />
               ) : (
-                <Text style={styles.buttonPrimaryText}>{t("auth.login")}</Text>
+                <Text style={[styles.buttonPrimaryText, { color: colors.primaryText }]}>{t("auth.login")}</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.link} onPress={onGoToRegister} disabled={loading}>
-              <Text style={styles.linkText}>Создать аккаунт</Text>
+              <Text style={[styles.linkText, { color: colors.primary }]}>Создать аккаунт</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

@@ -1,0 +1,13 @@
+appId: com.smarttrainer.app
+---
+- launchApp
+- tapOn: "Создать аккаунт"
+- inputText:
+    id: "email-input"
+    text: "e2e@test.com"
+- inputText:
+    id: "password-input"
+    text: "password123"
+- tapOn: "Зарегистрироваться"
+- assertVisible: "Smart Trainer"
+- tapOn: "Фото"

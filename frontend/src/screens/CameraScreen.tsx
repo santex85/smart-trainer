@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import * as Haptics from "expo-haptics";
 import {
   uploadPhotoForAnalysis,
   createNutritionEntry,
@@ -135,6 +136,7 @@ export function CameraScreen({
   }, []);
 
   const pickImage = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       Alert.alert("Нужен доступ", "Разрешите доступ к фото для учёта питания.");
@@ -163,6 +165,7 @@ export function CameraScreen({
         false
       );
       devLog("pickImage: upload success");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setPhotoResult(res);
       if (res?.type === "food") {
         setSelectedMealType("other");

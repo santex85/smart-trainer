@@ -5,9 +5,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { getMe, savePushToken, setOnUnauthorized, syncIntervals } from "./src/api/client";
+import { flushOfflineMutations, getMe, savePushToken, setOnUnauthorized, syncIntervals } from "./src/api/client";
 import { registerForPushTokenAsync } from "./src/utils/pushNotifications";
 import { clearAuth, getAccessToken } from "./src/storage/authStorage";
+import { ThemeProvider, useTheme } from "./src/theme";
+import { QueryProvider } from "./src/query/provider";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { RegisterScreen } from "./src/screens/RegisterScreen";
@@ -22,7 +24,8 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const navigationRef = createNavigationContainerRef();
 
-export default function App() {
+function AppContent() {
+  const { colors, mode } = useTheme();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [cameraVisible, setCameraVisible] = useState(false);
@@ -49,6 +52,7 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
+    flushOfflineMutations().catch(() => {});
     registerForPushTokenAsync()
       .then((token) => {
         if (token) return savePushToken(token, Platform.OS);
@@ -69,9 +73,9 @@ export default function App() {
   if (!isReady) {
     return (
       <SafeAreaProvider>
-        <View style={[styles.root, styles.centered]}>
-          <ActivityIndicator size="large" color="#38bdf8" />
-          <Text style={styles.loadingText}>{t("app.loading")}</Text>
+        <View style={[styles.root, styles.centered, { backgroundColor: colors.background }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textMuted }]}>{t("app.loading")}</Text>
         </View>
       </SafeAreaProvider>
     );
@@ -80,13 +84,15 @@ export default function App() {
   if (!user) {
     return (
       <SafeAreaProvider>
-        <StatusBar style="light" />
-        <View style={styles.root}>
+        <StatusBar style={mode === "dark" ? "light" : "dark"} />
+        <View style={[styles.root, { backgroundColor: colors.background }]}>
           <NavigationContainer>
             <Stack.Navigator
               screenOptions={{
                 headerShown: false,
-                contentStyle: { backgroundColor: "#1a1a2e" },
+                contentStyle: { backgroundColor: colors.background },
+                animation: "fade_from_bottom",
+                animationDuration: 200,
               }}
             >
               <Stack.Screen name="Login">
@@ -114,15 +120,16 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
-      <View style={styles.root}>
+      <StatusBar style={mode === "dark" ? "light" : "dark"} />
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
         <NavigationContainer ref={navigationRef}>
           <Tab.Navigator
             screenOptions={{
               headerShown: false,
-              tabBarStyle: { backgroundColor: "#16213e", borderTopColor: "#334155" },
-              tabBarActiveTintColor: "#38bdf8",
-              tabBarInactiveTintColor: "#64748b",
+              tabBarStyle: { backgroundColor: colors.tabBarBg, borderTopColor: colors.tabBarBorder },
+              tabBarActiveTintColor: colors.tabActive,
+              tabBarInactiveTintColor: colors.tabInactive,
+              animation: "fade",
             }}
           >
             <Tab.Screen
@@ -168,7 +175,7 @@ export default function App() {
         </NavigationContainer>
 
         {cameraVisible && (
-          <View style={styles.modal}>
+          <View style={[styles.modal, { backgroundColor: colors.background }]}>
             <CameraScreen
               onClose={closeCamera}
               onSaved={() => {
@@ -188,7 +195,7 @@ export default function App() {
         )}
 
         {intervalsVisible && (
-          <View style={styles.modal}>
+          <View style={[styles.modal, { backgroundColor: colors.background }]}>
             <IntervalsLinkScreen
               onClose={() => setIntervalsVisible(false)}
               onSynced={() => setRefreshWellnessTrigger((t) => t + 1)}
@@ -201,9 +208,19 @@ export default function App() {
   );
 }
 
+export default function App() {
+  return (
+    <QueryProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </QueryProvider>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   centered: { justifyContent: "center", alignItems: "center", gap: 12 },
-  loadingText: { fontSize: 14, color: "#94a3b8" },
-  modal: { ...StyleSheet.absoluteFillObject, backgroundColor: "#1a1a2e", zIndex: 10 },
+  loadingText: { fontSize: 14 },
+  modal: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
 });
