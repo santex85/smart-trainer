@@ -18,6 +18,8 @@ from app.schemas.sleep_extraction import SleepExtractionResult
 from app.services.gemini_photo_analyzer import classify_and_analyze_image
 from app.services.image_resize import resize_image_for_ai_async
 from app.services.sleep_analysis import analyze_and_save_sleep, save_sleep_result
+from app.services.audit import log_action
+from app.services.storage import upload_image
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -67,6 +69,11 @@ async def analyze_photo(
     """
     image_bytes = await file.read()
     _validate_image(file, image_bytes)
+    image_storage_path: str | None = None
+    try:
+        image_storage_path = await upload_image(image_bytes, user.id, category="food")
+    except Exception:
+        logging.exception("Failed to store photo upload for user_id=%s", user.id)
     image_bytes = await resize_image_for_ai_async(image_bytes)
 
     try:
@@ -92,9 +99,18 @@ async def analyze_photo(
                 protein_g=result.protein_g,
                 fat_g=result.fat_g,
                 carbs_g=result.carbs_g,
+                image_storage_path=image_storage_path,
             )
             session.add(log)
             await session.flush()
+            await log_action(
+                session,
+                user_id=user.id,
+                action="create",
+                resource="food_log",
+                resource_id=str(log.id),
+                details={"source": "photo.analyze", "image_storage_path": image_storage_path},
+            )
             return PhotoFoodResponse(
                 type="food",
                 food=NutritionAnalyzeResponse(

@@ -1,6 +1,7 @@
 import React from "react";
 import { render, waitFor } from "@testing-library/react-native";
 import { ChatScreen } from "../ChatScreen";
+import { ThemeProvider } from "../../theme";
 
 jest.mock("../../api/client", () => ({
   getChatHistory: jest.fn().mockResolvedValue([]),
@@ -15,7 +16,9 @@ jest.mock("../../api/client", () => ({
 describe("ChatScreen", () => {
   it("renders chat screen with input", async () => {
     const { getByPlaceholderText } = render(
-      <ChatScreen onClose={jest.fn()} />
+      <ThemeProvider>
+        <ChatScreen onClose={jest.fn()} />
+      </ThemeProvider>
     );
     await waitFor(() => {
       expect(getByPlaceholderText("Сообщение или прикрепите FIT...")).toBeTruthy();

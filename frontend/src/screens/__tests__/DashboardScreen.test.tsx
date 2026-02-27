@@ -1,6 +1,7 @@
 import React from "react";
 import { render, waitFor } from "@testing-library/react-native";
 import { DashboardScreen } from "../DashboardScreen";
+import { ThemeProvider } from "../../theme";
 
 jest.mock("../../api/client", () => ({
   getNutritionDay: jest.fn().mockResolvedValue({
@@ -28,12 +29,14 @@ jest.mock("../../api/client", () => ({
 describe("DashboardScreen", () => {
   it("renders dashboard title and main sections", async () => {
     const { getByText } = render(
-      <DashboardScreen
-        user={{ id: 1, email: "test@test.com" }}
-        onLogout={jest.fn()}
-        onOpenCamera={jest.fn()}
-        onOpenChat={jest.fn()}
-      />
+      <ThemeProvider>
+        <DashboardScreen
+          user={{ id: 1, email: "test@test.com" }}
+          onLogout={jest.fn()}
+          onOpenCamera={jest.fn()}
+          onOpenChat={jest.fn()}
+        />
+      </ThemeProvider>
     );
     await waitFor(() => {
       expect(getByText("Smart Trainer")).toBeTruthy();

@@ -20,6 +20,8 @@ from app.schemas.nutrition import (
 )
 from app.services.gemini_nutrition import analyze_food_from_image
 from app.services.image_resize import resize_image_for_ai_async
+from app.services.audit import log_action
+from app.services.storage import upload_image
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
@@ -62,6 +64,11 @@ async def analyze_nutrition(
         or (magic[:4] == b"RIFF" and magic[8:12] == b"WEBP")
     ):
         raise HTTPException(status_code=400, detail="File must be a valid image (JPEG, PNG, GIF or WebP).")
+    image_storage_path: str | None = None
+    try:
+        image_storage_path = await upload_image(image_bytes, user.id, category="food")
+    except Exception:
+        logging.exception("Failed to store nutrition image for user_id=%s", user.id)
     image_bytes = await resize_image_for_ai_async(image_bytes)
     try:
         result = await analyze_food_from_image(image_bytes)
@@ -86,9 +93,18 @@ async def analyze_nutrition(
         protein_g=result.protein_g,
         fat_g=result.fat_g,
         carbs_g=result.carbs_g,
+        image_storage_path=image_storage_path,
     )
     session.add(log)
     await session.flush()
+    await log_action(
+        session,
+        user_id=uid,
+        action="create",
+        resource="food_log",
+        resource_id=str(log.id),
+        details={"source": "nutrition.analyze", "image_storage_path": image_storage_path},
+    )
     return NutritionAnalyzeResponse(
         id=log.id,
         name=log.name,
@@ -136,6 +152,14 @@ async def create_nutrition_entry(
     )
     session.add(log)
     await session.flush()
+    await log_action(
+        session,
+        user_id=user.id,
+        action="create",
+        resource="food_log",
+        resource_id=str(log.id),
+        details={"source": "nutrition.entries"},
+    )
     await session.refresh(log)
     return NutritionDayEntry(
         id=log.id,
@@ -270,6 +294,14 @@ async def update_nutrition_entry(
     for k, v in payload.items():
         setattr(entry, k, v)
     await session.flush()
+    await log_action(
+        session,
+        user_id=user.id,
+        action="update",
+        resource="food_log",
+        resource_id=str(entry.id),
+        details={"fields": sorted(payload.keys())},
+    )
     await session.refresh(entry)
     return NutritionDayEntry(
         id=entry.id,
@@ -302,6 +334,13 @@ async def delete_nutrition_entry(
     entry = result.scalar_one_or_none()
     if not entry or entry.user_id != user.id:
         raise HTTPException(status_code=404, detail="Entry not found.")
+    await log_action(
+        session,
+        user_id=user.id,
+        action="delete",
+        resource="food_log",
+        resource_id=str(entry.id),
+    )
     await session.delete(entry)
     await session.flush()
     return {"status": "deleted"}

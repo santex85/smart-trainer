@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   backend:
@@ -68,3 +69,24 @@ jobs:
 
       - name: Run tests
         run: npm test -- --ci --coverage
+
+  e2e-maestro-smoke:
+    runs-on: macos-latest
+    if: github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Show Maestro version
+        run: maestro --version
+
+      - name: Run smoke flow
+        working-directory: .
+        run: maestro test e2e/register_and_analyze.yaml

@@ -16,6 +16,7 @@ from app.db.session import get_db, async_session_maker
 from app.models.intervals_credentials import IntervalsCredentials
 from app.models.user import User
 from app.services.crypto import decrypt_value, encrypt_value
+from app.services.audit import log_action
 from app.services.intervals_client import get_activities, get_activity_single, get_events
 from app.services.intervals_sync import sync_intervals_to_db
 from app.services.push_notifications import send_push_to_user
@@ -72,6 +73,13 @@ async def link_intervals(
                 athlete_id=body.athlete_id,
             )
         )
+    await log_action(
+        session,
+        user_id=uid,
+        action="link",
+        resource="intervals",
+        resource_id=body.athlete_id,
+    )
     await session.commit()
     return {"status": "linked", "athlete_id": body.athlete_id}
 
@@ -137,6 +145,13 @@ async def unlink_intervals(
     r = await session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == uid))
     creds = r.scalar_one_or_none()
     if creds:
+        await log_action(
+            session,
+            user_id=uid,
+            action="unlink",
+            resource="intervals",
+            resource_id=creds.athlete_id,
+        )
         session.delete(creds)
         await session.commit()
     return {"status": "unlinked"}
@@ -203,6 +218,14 @@ async def trigger_sync(
             "Intervals sync returned 0 wellness days for user_id=%s; Intervals.icu may have no wellness data for the range.",
             uid,
         )
+    await log_action(
+        session,
+        user_id=uid,
+        action="sync",
+        resource="intervals",
+        resource_id=creds.athlete_id,
+        details={"activities_synced": activities_count, "wellness_days_synced": wellness_count},
+    )
     await send_push_to_user(
         session, uid, "Intervals sync", f"Synced: {activities_count} activities, {wellness_count} wellness days."
     )

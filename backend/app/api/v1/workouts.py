@@ -19,6 +19,7 @@ from app.schemas.pagination import PaginatedResponse
 from app.schemas.workout import WorkoutCreate, WorkoutUpdate
 from app.services.fit_parser import parse_fit_session
 from app.services.load_metrics import compute_fitness_from_workouts
+from app.services.audit import log_action
 
 # Default TSS per hour when no power (by sport)
 DEFAULT_TSS_PER_HOUR: dict[str, float] = {
@@ -129,6 +130,15 @@ async def create_workout(
         source="manual",
     )
     session.add(w)
+    await session.flush()
+    await log_action(
+        session,
+        user_id=uid,
+        action="create",
+        resource="workout",
+        resource_id=str(w.id),
+        details={"source": "manual"},
+    )
     await session.commit()
     await session.refresh(w)
     return _row_to_response(w)
@@ -169,6 +179,13 @@ async def update_workout(
         w.tss = body.tss
     if body.notes is not None:
         w.notes = body.notes
+    await log_action(
+        session,
+        user_id=uid,
+        action="update",
+        resource="workout",
+        resource_id=str(w.id),
+    )
     await session.commit()
     await session.refresh(w)
     return _row_to_response(w)
@@ -191,6 +208,13 @@ async def delete_workout(
     w = r.scalar_one_or_none()
     if not w:
         raise HTTPException(status_code=404, detail="Workout not found.")
+    await log_action(
+        session,
+        user_id=uid,
+        action="delete",
+        resource="workout",
+        resource_id=str(w.id),
+    )
     await session.delete(w)
     await session.commit()
 
@@ -327,6 +351,15 @@ async def upload_fit(
         raw=data.get("raw"),
     )
     session.add(w)
+    await session.flush()
+    await log_action(
+        session,
+        user_id=uid,
+        action="create",
+        resource="workout",
+        resource_id=str(w.id),
+        details={"source": "fit"},
+    )
     await session.commit()
     await session.refresh(w)
     return _row_to_response(w)

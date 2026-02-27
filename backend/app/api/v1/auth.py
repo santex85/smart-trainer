@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -22,6 +22,7 @@ from app.core.auth import (
 from app.db.session import get_db
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
+from app.services.audit import log_action
 from sqlalchemy.exc import ProgrammingError
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,7 @@ class RefreshBody(BaseModel):
 )
 async def register(
     session: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
     body: RegisterBody,
 ) -> TokenResponse:
     email = (body.email or "").strip().lower()
@@ -114,6 +116,14 @@ async def register(
             detail += f": {type(e).__name__}: {e}"
         raise HTTPException(status_code=500, detail=detail) from e
     access_str, refresh_str, expires_in = _issue_tokens(session, user)
+    await log_action(
+        session,
+        user_id=user.id,
+        action="register",
+        resource="auth",
+        resource_id=str(user.id),
+        ip_address=request.client.host if request.client else None,
+    )
     await session.flush()
     return TokenResponse(
         access_token=access_str,
@@ -133,6 +143,7 @@ async def register(
 )
 async def login(
     session: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
     body: LoginBody,
 ) -> TokenResponse:
     email = (body.email or "").strip().lower()
@@ -146,6 +157,14 @@ async def login(
     if not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     access_str, refresh_str, expires_in = _issue_tokens(session, user)
+    await log_action(
+        session,
+        user_id=user.id,
+        action="login",
+        resource="auth",
+        resource_id=str(user.id),
+        ip_address=request.client.host if request.client else None,
+    )
     await session.flush()
     return TokenResponse(
         access_token=access_str,
@@ -165,6 +184,7 @@ async def login(
 )
 async def refresh_tokens(
     session: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
     body: RefreshBody,
 ) -> TokenResponse:
     """Exchange refresh_token for new access_token and refresh_token (rotation)."""
@@ -188,6 +208,14 @@ async def refresh_tokens(
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     access_str, refresh_str, expires_in = _issue_tokens(session, user)
+    await log_action(
+        session,
+        user_id=user.id,
+        action="refresh",
+        resource="auth",
+        resource_id=str(user.id),
+        ip_address=request.client.host if request.client else None,
+    )
     await session.flush()
     return TokenResponse(
         access_token=access_str,

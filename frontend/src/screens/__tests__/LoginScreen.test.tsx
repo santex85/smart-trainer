@@ -1,6 +1,7 @@
 import React from "react";
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import { LoginScreen } from "../LoginScreen";
+import { ThemeProvider } from "../../theme";
 
 jest.mock("../../api/client", () => ({
   login: jest.fn().mockResolvedValue({
@@ -15,8 +16,10 @@ jest.mock("../../storage/authStorage", () => ({
 }));
 
 describe("LoginScreen", () => {
+  const renderWithTheme = (ui: React.ReactElement) => render(<ThemeProvider>{ui}</ThemeProvider>);
+
   it("renders email and password fields", () => {
-    const { getByPlaceholderText, getByText } = render(
+    const { getByPlaceholderText, getByText } = renderWithTheme(
       <LoginScreen onSuccess={jest.fn()} onGoToRegister={jest.fn()} />
     );
     expect(getByPlaceholderText("you@example.com")).toBeTruthy();
@@ -26,7 +29,7 @@ describe("LoginScreen", () => {
   });
 
   it("shows error on empty submit", async () => {
-    const { getByText } = render(
+    const { getByText } = renderWithTheme(
       <LoginScreen onSuccess={jest.fn()} onGoToRegister={jest.fn()} />
     );
     fireEvent.press(getByText("Войти"));
@@ -37,7 +40,7 @@ describe("LoginScreen", () => {
 
   it("calls onSuccess after successful login", async () => {
     const onSuccess = jest.fn();
-    const { getByPlaceholderText, getByText } = render(
+    const { getByPlaceholderText, getByText } = renderWithTheme(
       <LoginScreen onSuccess={onSuccess} onGoToRegister={jest.fn()} />
     );
     fireEvent.changeText(getByPlaceholderText("you@example.com"), "u@t.com");
