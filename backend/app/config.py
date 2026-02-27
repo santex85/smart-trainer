@@ -15,7 +15,11 @@ class Settings(BaseSettings):
     strava_redirect_uri: str = ""
     encryption_key: str = ""
     secret_key: str = "change-me-in-production"
+    app_env: str = "development"  # "production" enables strict checks (ENCRYPTION_KEY, etc.)
+    # JWT: use RS256 when JWT_PRIVATE_KEY and JWT_PUBLIC_KEY are set; otherwise HS256 with SECRET_KEY
     jwt_algorithm: str = "HS256"
+    jwt_private_key: str = ""  # PEM string for RS256 (multi-line in .env: use \n)
+    jwt_public_key: str = ""    # PEM string for RS256
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
     refresh_token_expire_days: int = 7
     cors_origins: str = "http://localhost:8081,http://localhost:19006,http://localhost:19000"
@@ -28,6 +32,22 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """PostgreSQL URL for sync drivers (Alembic)."""
         return self.database_url.replace("+asyncpg", "", 1)
+
+    @property
+    def use_rs256(self) -> bool:
+        """True if RSA keys are set and RS256 should be used."""
+        return bool(self.jwt_private_key.strip() and self.jwt_public_key.strip())
+
+    def validate_jwt_config(self) -> None:
+        """Raise if production config is inconsistent (e.g. only one RSA key set)."""
+        if self.app_env != "production":
+            return
+        has_private = bool(self.jwt_private_key.strip())
+        has_public = bool(self.jwt_public_key.strip())
+        if has_private and not has_public:
+            raise RuntimeError("JWT_PRIVATE_KEY is set but JWT_PUBLIC_KEY is missing in production")
+        if has_public and not has_private:
+            raise RuntimeError("JWT_PUBLIC_KEY is set but JWT_PRIVATE_KEY is missing in production")
 
 
 settings = Settings()

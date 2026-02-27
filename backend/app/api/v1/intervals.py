@@ -1,23 +1,24 @@
-"""Intervals.icu: store credentials, events, activities. Wellness is separate (see wellness router)."""
+"""Intervals.icu: store credentials, events, activities, webhook. Wellness is separate (see wellness router)."""
 
 import asyncio
 import logging
 from datetime import date, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.db.session import get_db
+from app.db.session import get_db, async_session_maker
 from app.models.intervals_credentials import IntervalsCredentials
 from app.models.user import User
 from app.services.crypto import decrypt_value, encrypt_value
 from app.services.intervals_client import get_activities, get_activity_single, get_events
 from app.services.intervals_sync import sync_intervals_to_db
+from app.services.push_notifications import send_push_to_user
 
 router = APIRouter(prefix="/intervals", tags=["intervals"])
 
@@ -27,7 +28,11 @@ class LinkIntervalsBody(BaseModel):
     api_key: str
 
 
-@router.get("/status")
+@router.get(
+    "/status",
+    summary="Intervals.icu link status",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def get_intervals_status(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -41,7 +46,11 @@ async def get_intervals_status(
     return {"linked": True, "athlete_id": creds.athlete_id}
 
 
-@router.post("/link")
+@router.post(
+    "/link",
+    summary="Link Intervals.icu account",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def link_intervals(
     session: Annotated[AsyncSession, Depends(get_db)],
     body: LinkIntervalsBody,
@@ -67,7 +76,58 @@ async def link_intervals(
     return {"status": "linked", "athlete_id": body.athlete_id}
 
 
-@router.post("/unlink")
+@router.post(
+    "/webhook",
+    summary="Intervals.icu webhook (no auth)",
+    responses={400: {"description": "Invalid JSON or missing athlete_id"}},
+)
+async def intervals_webhook(
+    request: Request,
+) -> dict:
+    """Receive webhook from Intervals.icu when activity/wellness changes; trigger sync for the athlete in background."""
+    try:
+        body: dict[str, Any] = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+    athlete_id = body.get("athlete_id") if isinstance(body.get("athlete_id"), str) else None
+    if not athlete_id or not athlete_id.strip():
+        raise HTTPException(status_code=400, detail="athlete_id required")
+    athlete_id = athlete_id.strip()
+    event_type = body.get("type")  # "activity", "wellness", etc.
+    logging.info("Intervals webhook: athlete_id=%s type=%s", athlete_id, event_type)
+
+    async with async_session_maker() as session:
+        r = await session.execute(
+            select(IntervalsCredentials).where(IntervalsCredentials.athlete_id == athlete_id)
+        )
+        creds = r.scalar_one_or_none()
+    if not creds:
+        logging.warning("Intervals webhook: no credentials for athlete_id=%s", athlete_id)
+        return {"ok": True}
+    user_id = creds.user_id
+    api_key = decrypt_value(creds.encrypted_token_or_key)
+    if not api_key:
+        logging.warning("Intervals webhook: decryption failed for user_id=%s", user_id)
+        return {"ok": True}
+
+    async def run_sync() -> None:
+        async with async_session_maker() as session:
+            try:
+                await sync_intervals_to_db(session, user_id, athlete_id, api_key)
+                await session.commit()
+                await send_push_to_user(session, user_id, "Intervals sync", "Sync completed (webhook).")
+            except Exception as e:
+                logging.exception("Intervals webhook sync failed for user_id=%s: %s", user_id, e)
+
+    asyncio.create_task(run_sync())
+    return {"ok": True}
+
+
+@router.post(
+    "/unlink",
+    summary="Unlink Intervals.icu",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def unlink_intervals(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -82,7 +142,15 @@ async def unlink_intervals(
     return {"status": "unlinked"}
 
 
-@router.post("/sync")
+@router.post(
+    "/sync",
+    summary="Trigger Intervals.icu sync",
+    responses={
+        400: {"description": "Intervals.icu not linked"},
+        401: {"description": "Not authenticated"},
+        503: {"description": "Sync failed or timed out"},
+    },
+)
 async def trigger_sync(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -135,6 +203,9 @@ async def trigger_sync(
             "Intervals sync returned 0 wellness days for user_id=%s; Intervals.icu may have no wellness data for the range.",
             uid,
         )
+    await send_push_to_user(
+        session, uid, "Intervals sync", f"Synced: {activities_count} activities, {wellness_count} wellness days."
+    )
     return {
         "status": "synced",
         "user_id": uid,
@@ -143,7 +214,11 @@ async def trigger_sync(
     }
 
 
-@router.get("/events")
+@router.get(
+    "/events",
+    summary="Get planned events from Intervals.icu",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def get_events_from_api(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -179,7 +254,11 @@ async def get_events_from_api(
     ]
 
 
-@router.get("/activities")
+@router.get(
+    "/activities",
+    summary="Get activities from Intervals.icu",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def get_activities_from_api(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],

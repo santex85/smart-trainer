@@ -24,6 +24,7 @@ logging.getLogger("app").setLevel(logging.DEBUG)
 from app.config import settings
 from app.db.session import init_db
 from app.services.http_client import close_http_client, init_http_client
+from prometheus_client import make_asgi_app
 
 scheduler = AsyncIOScheduler()
 
@@ -36,6 +37,7 @@ async def scheduled_orchestrator_run():
     from app.db.session import async_session_maker
     from app.models.user import User
     from app.services.orchestrator import run_daily_decision
+    from app.services.push_notifications import send_push_to_user
 
     async with async_session_maker() as session:
         r = await session.execute(select(User.id))
@@ -48,14 +50,27 @@ async def scheduled_orchestrator_run():
     async def run_for_user(uid: int) -> None:
         async with sem:
             async with async_session_maker() as session:
-                await run_daily_decision(session, uid, date.today())
+                result = await run_daily_decision(session, uid, date.today())
                 await session.commit()
+                summary = f"{result.decision.value}: {(result.reason or '')[:80]}"
+                if result.reason and len(result.reason or '') > 80:
+                    summary += "..."
+                await send_push_to_user(session, uid, "Daily decision", summary)
 
     await asyncio.gather(*[run_for_user(uid) for uid in user_ids])
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # TODO(next push): tighten production detection fallback (e.g., app_env=="production" OR debug==False)
+    # to avoid silently skipping ENCRYPTION_KEY validation when APP_ENV is not set in prod.
+    if getattr(settings, "app_env", "development") == "production":
+        if not settings.encryption_key or len(settings.encryption_key) < 32:
+            raise RuntimeError(
+                "ENCRYPTION_KEY must be set in production (min 32 chars). "
+                'Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
+            )
+        settings.validate_jwt_config()
     await init_db()
     init_http_client(timeout=30.0)
     if settings.google_gemini_api_key:
@@ -97,6 +112,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(self), microphone=()"
         if getattr(settings, "enable_hsts", False):
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
@@ -120,6 +136,9 @@ app.include_router(chat.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(wellness.router, prefix="/api/v1")
 app.include_router(workouts.router, prefix="/api/v1")
+
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 
 
 @app.get("/health")

@@ -94,8 +94,8 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
 
   const loadThreads = useCallback(async () => {
     try {
-      const list = await getChatThreads();
-      const nextThreads = Array.isArray(list) ? list : [];
+      const res = await getChatThreads();
+      const nextThreads = res?.items ?? [];
       setThreads(nextThreads);
       if (nextThreads.length === 0) {
         const created = await createChatThread("Основной");

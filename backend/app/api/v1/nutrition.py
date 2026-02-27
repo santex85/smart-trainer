@@ -24,7 +24,17 @@ from app.services.image_resize import resize_image_for_ai_async
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
 
-@router.post("/analyze", response_model=NutritionAnalyzeResponse)
+@router.post(
+    "/analyze",
+    response_model=NutritionAnalyzeResponse,
+    summary="Analyze food photo",
+    responses={
+        400: {"description": "Invalid or missing image"},
+        401: {"description": "Not authenticated"},
+        422: {"description": "AI could not analyze image"},
+        502: {"description": "AI service unavailable"},
+    },
+)
 async def analyze_nutrition(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -90,7 +100,14 @@ async def analyze_nutrition(
     )
 
 
-@router.post("/entries", response_model=NutritionDayEntry)
+@router.post(
+    "/entries",
+    response_model=NutritionDayEntry,
+    summary="Create food log entry",
+    responses={
+        401: {"description": "Not authenticated"},
+    },
+)
 async def create_nutrition_entry(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -133,7 +150,15 @@ async def create_nutrition_entry(
     )
 
 
-@router.get("/day", response_model=NutritionDayResponse)
+@router.get(
+    "/day",
+    response_model=NutritionDayResponse,
+    summary="Get nutrition for a day",
+    responses={
+        400: {"description": "Invalid date format"},
+        401: {"description": "Not authenticated"},
+    },
+)
 async def get_nutrition_day(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -183,7 +208,15 @@ async def get_nutrition_day(
     return NutritionDayResponse(date=day, entries=entries, totals=totals)
 
 
-@router.get("/entries/{entry_id}", response_model=NutritionDayEntry)
+@router.get(
+    "/entries/{entry_id}",
+    response_model=NutritionDayEntry,
+    summary="Get single food log entry",
+    responses={
+        401: {"description": "Not authenticated"},
+        404: {"description": "Entry not found"},
+    },
+)
 async def get_nutrition_entry(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -207,7 +240,15 @@ async def get_nutrition_entry(
     )
 
 
-@router.patch("/entries/{entry_id}", response_model=NutritionDayEntry)
+@router.patch(
+    "/entries/{entry_id}",
+    response_model=NutritionDayEntry,
+    summary="Update food log entry",
+    responses={
+        401: {"description": "Not authenticated"},
+        404: {"description": "Entry not found"},
+    },
+)
 async def update_nutrition_entry(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -243,7 +284,14 @@ async def update_nutrition_entry(
     )
 
 
-@router.delete("/entries/{entry_id}")
+@router.delete(
+    "/entries/{entry_id}",
+    summary="Delete food log entry",
+    responses={
+        401: {"description": "Not authenticated"},
+        404: {"description": "Entry not found"},
+    },
+)
 async def delete_nutrition_entry(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],

@@ -28,14 +28,19 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(plain_bytes, password_hash.encode("utf-8"))
 
 
+def _get_jwt_signing_key_and_algorithm() -> tuple[str, str]:
+    """Return (key, algorithm) for signing access tokens."""
+    if settings.use_rs256:
+        return settings.jwt_private_key.strip(), "RS256"
+    return settings.secret_key, settings.jwt_algorithm
+
+
 def create_access_token(user_id: int, email: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
     payload = {"sub": str(user_id), "email": email, "exp": expire}
-    return jwt.encode(
-        payload,
-        settings.secret_key,
-        algorithm=settings.jwt_algorithm,
-    )
+    key, algorithm = _get_jwt_signing_key_and_algorithm()
+    result = jwt.encode(payload, key, algorithm=algorithm)
+    return result if isinstance(result, str) else result.decode("utf-8")
 
 
 def create_refresh_token() -> str:
@@ -48,9 +53,13 @@ def hash_refresh_token(token: str) -> str:
     return _refresh_token_hash(token)
 
 
+def _get_jwt_verification_key_and_algorithms() -> tuple[str, list[str]]:
+    """Return (key, algorithms) for verifying access tokens."""
+    if settings.use_rs256:
+        return settings.jwt_public_key.strip(), ["RS256"]
+    return settings.secret_key, [settings.jwt_algorithm]
+
+
 def decode_token(token: str) -> dict[str, Any]:
-    return jwt.decode(
-        token,
-        settings.secret_key,
-        algorithms=[settings.jwt_algorithm],
-    )
+    key, algorithms = _get_jwt_verification_key_and_algorithms()
+    return jwt.decode(token, key, algorithms=algorithms)

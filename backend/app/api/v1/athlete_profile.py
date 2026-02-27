@@ -74,7 +74,11 @@ class AthleteProfileUpdate(BaseModel):
     ftp: int | None = Field(None, ge=1, le=999, description="Functional threshold power (watts)")
 
 
-@router.get("")
+@router.get(
+    "",
+    summary="Get athlete profile",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def get_athlete_profile(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -86,7 +90,11 @@ async def get_athlete_profile(
     return _profile_response(profile, user)
 
 
-@router.patch("")
+@router.patch(
+    "",
+    summary="Update athlete profile",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def update_athlete_profile(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],

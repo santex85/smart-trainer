@@ -574,8 +574,9 @@ export function DashboardScreen({
       const activitiesStart = addDays(today, -14);
       const [nResult, wellnessList, profile, workoutsList, fitness] = await Promise.all([
         getNutritionDay(nutritionDate).then((n) => ({ ok: true as const, data: n })).catch(() => ({ ok: false as const, data: null })),
-        getWellness(addDays(today, -6), addDays(today, 1)).then((w) => {
-          if (!w || w.length === 0) return null;
+        getWellness(addDays(today, -6), addDays(today, 1)).then((res) => {
+          const w = res?.items ?? [];
+          if (!w.length) return null;
           const todayNorm = today.slice(0, 10);
           const forToday = w.find((d) => String(d?.date ?? "").slice(0, 10) === todayNorm);
           if (forToday) return forToday;
@@ -583,7 +584,7 @@ export function DashboardScreen({
           return withSleep[0] ?? null;
         }).catch(() => null),
         getAthleteProfile().catch(() => null),
-        getWorkouts(activitiesStart, today).catch(() => []),
+        getWorkouts(activitiesStart, today).then((r) => r.items).catch(() => []),
         getWorkoutFitness().catch(() => null),
       ]);
       setNutritionDay(nResult.ok ? nResult.data : null);

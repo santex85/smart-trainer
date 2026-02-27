@@ -42,7 +42,17 @@ def _validate_image(file: UploadFile, image_bytes: bytes) -> None:
         raise HTTPException(status_code=400, detail="File must be a valid image (JPEG, PNG, GIF or WebP).")
 
 
-@router.post("/analyze", response_model=PhotoAnalyzeResponse)
+@router.post(
+    "/analyze",
+    response_model=PhotoAnalyzeResponse,
+    summary="Analyze photo (food or sleep)",
+    responses={
+        400: {"description": "Invalid image"},
+        401: {"description": "Not authenticated"},
+        422: {"description": "AI could not analyze"},
+        502: {"description": "AI service unavailable"},
+    },
+)
 async def analyze_photo(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -169,7 +179,17 @@ async def analyze_photo(
     )
 
 
-@router.post("/analyze-sleep", response_model=SleepExtractionResponse)
+@router.post(
+    "/analyze-sleep",
+    response_model=SleepExtractionResponse,
+    summary="Extract sleep data from screenshot",
+    responses={
+        400: {"description": "Invalid image"},
+        401: {"description": "Not authenticated"},
+        422: {"description": "Could not extract sleep data"},
+        502: {"description": "Sleep extraction failed"},
+    },
+)
 async def analyze_sleep_photo(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -198,7 +218,14 @@ async def analyze_sleep_photo(
     )
 
 
-@router.post("/save-sleep", response_model=SleepExtractionResponse)
+@router.post(
+    "/save-sleep",
+    response_model=SleepExtractionResponse,
+    summary="Save extracted sleep data from preview",
+    responses={
+        401: {"description": "Not authenticated"},
+    },
+)
 async def save_sleep_from_preview(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -217,7 +244,14 @@ async def save_sleep_from_preview(
     )
 
 
-@router.get("/sleep-extractions", response_model=list[dict])
+@router.get(
+    "/sleep-extractions",
+    response_model=list[dict],
+    summary="List sleep extractions",
+    responses={
+        401: {"description": "Not authenticated"},
+    },
+)
 async def list_sleep_extractions(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],

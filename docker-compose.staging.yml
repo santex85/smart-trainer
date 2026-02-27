@@ -1,0 +1,12 @@
+# Staging overlay: separate env and domain for pre-production testing.
+# Run: docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+# Use .env with APP_ENV=staging and DOMAIN=staging.yourdomain.com (or copy from .env.staging.example).
+
+services:
+  backend:
+    environment:
+      APP_ENV: ${APP_ENV:-staging}
+      DEBUG: ${DEBUG:-true}
+
+  frontend:
+    # Frontend build can use EXPO_PUBLIC_API_URL for staging API if needed

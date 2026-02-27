@@ -6,9 +6,9 @@ import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -21,6 +21,7 @@ from app.models.sleep_extraction import SleepExtraction
 from app.models.user import User
 from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
+from app.schemas.pagination import PaginatedResponse
 from app.services.fit_parser import parse_fit_session
 from app.services.orchestrator import run_daily_decision
 
@@ -252,24 +253,44 @@ async def _get_or_create_default_thread(session: AsyncSession, user_id: int) -> 
     return thread
 
 
-@router.get("/threads", response_model=list[dict])
+@router.get(
+    "/threads",
+    response_model=PaginatedResponse,
+    summary="List chat threads",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def list_threads(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
-) -> list[dict]:
-    """List chat threads for the current user, ordered by created_at desc."""
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> PaginatedResponse:
+    """List chat threads for the current user, ordered by created_at desc (paginated)."""
     uid = user.id
-    r = await session.execute(
-        select(ChatThread).where(ChatThread.user_id == uid).order_by(ChatThread.created_at.desc())
-    )
+    base = select(ChatThread).where(ChatThread.user_id == uid).order_by(ChatThread.created_at.desc())
+    count_q = select(func.count()).select_from(base.subquery())
+    total = (await session.execute(count_q)).scalar() or 0
+    r = await session.execute(base.offset(offset).limit(limit))
     threads = r.scalars().all()
-    return [
+    items = [
         {"id": t.id, "title": t.title, "created_at": t.created_at.isoformat() if t.created_at else None}
         for t in threads
     ]
+    return PaginatedResponse(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_more=(offset + limit) < total,
+    )
 
 
-@router.post("/threads", response_model=dict)
+@router.post(
+    "/threads",
+    response_model=dict,
+    summary="Create chat thread",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def create_thread(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -286,7 +307,11 @@ async def create_thread(
     return {"id": thread.id, "title": thread.title, "created_at": thread.created_at.isoformat() if thread.created_at else None}
 
 
-@router.delete("/threads/{thread_id}")
+@router.delete(
+    "/threads/{thread_id}",
+    summary="Delete chat thread",
+    responses={401: {"description": "Not authenticated"}, 404: {"description": "Thread not found"}},
+)
 async def delete_thread(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -302,7 +327,11 @@ async def delete_thread(
     await session.commit()
 
 
-@router.post("/threads/{thread_id}/clear")
+@router.post(
+    "/threads/{thread_id}/clear",
+    summary="Clear thread messages",
+    responses={401: {"description": "Not authenticated"}, 404: {"description": "Thread not found"}},
+)
 async def clear_thread(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -319,7 +348,11 @@ async def clear_thread(
     return {"ok": True}
 
 
-@router.get("/history")
+@router.get(
+    "/history",
+    summary="Get chat history",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def get_history(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -348,7 +381,12 @@ async def get_history(
     ]
 
 
-@router.post("/send", response_model=dict)
+@router.post(
+    "/send",
+    response_model=dict,
+    summary="Send chat message",
+    responses={401: {"description": "Not authenticated"}, 502: {"description": "AI service unavailable"}},
+)
 async def send_message(
     session: Annotated[AsyncSession, Depends(get_db)],
     body: SendMessageBody,
@@ -393,7 +431,12 @@ async def send_message(
     return {"reply": reply}
 
 
-@router.post("/send-with-file", response_model=dict)
+@router.post(
+    "/send-with-file",
+    response_model=dict,
+    summary="Send message with FIT file",
+    responses={401: {"description": "Not authenticated"}, 502: {"description": "AI service unavailable"}},
+)
 async def send_message_with_file(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -500,7 +543,12 @@ async def send_message_with_file(
     return {"reply": reply}
 
 
-@router.post("/orchestrator/run", response_model=dict)
+@router.post(
+    "/orchestrator/run",
+    response_model=dict,
+    summary="Run daily orchestrator",
+    responses={401: {"description": "Not authenticated"}, 502: {"description": "Orchestrator failed"}},
+)
 async def run_orchestrator(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],

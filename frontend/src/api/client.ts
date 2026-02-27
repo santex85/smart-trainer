@@ -319,11 +319,26 @@ export interface WorkoutFitness {
   date: string;
 }
 
-export async function getWorkouts(fromDate?: string, toDate?: string): Promise<WorkoutItem[]> {
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
+
+export async function getWorkouts(
+  fromDate?: string,
+  toDate?: string,
+  limit = 50,
+  offset = 0
+): Promise<PaginatedResponse<WorkoutItem>> {
   const params = new URLSearchParams();
   if (fromDate) params.set("from_date", fromDate);
   if (toDate) params.set("to_date", toDate);
-  return api<WorkoutItem[]>(`/api/v1/workouts?${params}`);
+  params.set("limit", String(limit));
+  params.set("offset", String(offset));
+  return api<PaginatedResponse<WorkoutItem>>(`/api/v1/workouts?${params}`);
 }
 
 export async function getWorkoutFitness(): Promise<WorkoutFitness | null> {
@@ -450,11 +465,18 @@ export async function saveSleepFromPreview(extracted_data: SleepExtractedData): 
   });
 }
 
-export async function getWellness(fromDate?: string, toDate?: string): Promise<WellnessDay[]> {
+export async function getWellness(
+  fromDate?: string,
+  toDate?: string,
+  limit = 50,
+  offset = 0
+): Promise<PaginatedResponse<WellnessDay>> {
   const params = new URLSearchParams();
   if (fromDate) params.set("from_date", fromDate);
   if (toDate) params.set("to_date", toDate);
-  return api<WellnessDay[]>(`/api/v1/wellness?${params}`);
+  params.set("limit", String(limit));
+  params.set("offset", String(offset));
+  return api<PaginatedResponse<WellnessDay>>(`/api/v1/wellness?${params}`);
 }
 
 export type WellnessUpsertPayload = {
@@ -567,8 +589,9 @@ export interface ChatThreadItem {
   created_at: string | null;
 }
 
-export async function getChatThreads(): Promise<ChatThreadItem[]> {
-  return api<ChatThreadItem[]>("/api/v1/chat/threads");
+export async function getChatThreads(limit = 50, offset = 0): Promise<PaginatedResponse<ChatThreadItem>> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  return api<PaginatedResponse<ChatThreadItem>>(`/api/v1/chat/threads?${params}`);
 }
 
 export async function createChatThread(title?: string): Promise<ChatThreadItem> {
@@ -677,4 +700,11 @@ export async function register(email: string, password: string): Promise<AuthRes
 
 export async function getMe(): Promise<AuthUser> {
   return api<AuthUser>("/api/v1/auth/me");
+}
+
+export async function savePushToken(token: string, platform?: string): Promise<{ ok: boolean }> {
+  return api<{ ok: boolean }>("/api/v1/users/push-token", {
+    method: "POST",
+    body: { token, platform },
+  });
 }

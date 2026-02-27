@@ -13,6 +13,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    push_token: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    push_platform: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     food_logs: Mapped[list["FoodLog"]] = relationship("FoodLog", back_populates="user")
     wellness_cache: Mapped[list["WellnessCache"]] = relationship("WellnessCache", back_populates="user")

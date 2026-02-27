@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Text, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Text, ActivityIndicator, Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { getMe, setOnUnauthorized, syncIntervals } from "./src/api/client";
+import { getMe, savePushToken, setOnUnauthorized, syncIntervals } from "./src/api/client";
+import { registerForPushTokenAsync } from "./src/utils/pushNotifications";
 import { clearAuth, getAccessToken } from "./src/storage/authStorage";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
@@ -45,6 +46,15 @@ export default function App() {
       })
       .finally(() => setIsReady(true));
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    registerForPushTokenAsync()
+      .then((token) => {
+        if (token) return savePushToken(token, Platform.OS);
+      })
+      .catch(() => {});
+  }, [user]);
 
   const closeCamera = () => {
     setCameraVisible(false);

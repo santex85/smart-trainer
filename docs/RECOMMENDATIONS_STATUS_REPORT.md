@@ -323,16 +323,16 @@
 
 ### Средний приоритет
 
-| # | Задача | Категория |
-|---|--------|-----------|
-| 11 | CSP заголовки | Безопасность |
-| 12 | Пагинация list-endpoints | Backend |
-| 13 | Отдельные Docker networks | Инфраструктура |
-| 14 | Caddy rate limit | Инфраструктура |
-| 15 | Push-уведомления | Frontend |
-| 16 | Grafana дашборд (реальный, не только docs) | Observability |
-| 17 | Webhook Intervals.icu | Backend |
-| 18 | fail2ban | Инфраструктура |
+| # | Задача | Категория | Статус (Этап 3) |
+|---|--------|-----------|------------------|
+| 11 | CSP заголовки | Безопасность | ✅ Выполнено |
+| 12 | Пагинация list-endpoints | Backend | ✅ Выполнено |
+| 13 | Отдельные Docker networks | Инфраструктура | ✅ Выполнено |
+| 14 | Caddy rate limit | Инфраструктура | ✅ Выполнено (nginx) |
+| 15 | Push-уведомления | Frontend | ✅ Выполнено |
+| 16 | Grafana дашборд (реальный, не только docs) | Observability | ✅ Выполнено |
+| 17 | Webhook Intervals.icu | Backend | ✅ Выполнено |
+| 18 | fail2ban | Инфраструктура | ✅ Выполнено (runbook + примеры) |
 
 ### Низкий приоритет
 
@@ -365,6 +365,25 @@
 - UI/UX: onboarding, i18n, accessibility, графики, аккордеон, typing indicator
 
 **Общая оценка готовности:** с **5.5/10** до **7.4/10** — приложение готово для закрытого бета-тестирования с ограниченной аудиторией. Для полноценного public production-релиза остаётся решить ~31 задачу, из которых 3 критических и 7 высокоприоритетных.
+
+---
+
+## 13. Прогресс Этап 3 (средний приоритет, 27.02.2026)
+
+Реализованы рекомендации из `docs/REMAINING_RECOMMENDATIONS.md`, раздел 3 (средний приоритет):
+
+| # | Задача | Статус | Реализация |
+|---|--------|--------|------------|
+| 3.1 | CSP заголовки | Выполнено | CSP в frontend/nginx.conf для location /; Permissions-Policy в backend |
+| 3.2 | Пагинация list-endpoints | Выполнено | PaginatedResponse в workouts, wellness, chat/threads; frontend client и экраны обновлены |
+| 3.3 | Отдельные Docker networks | Выполнено | backend-db и frontend-backend в docker-compose.yml и prod |
+| 3.4 | Caddy/nginx rate limit | Выполнено | limit_req_zone в nginx для /api/ (30 r/s, burst 50) |
+| 3.5 | Push-уведомления | Выполнено | Expo push: expo-notifications, expo-device; POST /users/push-token; отправка после sync и orchestrator |
+| 3.6 | Grafana дашборд | Выполнено | /metrics (prometheus-client), deploy/prometheus.yml, prometheus + grafana в docker-compose.prod.yml, DEPLOY.md |
+| 3.7 | Webhook Intervals.icu | Выполнено | POST /api/v1/intervals/webhook, фоновый sync по athlete_id, тесты в test_intervals_webhook.py |
+| 3.8 | fail2ban | Выполнено | deploy/fail2ban/jail.local.example и caddy-auth.conf.example, runbook в DEPLOY.md |
+
+Итого Этап 3: 8/8 выполнено.
 
 ---
 

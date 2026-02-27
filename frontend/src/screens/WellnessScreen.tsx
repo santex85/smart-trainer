@@ -57,8 +57,9 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
   const loadDay = useCallback(async (dateStr: string) => {
     setLoading(true);
     try {
-      const list = await getWellness(dateStr, dateStr);
-      const day = list?.length ? list[0] : null;
+      const res = await getWellness(dateStr, dateStr);
+      const list = res?.items ?? [];
+      const day = list.length ? list[0] : null;
       setLoaded(day ?? null);
       setSleepHours(day?.sleep_hours != null ? String(day.sleep_hours) : "");
       setRhr(day?.rhr != null ? String(day.rhr) : "");
@@ -79,7 +80,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     const from = addDays(today, -6);
-    getWellness(from, today).then(setTrendData).catch(() => setTrendData([]));
+    getWellness(from, today).then((res) => setTrendData(res?.items ?? [])).catch(() => setTrendData([]));
   }, [today]);
 
   const handleSave = async () => {

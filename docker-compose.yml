@@ -3,6 +3,8 @@ name: st2
 services:
   postgres:
     image: postgres:16-alpine
+    networks:
+      - backend-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-smart_trainer}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
@@ -25,6 +27,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - backend-db
+      - frontend-backend
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-smart_trainer}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-smart_trainer}
       GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY:-}
@@ -54,7 +59,21 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - backend
+    networks:
+      - frontend-backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     # Ports: use docker-compose.override.yml for local (80:80), or docker-compose.prod.yml for prod (127.0.0.1:8080:80)
+
+networks:
+  backend-db:
+    driver: bridge
+  frontend-backend:
+    driver: bridge
 
 volumes:
   postgres_data:

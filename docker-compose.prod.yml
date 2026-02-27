@@ -5,8 +5,37 @@ services:
   postgres:
     ports: []
 
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - backend-db
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - backend-db
+    restart: unless-stopped
+
   caddy:
     image: caddy:alpine
+    networks:
+      - frontend-backend
     ports:
       - "80:80"
       - "443:443"
@@ -27,7 +56,9 @@ services:
 
   frontend:
     ports: []
+    restart: unless-stopped
 
 volumes:
   caddy_data:
   caddy_config:
+  grafana_data:

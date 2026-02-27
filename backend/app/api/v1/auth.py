@@ -73,7 +73,15 @@ class RefreshBody(BaseModel):
     refresh_token: str
 
 
-@router.post("/register", response_model=TokenResponse)
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    summary="Register a new user",
+    responses={
+        400: {"description": "Email and password required or email already registered"},
+        500: {"description": "Registration failed or database error"},
+    },
+)
 async def register(
     session: Annotated[AsyncSession, Depends(get_db)],
     body: RegisterBody,
@@ -115,7 +123,14 @@ async def register(
     )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    summary="Login with email and password",
+    responses={
+        401: {"description": "Invalid email or password"},
+    },
+)
 async def login(
     session: Annotated[AsyncSession, Depends(get_db)],
     body: LoginBody,
@@ -140,7 +155,14 @@ async def login(
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="Exchange refresh token for new access and refresh tokens",
+    responses={
+        401: {"description": "Refresh token required, invalid or expired"},
+    },
+)
 async def refresh_tokens(
     session: Annotated[AsyncSession, Depends(get_db)],
     body: RefreshBody,
@@ -175,6 +197,13 @@ async def refresh_tokens(
     )
 
 
-@router.get("/me", response_model=UserOut)
+@router.get(
+    "/me",
+    response_model=UserOut,
+    summary="Get current authenticated user",
+    responses={
+        401: {"description": "Not authenticated or invalid token"},
+    },
+)
 async def me(user: Annotated[User, Depends(get_current_user)]) -> UserOut:
     return UserOut(id=user.id, email=user.email)

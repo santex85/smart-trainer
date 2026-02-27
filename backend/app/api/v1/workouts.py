@@ -4,8 +4,8 @@ import hashlib
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -15,6 +15,7 @@ from app.models.user import User
 from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
 from app.models.intervals_credentials import IntervalsCredentials
+from app.schemas.pagination import PaginatedResponse
 from app.schemas.workout import WorkoutCreate, WorkoutUpdate
 from app.services.fit_parser import parse_fit_session
 from app.services.load_metrics import compute_fitness_from_workouts
@@ -45,33 +46,41 @@ def _row_to_response(row: Workout) -> dict:
     }
 
 
-@router.get("", response_model=list[dict])
+def _logical_key(row: Workout) -> str:
+    start_iso = row.start_date.isoformat() if row.start_date else ""
+    return f"{start_iso}|{row.name or ''}|{row.duration_sec or ''}|{row.tss or ''}"
+
+
+@router.get(
+    "",
+    response_model=PaginatedResponse,
+    summary="List workouts",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def list_workouts(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
     from_date: date | None = None,
     to_date: date | None = None,
-) -> list[dict]:
-    """List workouts for the current user in the given date range."""
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> PaginatedResponse:
+    """List workouts for the current user in the given date range (paginated)."""
     uid = user.id
     to_date = to_date or date.today()
     from_date = from_date or (to_date - timedelta(days=14))
     from_dt = datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc)
     to_dt = datetime.combine(to_date + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
-    r = await session.execute(
-        select(Workout).where(
-            Workout.user_id == uid,
-            Workout.start_date >= from_dt,
-            Workout.start_date < to_dt,
-        ).order_by(Workout.start_date.desc())
-    )
+    base = select(Workout).where(
+        Workout.user_id == uid,
+        Workout.start_date >= from_dt,
+        Workout.start_date < to_dt,
+    ).order_by(Workout.start_date.desc())
+    count_q = select(func.count()).select_from(base.subquery())
+    total = (await session.execute(count_q)).scalar() or 0
+    # Fetch a slice; we may get fewer than limit after deduplication
+    r = await session.execute(base.offset(offset).limit(limit * 2))
     rows = r.scalars().all()
-    # Deduplicate by logical workout: (start_date, name, duration_sec, tss) so that multiple
-    # DB rows for the same activity (e.g. different external_id from Intervals) collapse to one.
-    def _logical_key(row: Workout) -> str:
-        start_iso = row.start_date.isoformat() if row.start_date else ""
-        return f"{start_iso}|{row.name or ''}|{row.duration_sec or ''}|{row.tss or ''}"
-
     seen: set[str] = set()
     out: list[dict] = []
     for row in rows:
@@ -79,11 +88,25 @@ async def list_workouts(
         if key in seen:
             continue
         seen.add(key)
+        if len(out) >= limit:
+            break
         out.append(_row_to_response(row))
-    return out
+    return PaginatedResponse(
+        items=out,
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_more=(offset + limit) < total,
+    )
 
 
-@router.post("", response_model=dict, status_code=201)
+@router.post(
+    "",
+    response_model=dict,
+    status_code=201,
+    summary="Create workout",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def create_workout(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -111,7 +134,12 @@ async def create_workout(
     return _row_to_response(w)
 
 
-@router.patch("/{workout_id}", response_model=dict)
+@router.patch(
+    "/{workout_id}",
+    response_model=dict,
+    summary="Update workout",
+    responses={401: {"description": "Not authenticated"}, 404: {"description": "Workout not found"}},
+)
 async def update_workout(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -146,7 +174,12 @@ async def update_workout(
     return _row_to_response(w)
 
 
-@router.delete("/{workout_id}", status_code=204)
+@router.delete(
+    "/{workout_id}",
+    status_code=204,
+    summary="Delete workout",
+    responses={401: {"description": "Not authenticated"}, 404: {"description": "Workout not found"}},
+)
 async def delete_workout(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -162,7 +195,12 @@ async def delete_workout(
     await session.commit()
 
 
-@router.get("/fitness", response_model=dict | None)
+@router.get(
+    "/fitness",
+    response_model=dict | None,
+    summary="Get CTL/ATL/TSB fitness",
+    responses={401: {"description": "Not authenticated"}},
+)
 async def get_fitness(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
@@ -220,7 +258,17 @@ def _estimate_tss_from_fit(
     return round((duration_sec / 3600.0) * tss_per_hour, 1)
 
 
-@router.post("/upload-fit", response_model=dict, status_code=201)
+@router.post(
+    "/upload-fit",
+    response_model=dict,
+    status_code=201,
+    summary="Upload FIT file",
+    responses={
+        400: {"description": "Invalid or empty FIT file"},
+        401: {"description": "Not authenticated"},
+        409: {"description": "FIT file already imported"},
+    },
+)
 async def upload_fit(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
