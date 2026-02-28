@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Float, Integer, DateTime, ForeignKey, Enum
+from sqlalchemy import String, Float, DateTime, ForeignKey, Enum, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 from app.db.base import Base
@@ -27,5 +27,6 @@ class FoodLog(Base):
     fat_g: Mapped[float] = mapped_column(Float, nullable=False)
     carbs_g: Mapped[float] = mapped_column(Float, nullable=False)
     image_storage_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    extended_nutrients: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="food_logs")

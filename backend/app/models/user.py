@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from sqlalchemy import String, DateTime
+from sqlalchemy import String, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
@@ -15,6 +15,7 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     push_token: Mapped[str | None] = mapped_column(String(512), nullable=True)
     push_platform: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    is_premium: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     food_logs: Mapped[list["FoodLog"]] = relationship("FoodLog", back_populates="user")
     wellness_cache: Mapped[list["WellnessCache"]] = relationship("WellnessCache", back_populates="user")

@@ -15,6 +15,7 @@ from app.schemas.photo import PhotoAnalyzeResponse, PhotoFoodResponse, PhotoSlee
 from app.schemas.sleep_extraction import SleepExtractionResponse
 from app.models.sleep_extraction import SleepExtraction
 from app.schemas.sleep_extraction import SleepExtractionResult
+from app.services.gemini_nutrition import analyze_food_from_image
 from app.services.gemini_photo_analyzer import classify_and_analyze_image
 from app.services.image_resize import resize_image_for_ai_async
 from app.services.sleep_analysis import analyze_and_save_sleep, save_sleep_result
@@ -85,6 +86,15 @@ async def analyze_photo(
         raise HTTPException(status_code=502, detail="AI analysis failed. Please try again.")
 
     if kind == "food":
+        food_result = result
+        extended_nutrients: dict | None = None
+        if user.is_premium:
+            try:
+                food_result, extended_nutrients = await analyze_food_from_image(
+                    image_bytes, extended=True
+                )
+            except (ValueError, Exception):
+                pass  # keep classifier result if extended analysis fails
         if save:
             meal = (meal_type or MealType.other.value).lower()
             if meal not in [e.value for e in MealType]:
@@ -93,13 +103,14 @@ async def analyze_photo(
                 user_id=user.id,
                 timestamp=datetime.utcnow(),
                 meal_type=meal,
-                name=result.name,
-                portion_grams=result.portion_grams,
-                calories=result.calories,
-                protein_g=result.protein_g,
-                fat_g=result.fat_g,
-                carbs_g=result.carbs_g,
+                name=food_result.name,
+                portion_grams=food_result.portion_grams,
+                calories=food_result.calories,
+                protein_g=food_result.protein_g,
+                fat_g=food_result.fat_g,
+                carbs_g=food_result.carbs_g,
                 image_storage_path=image_storage_path,
+                extended_nutrients=extended_nutrients,
             )
             session.add(log)
             await session.flush()
@@ -121,18 +132,20 @@ async def analyze_photo(
                     protein_g=log.protein_g,
                     fat_g=log.fat_g,
                     carbs_g=log.carbs_g,
+                    extended_nutrients=log.extended_nutrients,
                 ),
             )
         return PhotoFoodResponse(
             type="food",
             food=NutritionAnalyzeResponse(
                 id=0,
-                name=result.name,
-                portion_grams=result.portion_grams,
-                calories=result.calories,
-                protein_g=result.protein_g,
-                fat_g=result.fat_g,
-                carbs_g=result.carbs_g,
+                name=food_result.name,
+                portion_grams=food_result.portion_grams,
+                calories=food_result.calories,
+                protein_g=food_result.protein_g,
+                fat_g=food_result.fat_g,
+                carbs_g=food_result.carbs_g,
+                extended_nutrients=extended_nutrients,
             ),
         )
 

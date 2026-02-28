@@ -20,6 +20,7 @@ class NutritionAnalyzeResponse(BaseModel):
     fat_g: float
     carbs_g: float
     id: int | None = None
+    extended_nutrients: dict | None = None
 
 
 class CreateFoodEntryRequest(BaseModel):
@@ -57,6 +58,7 @@ class NutritionDayEntry(BaseModel):
     carbs_g: float
     meal_type: str
     timestamp: str
+    extended_nutrients: dict | None = None
 
 
 class NutritionDayTotals(BaseModel):

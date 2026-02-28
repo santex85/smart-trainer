@@ -71,7 +71,9 @@ async def analyze_nutrition(
         logging.exception("Failed to store nutrition image for user_id=%s", user.id)
     image_bytes = await resize_image_for_ai_async(image_bytes)
     try:
-        result = await analyze_food_from_image(image_bytes)
+        result, extended_nutrients = await analyze_food_from_image(
+            image_bytes, extended=user.is_premium
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception:
@@ -94,6 +96,7 @@ async def analyze_nutrition(
         fat_g=result.fat_g,
         carbs_g=result.carbs_g,
         image_storage_path=image_storage_path,
+        extended_nutrients=extended_nutrients,
     )
     session.add(log)
     await session.flush()
@@ -113,6 +116,7 @@ async def analyze_nutrition(
         protein_g=log.protein_g,
         fat_g=log.fat_g,
         carbs_g=log.carbs_g,
+        extended_nutrients=extended_nutrients,
     )
 
 
@@ -220,6 +224,7 @@ async def get_nutrition_day(
             carbs_g=r.carbs_g,
             meal_type=r.meal_type,
             timestamp=r.timestamp.isoformat() if r.timestamp else "",
+            extended_nutrients=r.extended_nutrients,
         )
         for r in rows
     ]
@@ -261,6 +266,7 @@ async def get_nutrition_entry(
         carbs_g=entry.carbs_g,
         meal_type=entry.meal_type,
         timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
+        extended_nutrients=entry.extended_nutrients,
     )
 
 
@@ -313,6 +319,7 @@ async def update_nutrition_entry(
         carbs_g=entry.carbs_g,
         meal_type=entry.meal_type,
         timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
+        extended_nutrients=entry.extended_nutrients,
     )
 
 

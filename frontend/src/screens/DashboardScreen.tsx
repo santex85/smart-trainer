@@ -287,6 +287,23 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
                 </TouchableOpacity>
               ))}
             </View>
+            {entry.extended_nutrients && Object.keys(entry.extended_nutrients).length > 0 ? (
+              <>
+                <Text style={[styles.modalLabel, { marginTop: 16 }]}>{t("nutrition.micronutrients")}</Text>
+                <View style={styles.micronutrientsBlock}>
+                  {Object.entries(entry.extended_nutrients).map(([key, value]) => {
+                    const labelKey = `nutrition.micronutrientLabels.${key}`;
+                    const label = t(labelKey) !== labelKey ? t(labelKey) : key;
+                    return (
+                      <View key={key} style={styles.micronutrientRow}>
+                        <Text style={styles.micronutrientLabel}>{label}</Text>
+                        <Text style={styles.micronutrientValue}>{typeof value === "number" ? Math.round(value * 10) / 10 : value}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
           </ScrollView>
           {confirmDeleteVisible ? (
             <View style={styles.deleteConfirmBox}>
@@ -1405,6 +1422,10 @@ const styles = StyleSheet.create({
   mealTypeBtnActive: { backgroundColor: "#38bdf8" },
   mealTypeBtnText: { fontSize: 12, color: "#94a3b8" },
   mealTypeBtnTextActive: { fontSize: 12, color: "#0f172a", fontWeight: "600" },
+  micronutrientsBlock: { marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: "#1e293b", borderRadius: 8 },
+  micronutrientRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
+  micronutrientLabel: { fontSize: 12, color: "#94a3b8" },
+  micronutrientValue: { fontSize: 12, color: "#e2e8f0" },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#334155" },
   modalBtnCancel: { paddingVertical: 10, paddingHorizontal: 16 },
   modalBtnCancelText: { fontSize: 16, color: "#b8c5d6" },

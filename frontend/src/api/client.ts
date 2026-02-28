@@ -248,6 +248,7 @@ export interface NutritionResult {
   protein_g: number;
   fat_g: number;
   carbs_g: number;
+  extended_nutrients?: Record<string, number> | null;
 }
 
 export interface SleepPhaseSegment {
@@ -308,6 +309,7 @@ export interface NutritionDayEntry {
   carbs_g: number;
   meal_type: string;
   timestamp: string;
+  extended_nutrients?: Record<string, number> | null;
 }
 
 export interface NutritionDayTotals {
