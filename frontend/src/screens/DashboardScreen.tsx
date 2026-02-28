@@ -1010,7 +1010,17 @@ export function DashboardScreen({
       >
         <Pressable style={styles.menuBackdrop} onPress={() => setMenuVisible(false)}>
           <Pressable style={[styles.menuBox, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
-            {user?.email ? <Text style={styles.menuEmail} numberOfLines={1}>{user.email}</Text> : null}
+            <View style={styles.menuHeader}>
+              {user?.email ? <Text style={styles.menuEmail} numberOfLines={1}>{user.email}</Text> : <View />}
+              <TouchableOpacity
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setMenuVisible(false); }}
+                style={styles.menuCloseBtn}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel={t("common.close")}
+              >
+                <Text style={styles.menuCloseIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); toggleTheme(); setMenuVisible(false); }}
@@ -1499,7 +1509,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: "700", color: "#eee", marginBottom: 20 },
   menuBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 50, paddingRight: 16, paddingHorizontal: 20 },
   menuBox: { minWidth: 260, borderRadius: 12, padding: 16, paddingVertical: 12 },
-  menuEmail: { fontSize: 14, color: "#94a3b8", marginBottom: 12 },
+  menuHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  menuEmail: { fontSize: 14, color: "#94a3b8", flex: 1 },
+  menuCloseBtn: { padding: 4 },
+  menuCloseIcon: { fontSize: 20, color: "#94a3b8", fontWeight: "600" },
   menuItem: { paddingVertical: 12 },
   menuItemText: { fontSize: 16, color: "#38bdf8" },
   loader: { marginTop: 40 },

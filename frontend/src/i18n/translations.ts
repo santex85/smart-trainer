@@ -9,6 +9,9 @@ export const ru = {
     brandSubtitle: "Питание, сон и тренировки в одном месте",
     logout: "Выйти",
   },
+  common: {
+    close: "Закрыть",
+  },
   tabs: {
     home: "Главная",
     chat: "Чат",
