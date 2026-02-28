@@ -363,6 +363,19 @@ export interface WorkoutItem {
   tss?: number | null;
   source: string;
   notes?: string | null;
+  raw?: Record<string, unknown> | null;
+  fit_checksum?: string | null;
+}
+
+/** Response from POST /workouts/preview-fit (no id, no source). */
+export interface WorkoutPreviewItem {
+  start_date: string;
+  name?: string | null;
+  type?: string | null;
+  duration_sec?: number | null;
+  distance_m?: number | null;
+  tss?: number | null;
+  raw?: Record<string, unknown> | null;
 }
 
 export interface WorkoutFitness {
@@ -421,6 +434,37 @@ export async function updateWorkout(
 
 export async function deleteWorkout(workoutId: number): Promise<void> {
   return api<void>(`/api/v1/workouts/${workoutId}`, { method: "DELETE" });
+}
+
+export async function previewFitWorkout(file: Blob | { uri: string; name: string }): Promise<WorkoutPreviewItem> {
+  const API_BASE =
+    process.env.EXPO_PUBLIC_API_URL === "" ? "" : (process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000");
+  const token = await getAccessToken();
+  const form = new FormData();
+  if (file instanceof Blob) {
+    form.append("file", file, "workout.fit");
+  } else {
+    const blob = await fetch(file.uri).then((r) => r.blob());
+    form.append("file", blob, file.name || "workout.fit");
+  }
+  const res = await fetch(`${API_BASE}/api/v1/workouts/preview-fit`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (res.status === 401) {
+    if (await doRefreshToken()) {
+      return previewFitWorkout(file);
+    }
+    await clearAuth();
+    onUnauthorized?.();
+    throw new Error("Unauthorized");
+  }
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || `Preview failed: ${res.status}`);
+  }
+  return res.json() as Promise<WorkoutPreviewItem>;
 }
 
 export async function uploadFitWorkout(file: Blob | { uri: string; name: string }): Promise<WorkoutItem> {

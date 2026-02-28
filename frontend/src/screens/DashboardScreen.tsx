@@ -29,12 +29,15 @@ import {
   getWorkoutFitness,
   createWorkout,
   uploadFitWorkout,
+  previewFitWorkout,
+  deleteWorkout,
   type AthleteProfileResponse,
   type NutritionDayResponse,
   type NutritionDayEntry,
   type AuthUser,
   type WellnessDay,
   type WorkoutItem,
+  type WorkoutPreviewItem,
   type WorkoutFitness,
 } from "../api/client";
 import { useTheme } from "../theme";
@@ -515,6 +518,173 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
   );
 });
 
+const WorkoutPreviewModal = React.memo(function WorkoutPreviewModal({
+  file,
+  preview,
+  onClose,
+  onSave,
+}: {
+  file: Blob;
+  preview: WorkoutPreviewItem;
+  onClose: () => void;
+  onSave: (file: Blob) => Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const raw = preview.raw as Record<string, unknown> | undefined;
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave(file);
+      onClose();
+    } catch (e) {
+      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось сохранить.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal visible transparent animationType="fade">
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+          <Text style={styles.cardTitle}>Превью FIT-тренировки</Text>
+          <Text style={styles.modalLabel}>Название / тип</Text>
+          <Text style={styles.value}>{preview.name ?? preview.type ?? "—"}</Text>
+          <Text style={styles.modalLabel}>Дата и время</Text>
+          <Text style={styles.value}>{preview.start_date ? new Date(preview.start_date).toLocaleString() : "—"}</Text>
+          <Text style={styles.modalLabel}>Длительность</Text>
+          <Text style={styles.value}>{formatDuration(preview.duration_sec ?? undefined) || "—"}</Text>
+          {preview.distance_m != null && (
+            <>
+              <Text style={styles.modalLabel}>Дистанция</Text>
+              <Text style={styles.value}>{(preview.distance_m / 1000).toFixed(2)} km</Text>
+            </>
+          )}
+          {preview.tss != null && (
+            <>
+              <Text style={styles.modalLabel}>TSS</Text>
+              <Text style={styles.value}>{Math.round(preview.tss)}</Text>
+            </>
+          )}
+          {raw && (
+            <>
+              <Text style={[styles.modalLabel, { marginTop: 8 }]}>Из файла (ЧСС, мощность, калории)</Text>
+              <View style={{ gap: 2 }}>
+                {raw.avg_heart_rate != null && <Text style={styles.hint}>ЧСС ср.: {String(raw.avg_heart_rate)}</Text>}
+                {raw.max_heart_rate != null && <Text style={styles.hint}>ЧСС макс.: {String(raw.max_heart_rate)}</Text>}
+                {raw.avg_power != null && <Text style={styles.hint}>Мощность ср.: {String(raw.avg_power)} W</Text>}
+                {raw.normalized_power != null && <Text style={styles.hint}>NP: {String(raw.normalized_power)} W</Text>}
+                {raw.total_calories != null && <Text style={styles.hint}>Калории: {String(raw.total_calories)}</Text>}
+              </View>
+            </>
+          )}
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
+              <Text style={styles.modalBtnCancelText}>Отмена</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalBtnSave} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Сохранить</Text>}
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+});
+
+const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
+  workout,
+  onClose,
+  onDeleted,
+}: {
+  workout: WorkoutItem | null;
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+  if (!workout) return null;
+  const raw = workout.raw as Record<string, unknown> | undefined;
+  const sourceLabel = workout.source === "fit" ? "FIT-файл" : workout.source === "intervals" ? "Intervals.icu" : "Ручной ввод";
+
+  const handleDelete = () => {
+    Alert.alert("Удалить тренировку?", "Тренировка будет удалена без возможности восстановления.", [
+      { text: "Отмена", style: "cancel" },
+      {
+        text: "Удалить",
+        style: "destructive",
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await deleteWorkout(workout.id);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            onDeleted();
+            onClose();
+          } catch (e) {
+            Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить.");
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  return (
+    <Modal visible transparent animationType="fade">
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+          <Text style={styles.cardTitle}>Тренировка</Text>
+          <Text style={styles.modalLabel}>Название / тип</Text>
+          <Text style={styles.value}>{workout.name ?? workout.type ?? "—"}</Text>
+          <Text style={styles.modalLabel}>Дата и время</Text>
+          <Text style={styles.value}>{workout.start_date ? new Date(workout.start_date).toLocaleString() : "—"}</Text>
+          <Text style={styles.modalLabel}>Источник</Text>
+          <Text style={styles.value}>{sourceLabel}</Text>
+          <Text style={styles.modalLabel}>Длительность</Text>
+          <Text style={styles.value}>{formatDuration(workout.duration_sec ?? undefined) || "—"}</Text>
+          {workout.distance_m != null && (
+            <>
+              <Text style={styles.modalLabel}>Дистанция</Text>
+              <Text style={styles.value}>{(workout.distance_m / 1000).toFixed(2)} km</Text>
+            </>
+          )}
+          {workout.tss != null && (
+            <>
+              <Text style={styles.modalLabel}>TSS</Text>
+              <Text style={styles.value}>{Math.round(workout.tss)}</Text>
+            </>
+          )}
+          {workout.notes && (
+            <>
+              <Text style={styles.modalLabel}>Заметки</Text>
+              <Text style={styles.hint}>{workout.notes}</Text>
+            </>
+          )}
+          {raw && (workout.source === "fit") && (
+            <>
+              <Text style={[styles.modalLabel, { marginTop: 8 }]}>Из FIT (ЧСС, мощность, калории)</Text>
+              <View style={{ gap: 2 }}>
+                {raw.avg_heart_rate != null && <Text style={styles.hint}>ЧСС ср.: {String(raw.avg_heart_rate)}</Text>}
+                {raw.max_heart_rate != null && <Text style={styles.hint}>ЧСС макс.: {String(raw.max_heart_rate)}</Text>}
+                {raw.avg_power != null && <Text style={styles.hint}>Мощность ср.: {String(raw.avg_power)} W</Text>}
+                {raw.normalized_power != null && <Text style={styles.hint}>NP: {String(raw.normalized_power)} W</Text>}
+                {raw.total_calories != null && <Text style={styles.hint}>Калории: {String(raw.total_calories)}</Text>}
+              </View>
+            </>
+          )}
+          <View style={[styles.modalActions, styles.deleteConfirmBox]}>
+            <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
+              <Text style={styles.modalBtnCancelText}>Закрыть</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalBtnDelete} onPress={handleDelete} disabled={deleting}>
+              {deleting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalBtnDeleteText}>Удалить</Text>}
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+});
+
 export function DashboardScreen({
   user,
   onLogout,
@@ -552,6 +722,8 @@ export function DashboardScreen({
   const [wellnessEditVisible, setWellnessEditVisible] = useState(false);
   const [workoutAddVisible, setWorkoutAddVisible] = useState(false);
   const [fitUploading, setFitUploading] = useState(false);
+  const [fitPreviewData, setFitPreviewData] = useState<{ file: Blob; preview: WorkoutPreviewItem } | null>(null);
+  const [selectedWorkout, setSelectedWorkout] = useState<WorkoutItem | null>(null);
   const [lastAnalysisResult, setLastAnalysisResult] = useState<{
     decision: string;
     reason: string;
@@ -677,16 +849,25 @@ export function DashboardScreen({
       if (!file) return;
       setFitUploading(true);
       try {
-        await uploadFitWorkout(file);
-        load();
+        const preview = await previewFitWorkout(file);
+        setFitPreviewData({ file, preview });
       } catch (err) {
-        Alert.alert("Ошибка", err instanceof Error ? err.message : "Не удалось загрузить FIT.");
+        Alert.alert("Ошибка", err instanceof Error ? err.message : "Не удалось разобрать FIT.");
       } finally {
         setFitUploading(false);
       }
     };
     input.click();
-  }, [load]);
+  }, []);
+
+  const onSaveFitFromPreview = useCallback(
+    async (file: Blob) => {
+      await uploadFitWorkout(file);
+      setFitPreviewData(null);
+      load();
+    },
+    [load]
+  );
 
   const onRunAnalysisNow = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -982,6 +1163,23 @@ export function DashboardScreen({
             />
           ) : null}
 
+          {fitPreviewData ? (
+            <WorkoutPreviewModal
+              file={fitPreviewData.file}
+              preview={fitPreviewData.preview}
+              onClose={() => setFitPreviewData(null)}
+              onSave={onSaveFitFromPreview}
+            />
+          ) : null}
+
+          {selectedWorkout ? (
+            <WorkoutDetailModal
+              workout={selectedWorkout}
+              onClose={() => setSelectedWorkout(null)}
+              onDeleted={load}
+            />
+          ) : null}
+
           <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>{t("workouts.title")}</Text>
@@ -1015,7 +1213,12 @@ export function DashboardScreen({
               ) : null;
             })() : null}
             {workouts.length > 0 ? workouts.map((act) => (
-              <View key={act.id} style={styles.activityRow}>
+              <TouchableOpacity
+                key={act.id}
+                style={styles.activityRow}
+                onPress={() => setSelectedWorkout(act)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.calendarDate}>{formatEventDate(act.start_date)}</Text>
                 <View style={styles.activityInfo}>
                   <Text style={styles.calendarTitle}>{act.name || "Тренировка"}</Text>
@@ -1025,7 +1228,7 @@ export function DashboardScreen({
                     {act.tss != null ? ` · TSS ${Math.round(act.tss)}` : ""}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             )) : (
               <Text style={styles.placeholder}>Нет тренировок. Подключите Intervals.icu и нажмите «Синхронизировать» или добавьте вручную / загрузите FIT.</Text>
             )}

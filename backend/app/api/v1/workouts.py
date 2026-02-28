@@ -44,6 +44,8 @@ def _row_to_response(row: Workout) -> dict:
         "tss": row.tss,
         "source": row.source,
         "notes": row.notes,
+        "raw": row.raw,
+        "fit_checksum": row.fit_checksum,
     }
 
 
@@ -280,6 +282,63 @@ def _estimate_tss_from_fit(
         key = "generic"
     tss_per_hour = DEFAULT_TSS_PER_HOUR.get(key, DEFAULT_TSS_PER_HOUR_FALLBACK)
     return round((duration_sec / 3600.0) * tss_per_hour, 1)
+
+
+@router.post(
+    "/preview-fit",
+    response_model=dict,
+    summary="Preview FIT file (parse without saving)",
+    responses={
+        400: {"description": "Invalid or empty FIT file"},
+        401: {"description": "Not authenticated"},
+    },
+)
+async def preview_fit(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    file: Annotated[UploadFile, File(description="FIT file")],
+) -> dict:
+    """Parse a FIT file and return session summary without saving to DB."""
+    if not file.filename or not file.filename.lower().endswith(".fit"):
+        raise HTTPException(status_code=400, detail="Expected a .fit file.")
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty file.")
+
+    data = parse_fit_session(content)
+    if not data:
+        raise HTTPException(status_code=400, detail="Could not parse FIT file or no session found.")
+
+    start_date = data["start_date"]
+    if isinstance(start_date, datetime) and start_date.tzinfo is None:
+        start_date = start_date.replace(tzinfo=timezone.utc)
+
+    uid = user.id
+    r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
+    profile = r.scalar_one_or_none()
+    ftp = None
+    if profile and (profile.ftp is not None or profile.strava_ftp is not None):
+        ftp = float(profile.ftp if profile.ftp is not None else profile.strava_ftp)
+
+    duration_sec = data.get("duration_sec") or 0
+    tss = _estimate_tss_from_fit(
+        duration_sec,
+        data.get("avg_power"),
+        data.get("normalized_power"),
+        ftp,
+        data.get("sport"),
+    )
+    sport_name = (data.get("sport") or "Workout").capitalize()
+
+    return {
+        "start_date": start_date.isoformat() if isinstance(start_date, datetime) else str(start_date),
+        "name": sport_name,
+        "type": sport_name,
+        "duration_sec": duration_sec or None,
+        "distance_m": data.get("distance_m"),
+        "tss": tss if tss > 0 else None,
+        "raw": data.get("raw"),
+    }
 
 
 @router.post(
