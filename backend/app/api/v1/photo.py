@@ -88,13 +88,12 @@ async def analyze_photo(
     if kind == "food":
         food_result = result
         extended_nutrients: dict | None = None
-        if user.is_premium:
-            try:
-                food_result, extended_nutrients = await analyze_food_from_image(
-                    image_bytes, extended=True
-                )
-            except (ValueError, Exception):
-                pass  # keep classifier result if extended analysis fails
+        try:
+            food_result, extended_nutrients = await analyze_food_from_image(
+                image_bytes, extended=True
+            )
+        except (ValueError, Exception):
+            pass  # keep classifier result if extended analysis fails
         if save:
             meal = (meal_type or MealType.other.value).lower()
             if meal not in [e.value for e in MealType]:

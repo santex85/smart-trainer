@@ -72,7 +72,7 @@ async def analyze_nutrition(
     image_bytes = await resize_image_for_ai_async(image_bytes)
     try:
         result, extended_nutrients = await analyze_food_from_image(
-            image_bytes, extended=user.is_premium
+            image_bytes, extended=True
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
