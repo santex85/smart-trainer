@@ -23,6 +23,20 @@ const DEFAULT_PROTEIN_GOAL = 120;
 const DEFAULT_FAT_GOAL = 80;
 const DEFAULT_CARBS_GOAL = 250;
 
+/** BJU from calories: 30% protein, 30% fat, 40% carbs (by calories). */
+function bjuFromCalories(kcal: number): { protein: number; fat: number; carbs: number } {
+  return {
+    protein: Math.round((kcal * 0.3) / 4),
+    fat: Math.round((kcal * 0.3) / 9),
+    carbs: Math.round((kcal * 0.4) / 4),
+  };
+}
+
+/** Calories from BJU: 4 kcal/g protein, 9 kcal/g fat, 4 kcal/g carbs. */
+function caloriesFromBju(protein: number, fat: number, carbs: number): number {
+  return Math.round(protein * 4 + fat * 9 + carbs * 4);
+}
+
 function getErrorMessage(e: unknown): string {
   if (!(e instanceof Error)) return "Request failed.";
   try {
@@ -47,6 +61,7 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
   const [proteinGoal, setProteinGoal] = useState("");
   const [fatGoal, setFatGoal] = useState("");
   const [carbsGoal, setCarbsGoal] = useState("");
+  const [nutritionInputMode, setNutritionInputMode] = useState<"calories" | "bju">("calories");
   const [premiumToggling, setPremiumToggling] = useState(false);
 
   const load = useCallback(async () => {
@@ -103,14 +118,27 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
         const v = parseInt(ftp, 10);
         if (!Number.isNaN(v) && v > 0) payload.ftp = v;
       }
-      const c = parseFloat(calorieGoal);
-      if (!Number.isNaN(c) && c >= 0) payload.calorie_goal = c;
-      const pr = parseFloat(proteinGoal);
-      if (!Number.isNaN(pr) && pr >= 0) payload.protein_goal = pr;
-      const f = parseFloat(fatGoal);
-      if (!Number.isNaN(f) && f >= 0) payload.fat_goal = f;
-      const ca = parseFloat(carbsGoal);
-      if (!Number.isNaN(ca) && ca >= 0) payload.carbs_goal = ca;
+      // Build consistent K/B/J/U from current mode and send all four
+      if (nutritionInputMode === "calories") {
+        const c = parseFloat(calorieGoal);
+        if (!Number.isNaN(c) && c >= 0) {
+          payload.calorie_goal = c;
+          const bju = bjuFromCalories(c);
+          payload.protein_goal = bju.protein;
+          payload.fat_goal = bju.fat;
+          payload.carbs_goal = bju.carbs;
+        }
+      } else {
+        const pr = parseFloat(proteinGoal) || 0;
+        const f = parseFloat(fatGoal) || 0;
+        const ca = parseFloat(carbsGoal) || 0;
+        if (pr >= 0 && f >= 0 && ca >= 0) {
+          payload.calorie_goal = caloriesFromBju(pr, f, ca);
+          payload.protein_goal = Math.round(pr);
+          payload.fat_goal = Math.round(f);
+          payload.carbs_goal = Math.round(ca);
+        }
+      }
       const updated = await updateAthleteProfile(payload);
       setProfile(updated);
       setEditing(false);
@@ -210,42 +238,94 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
               keyboardType="number-pad"
             />
             <Text style={styles.sectionTitle}>Цели по питанию</Text>
-            <Text style={styles.label}>Калории (ккал/день)</Text>
-            <TextInput
-              style={styles.input}
-              value={calorieGoal}
-              onChangeText={setCalorieGoal}
-              placeholder={String(DEFAULT_CALORIE_GOAL)}
-              placeholderTextColor="#64748b"
-              keyboardType="number-pad"
-            />
-            <Text style={styles.label}>Белки (г)</Text>
-            <TextInput
-              style={styles.input}
-              value={proteinGoal}
-              onChangeText={setProteinGoal}
-              placeholder={String(DEFAULT_PROTEIN_GOAL)}
-              placeholderTextColor="#64748b"
-              keyboardType="number-pad"
-            />
-            <Text style={styles.label}>Жиры (г)</Text>
-            <TextInput
-              style={styles.input}
-              value={fatGoal}
-              onChangeText={setFatGoal}
-              placeholder={String(DEFAULT_FAT_GOAL)}
-              placeholderTextColor="#64748b"
-              keyboardType="number-pad"
-            />
-            <Text style={styles.label}>Углеводы (г)</Text>
-            <TextInput
-              style={styles.input}
-              value={carbsGoal}
-              onChangeText={setCarbsGoal}
-              placeholder={String(DEFAULT_CARBS_GOAL)}
-              placeholderTextColor="#64748b"
-              keyboardType="number-pad"
-            />
+            <View style={styles.segmentRow}>
+              <TouchableOpacity
+                style={[styles.segmentBtn, nutritionInputMode === "calories" && styles.segmentBtnActive]}
+                onPress={() => setNutritionInputMode("calories")}
+              >
+                <Text style={[styles.segmentBtnText, nutritionInputMode === "calories" && styles.segmentBtnTextActive]}>
+                  Задать калории
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segmentBtn, nutritionInputMode === "bju" && styles.segmentBtnActive]}
+                onPress={() => setNutritionInputMode("bju")}
+              >
+                <Text style={[styles.segmentBtnText, nutritionInputMode === "bju" && styles.segmentBtnTextActive]}>
+                  Задать БЖУ
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {nutritionInputMode === "calories" ? (
+              <>
+                <Text style={styles.label}>Калории (ккал/день)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={calorieGoal}
+                  onChangeText={setCalorieGoal}
+                  placeholder={String(DEFAULT_CALORIE_GOAL)}
+                  placeholderTextColor="#64748b"
+                  keyboardType="number-pad"
+                />
+                {(() => {
+                  const kcal = parseFloat(calorieGoal);
+                  const valid = !Number.isNaN(kcal) && kcal >= 0;
+                  const { protein, fat, carbs } = valid ? bjuFromCalories(kcal) : { protein: 0, fat: 0, carbs: 0 };
+                  return (
+                    <>
+                      <Text style={styles.label}>Белки</Text>
+                      <Text style={styles.valueReadOnly}>{valid ? protein : "—"} г</Text>
+                      <Text style={styles.label}>Жиры</Text>
+                      <Text style={styles.valueReadOnly}>{valid ? fat : "—"} г</Text>
+                      <Text style={styles.label}>Углеводы</Text>
+                      <Text style={styles.valueReadOnly}>{valid ? carbs : "—"} г</Text>
+                    </>
+                  );
+                })()}
+              </>
+            ) : (
+              <>
+                <Text style={styles.label}>Белки (г)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={proteinGoal}
+                  onChangeText={setProteinGoal}
+                  placeholder={String(DEFAULT_PROTEIN_GOAL)}
+                  placeholderTextColor="#64748b"
+                  keyboardType="number-pad"
+                />
+                <Text style={styles.label}>Жиры (г)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={fatGoal}
+                  onChangeText={setFatGoal}
+                  placeholder={String(DEFAULT_FAT_GOAL)}
+                  placeholderTextColor="#64748b"
+                  keyboardType="number-pad"
+                />
+                <Text style={styles.label}>Углеводы (г)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={carbsGoal}
+                  onChangeText={setCarbsGoal}
+                  placeholder={String(DEFAULT_CARBS_GOAL)}
+                  placeholderTextColor="#64748b"
+                  keyboardType="number-pad"
+                />
+                {(() => {
+                  const p = parseFloat(proteinGoal) || 0;
+                  const f = parseFloat(fatGoal) || 0;
+                  const c = parseFloat(carbsGoal) || 0;
+                  const kcal = caloriesFromBju(p, f, c);
+                  return (
+                    <>
+                      <Text style={styles.label}>Калории</Text>
+                      <Text style={styles.valueReadOnly}>≈ {kcal} ккал</Text>
+                    </>
+                  );
+                })()}
+              </>
+            )}
             <Text style={styles.hint}>Введите вес, рост, год рождения, FTP и цели по питанию. Цели используются на дашборде.</Text>
             <View style={styles.editActions}>
               <TouchableOpacity style={styles.btnSecondary} onPress={() => setEditing(false)}>
@@ -329,7 +409,20 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: "600", color: "#e2e8f0", marginTop: 20, marginBottom: 4 },
   label: { fontSize: 14, color: "#94a3b8", marginTop: 12 },
   value: { fontSize: 16, color: "#e2e8f0", fontWeight: "500" },
+  valueReadOnly: { fontSize: 16, color: "#94a3b8", marginTop: 6 },
   source: { fontSize: 12, color: "#64748b", marginLeft: 6 },
+  segmentRow: { flexDirection: "row", gap: 8, marginTop: 8, marginBottom: 4 },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#16213e",
+    alignItems: "center",
+  },
+  segmentBtnActive: { backgroundColor: "#38bdf8" },
+  segmentBtnText: { fontSize: 14, color: "#94a3b8" },
+  segmentBtnTextActive: { color: "#0f172a", fontWeight: "600" },
   row: { flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", marginTop: 4 },
   premiumRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16, marginBottom: 8 },
   input: {
