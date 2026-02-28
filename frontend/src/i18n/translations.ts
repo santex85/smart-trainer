@@ -76,6 +76,8 @@ export const ru = {
     normPerNight: "норма 7 ч/ночь",
     noData: "нет данных",
     sleepByPhoto: "Фото сна",
+    history: "История",
+    insufficientData: "Недостаточно данных",
     uploadSleepPhotoHint: "Загрузите фото сна",
   },
   fitness: {

@@ -934,10 +934,11 @@ export function DashboardScreen({
 
   const WEEKLY_SLEEP_NORM_HOURS = 7 * 7;
   const { weeklySleepTotal, weeklySleepDeficit } = useMemo(() => {
-    const total = wellnessWeek.reduce((sum, d) => sum + (d?.sleep_hours ?? 0), 0);
+    const last7 = sleepExtractions.slice(0, 7);
+    const total = last7.reduce((sum, ext) => sum + (ext.actual_sleep_hours ?? ext.sleep_hours ?? 0), 0);
     const deficit = Math.max(0, WEEKLY_SLEEP_NORM_HOURS - total);
     return { weeklySleepTotal: total, weeklySleepDeficit: deficit };
-  }, [wellnessWeek]);
+  }, [sleepExtractions]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -1227,16 +1228,20 @@ export function DashboardScreen({
             ) : (
               <Text style={styles.placeholder}>{t("wellness.placeholder")}</Text>
             )}
-            {wellnessWeek.length > 0 ? (
-              <Text style={[styles.hint, { marginTop: 8 }]}>
-                {t("wellness.weeklySleep")}: {Math.round(weeklySleepTotal * 10) / 10} {t("wellness.sleepHours")}
-                {weeklySleepDeficit > 0 ? ` · ${t("wellness.deficit")} ${Math.round(weeklySleepDeficit * 10) / 10} ${t("wellness.sleepHours")}` : null}
-                {" "}({t("wellness.normPerNight")})
-              </Text>
+            {sleepExtractions.length > 0 ? (
+              sleepExtractions.length >= 7 ? (
+                <Text style={[styles.hint, { marginTop: 8 }]}>
+                  {t("wellness.weeklySleep")}: {Math.round(weeklySleepTotal * 10) / 10} {t("wellness.sleepHours")}
+                  {weeklySleepDeficit > 0 ? ` · ${t("wellness.deficit")} ${Math.round(weeklySleepDeficit * 10) / 10} ${t("wellness.sleepHours")}` : null}
+                  {" "}({t("wellness.normPerNight")})
+                </Text>
+              ) : (
+                <Text style={[styles.hint, { marginTop: 8 }]}>{t("wellness.insufficientData")}</Text>
+              )
             ) : null}
             <View style={{ marginTop: 12 }}>
               <View style={styles.cardTitleRow}>
-                <Text style={[styles.modalLabel, { marginBottom: 0 }]}>{t("wellness.sleepByPhoto")}</Text>
+                <Text style={[styles.modalLabel, { marginBottom: 0 }]}>{t("wellness.history")}</Text>
                 <TouchableOpacity
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
