@@ -9,6 +9,7 @@ import {
   ScrollView,
   Image,
   TextInput,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -142,16 +143,18 @@ export function CameraScreen({
       Alert.alert("Нужен доступ", "Разрешите доступ к фото для учёта питания.");
       return;
     }
+    const isNativeApp = Platform.OS !== "web";
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
+      allowsEditing: isNativeApp,
+      aspect: isNativeApp ? [1, 1] as [number, number] : undefined,
       quality: 0.8,
     });
     if (pickerResult.canceled) return;
     const asset = pickerResult.assets[0];
     if (!asset?.uri) {
       devLog("pickImage: no asset uri", "warn");
+      Alert.alert("Ошибка", "Не удалось получить фото. Попробуйте ещё раз.");
       return;
     }
     devLog("pickImage: selected, starting upload (preview)");
@@ -194,15 +197,17 @@ export function CameraScreen({
       Alert.alert("Нужен доступ", "Разрешите доступ к камере для фото еды.");
       return;
     }
+    const isNativeApp = Platform.OS !== "web";
     const pickerResult = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
+      allowsEditing: isNativeApp,
+      aspect: isNativeApp ? [1, 1] as [number, number] : undefined,
       quality: 0.8,
     });
     if (pickerResult.canceled) return;
     const asset = pickerResult.assets[0];
     if (!asset?.uri) {
       devLog("takePhoto: no asset uri", "warn");
+      Alert.alert("Ошибка", "Не удалось получить фото. Попробуйте ещё раз.");
       return;
     }
     devLog("takePhoto: captured, starting upload (preview)");
