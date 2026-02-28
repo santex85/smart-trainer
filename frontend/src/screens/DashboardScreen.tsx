@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { Swipeable } from "react-native-gesture-handler";
 import {
   getNutritionDay,
+  createNutritionEntry,
   updateNutritionEntry,
   deleteNutritionEntry,
   runOrchestrator,
@@ -117,11 +118,13 @@ const progressBarStyles = StyleSheet.create({
 
 const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
   entry,
+  copyTargetDate,
   onClose,
   onSaved,
   onDeleted,
 }: {
   entry: NutritionDayEntry;
+  copyTargetDate: string;
   onClose: () => void;
   onSaved: () => void;
   onDeleted: () => void;
@@ -135,6 +138,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
   const [mealType, setMealType] = useState(entry.meal_type);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 
   const handleSave = async () => {
@@ -179,6 +183,36 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
       Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    const p = Number(portionGrams);
+    const c = Number(calories);
+    const pr = Number(proteinG);
+    const f = Number(fatG);
+    const ca = Number(carbsG);
+    if (Number.isNaN(p) || Number.isNaN(c) || Number.isNaN(pr) || Number.isNaN(f) || Number.isNaN(ca)) {
+      Alert.alert("Ошибка", "Введите корректные числа.");
+      return;
+    }
+    setCopying(true);
+    try {
+      await createNutritionEntry({
+        name: name.trim() || entry.name,
+        portion_grams: p,
+        calories: c,
+        protein_g: pr,
+        fat_g: f,
+        carbs_g: ca,
+        meal_type: mealType,
+        date: copyTargetDate,
+      });
+      onSaved();
+    } catch (e) {
+      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось скопировать");
+    } finally {
+      setCopying(false);
     }
   };
 
@@ -273,16 +307,23 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
                 <Text style={styles.modalBtnCancelText}>Отмена</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtnDelete, (saving || deleting) && styles.modalBtnDisabled]}
+                style={[styles.modalBtnDelete, (saving || deleting || copying) && styles.modalBtnDisabled]}
                 onPress={showDeleteConfirm}
-                disabled={saving || deleting}
+                disabled={saving || deleting || copying}
               >
                 <Text style={styles.modalBtnDeleteText}>Удалить</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtnSave, (saving || deleting) && styles.modalBtnDisabled]}
+                style={[styles.modalBtnCopy, (saving || deleting || copying) && styles.modalBtnDisabled]}
+                onPress={handleCopy}
+                disabled={saving || deleting || copying}
+              >
+                {copying ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnCopyText}>{t("nutrition.copy")}</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnSave, (saving || deleting || copying) && styles.modalBtnDisabled]}
                 onPress={handleSave}
-                disabled={saving || deleting}
+                disabled={saving || deleting || copying}
               >
                 {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Сохранить</Text>}
               </TouchableOpacity>
@@ -605,26 +646,30 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
   const raw = workout.raw as Record<string, unknown> | undefined;
   const sourceLabel = workout.source === "fit" ? "FIT-файл" : workout.source === "intervals" ? "Intervals.icu" : "Ручной ввод";
 
+  const performDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteWorkout(workout.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      onDeleted();
+      onClose();
+    } catch (e) {
+      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleDelete = () => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      if (window.confirm("Удалить тренировку? Тренировка будет удалена без возможности восстановления.")) {
+        performDelete();
+      }
+      return;
+    }
     Alert.alert("Удалить тренировку?", "Тренировка будет удалена без возможности восстановления.", [
       { text: "Отмена", style: "cancel" },
-      {
-        text: "Удалить",
-        style: "destructive",
-        onPress: async () => {
-          setDeleting(true);
-          try {
-            await deleteWorkout(workout.id);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-            onDeleted();
-            onClose();
-          } catch (e) {
-            Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить.");
-          } finally {
-            setDeleting(false);
-          }
-        },
-      },
+      { text: "Удалить", style: "destructive", onPress: performDelete },
     ]);
   };
 
@@ -1127,6 +1172,7 @@ export function DashboardScreen({
           {entryToEdit ? (
             <EditFoodEntryModal
               entry={entryToEdit}
+              copyTargetDate={nutritionDate}
               onClose={() => setEntryToEdit(null)}
               onSaved={() => {
                 setEntryToEdit(null);
@@ -1366,6 +1412,8 @@ const styles = StyleSheet.create({
   modalBtnDeleteText: { fontSize: 16, color: "#fff", fontWeight: "600" },
   modalBtnSave: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#38bdf8" },
   modalBtnSaveText: { fontSize: 16, color: "#0f172a", fontWeight: "600" },
+  modalBtnCopy: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#475569" },
+  modalBtnCopyText: { fontSize: 16, color: "#e2e8f0", fontWeight: "600" },
   modalBtnDisabled: { opacity: 0.7 },
   deleteConfirmBox: { marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#334155" },
   deleteConfirmTitle: { fontSize: 16, fontWeight: "600", color: "#e2e8f0", marginBottom: 4 },
