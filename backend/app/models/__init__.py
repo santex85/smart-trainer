@@ -4,9 +4,6 @@ from app.models.wellness_cache import WellnessCache
 from app.models.chat_message import ChatMessage
 from app.models.chat_thread import ChatThread
 from app.models.intervals_credentials import IntervalsCredentials
-from app.models.strava_credentials import StravaCredentials
-from app.models.strava_activity import StravaActivity
-from app.models.strava_sync_queue import StravaSyncQueue
 from app.models.sleep_extraction import SleepExtraction
 from app.models.athlete_profile import AthleteProfile
 from app.models.workout import Workout
@@ -20,9 +17,6 @@ __all__ = [
     "ChatMessage",
     "ChatThread",
     "IntervalsCredentials",
-    "StravaCredentials",
-    "StravaActivity",
-    "StravaSyncQueue",
     "SleepExtraction",
     "AthleteProfile",
     "Workout",

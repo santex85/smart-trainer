@@ -15,20 +15,8 @@ from app.models.user import User
 router = APIRouter(prefix="/athlete-profile", tags=["athlete-profile"])
 
 
-def _effective_weight(profile: AthleteProfile | None) -> float | None:
-    if not profile:
-        return None
-    return profile.weight_kg if profile.weight_kg is not None else profile.strava_weight_kg
-
-
-def _effective_ftp(profile: AthleteProfile | None) -> int | None:
-    if not profile:
-        return None
-    return profile.ftp if profile.ftp is not None else profile.strava_ftp
-
-
 def _profile_response(profile: AthleteProfile | None, user: User) -> dict:
-    """Build GET response: effective values + source flags."""
+    """Build GET response: manual profile fields."""
     if not profile:
         return {
             "weight_kg": None,
@@ -37,33 +25,16 @@ def _profile_response(profile: AthleteProfile | None, user: User) -> dict:
             "ftp_source": None,
             "height_cm": None,
             "birth_year": None,
-            "strava_firstname": None,
-            "strava_lastname": None,
-            "strava_profile_url": None,
-            "strava_sex": None,
-            "strava_updated_at": None,
             "display_name": user.email,
         }
-    weight = profile.weight_kg if profile.weight_kg is not None else profile.strava_weight_kg
-    ftp = profile.ftp if profile.ftp is not None else profile.strava_ftp
-    display = None
-    if profile.strava_firstname or profile.strava_lastname:
-        display = " ".join(filter(None, [profile.strava_firstname, profile.strava_lastname])).strip() or None
-    if not display:
-        display = user.email
     return {
-        "weight_kg": weight,
-        "weight_source": "manual" if profile.weight_kg is not None else ("strava" if profile.strava_weight_kg is not None else None),
-        "ftp": ftp,
-        "ftp_source": "manual" if profile.ftp is not None else ("strava" if profile.strava_ftp is not None else None),
+        "weight_kg": profile.weight_kg,
+        "weight_source": "manual" if profile.weight_kg is not None else None,
+        "ftp": profile.ftp,
+        "ftp_source": "manual" if profile.ftp is not None else None,
         "height_cm": profile.height_cm,
         "birth_year": profile.birth_year,
-        "strava_firstname": profile.strava_firstname,
-        "strava_lastname": profile.strava_lastname,
-        "strava_profile_url": profile.strava_profile_url,
-        "strava_sex": profile.strava_sex,
-        "strava_updated_at": profile.strava_updated_at.isoformat() if profile.strava_updated_at else None,
-        "display_name": display,
+        "display_name": user.email,
     }
 
 
@@ -83,7 +54,7 @@ async def get_athlete_profile(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
-    """Return athlete profile (manual fields; legacy strava_* fields kept for existing data)."""
+    """Return athlete profile (manual fields only)."""
     uid = user.id
     r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
     profile = r.scalar_one_or_none()

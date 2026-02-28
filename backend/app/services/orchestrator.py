@@ -236,8 +236,6 @@ async def run_daily_decision(
     if profile:
         if profile.weight_kg is not None:
             athlete_profile["weight_kg"] = float(profile.weight_kg)
-        elif profile.strava_weight_kg is not None:
-            athlete_profile["weight_kg"] = float(profile.strava_weight_kg)
         if profile.height_cm is not None:
             athlete_profile["height_cm"] = float(profile.height_cm)
         if profile.birth_year is not None:
@@ -245,12 +243,6 @@ async def run_daily_decision(
             athlete_profile["age_years"] = today.year - profile.birth_year
         if profile.ftp is not None:
             athlete_profile["ftp"] = profile.ftp
-        elif profile.strava_ftp is not None:
-            athlete_profile["ftp"] = profile.strava_ftp
-        if profile.strava_firstname or profile.strava_lastname:
-            athlete_profile["display_name"] = " ".join(filter(None, [profile.strava_firstname, profile.strava_lastname])).strip()
-        if profile.strava_sex:
-            athlete_profile["sex"] = profile.strava_sex
     if not athlete_profile.get("display_name") and email:
         athlete_profile["display_name"] = email
 

@@ -26,15 +26,6 @@ class User(Base):
     intervals_credentials: Mapped["IntervalsCredentials | None"] = relationship(
         "IntervalsCredentials", back_populates="user", uselist=False
     )
-    strava_credentials: Mapped["StravaCredentials | None"] = relationship(
-        "StravaCredentials", back_populates="user", uselist=False
-    )
-    strava_activities: Mapped[list["StravaActivity"]] = relationship(
-        "StravaActivity", back_populates="user", cascade="all, delete-orphan"
-    )
-    strava_sync_queue: Mapped[list["StravaSyncQueue"]] = relationship(
-        "StravaSyncQueue", back_populates="user", cascade="all, delete-orphan"
-    )
     sleep_extractions: Mapped[list["SleepExtraction"]] = relationship(
         "SleepExtraction", back_populates="user", cascade="all, delete-orphan"
     )

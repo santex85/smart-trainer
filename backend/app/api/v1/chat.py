@@ -99,8 +99,6 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
     if profile:
         if profile.weight_kg is not None:
             athlete["weight_kg"] = float(profile.weight_kg)
-        elif profile.strava_weight_kg is not None:
-            athlete["weight_kg"] = float(profile.strava_weight_kg)
         if profile.height_cm is not None:
             athlete["height_cm"] = float(profile.height_cm)
         if profile.birth_year is not None:
@@ -108,12 +106,6 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
             athlete["age_years"] = today.year - profile.birth_year
         if profile.ftp is not None:
             athlete["ftp"] = profile.ftp
-        elif profile.strava_ftp is not None:
-            athlete["ftp"] = profile.strava_ftp
-        if profile.strava_firstname or profile.strava_lastname:
-            athlete["display_name"] = " ".join(filter(None, [profile.strava_firstname, profile.strava_lastname])).strip()
-        if profile.strava_sex:
-            athlete["sex"] = profile.strava_sex
     if not athlete.get("display_name") and email:
         athlete["display_name"] = email
 
@@ -487,8 +479,8 @@ async def send_message_with_file(
                 r2 = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
                 profile = r2.scalar_one_or_none()
                 ftp = None
-                if profile and (profile.ftp is not None or profile.strava_ftp is not None):
-                    ftp = float(profile.ftp if profile.ftp is not None else profile.strava_ftp)
+                if profile and profile.ftp is not None:
+                    ftp = float(profile.ftp)
                 duration_sec = fit_data.get("duration_sec") or 0
                 tss = _estimate_tss_from_fit(
                     duration_sec,

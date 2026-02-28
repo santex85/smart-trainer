@@ -317,8 +317,8 @@ async def preview_fit(
     r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
     profile = r.scalar_one_or_none()
     ftp = None
-    if profile and (profile.ftp is not None or profile.strava_ftp is not None):
-        ftp = float(profile.ftp if profile.ftp is not None else profile.strava_ftp)
+    if profile and profile.ftp is not None:
+        ftp = float(profile.ftp)
 
     duration_sec = data.get("duration_sec") or 0
     tss = _estimate_tss_from_fit(
@@ -384,8 +384,8 @@ async def upload_fit(
     r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
     profile = r.scalar_one_or_none()
     ftp = None
-    if profile and (profile.ftp is not None or profile.strava_ftp is not None):
-        ftp = float(profile.ftp if profile.ftp is not None else profile.strava_ftp)
+    if profile and profile.ftp is not None:
+        ftp = float(profile.ftp)
 
     duration_sec = data.get("duration_sec") or 0
     tss = _estimate_tss_from_fit(

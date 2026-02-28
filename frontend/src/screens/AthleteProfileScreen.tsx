@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
-  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -113,13 +112,7 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
         <Text style={styles.title}>Профиль атлета</Text>
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        {profile?.strava_profile_url ? (
-          <Image source={{ uri: profile.strava_profile_url }} style={styles.avatar} />
-        ) : null}
         <Text style={styles.displayName}>{profile?.display_name ?? "—"}</Text>
-        {profile?.strava_firstname || profile?.strava_lastname ? (
-          <Text style={styles.hint}>Имя: {[profile.strava_firstname, profile.strava_lastname].filter(Boolean).join(" ")}</Text>
-        ) : null}
 
         {editing ? (
           <>

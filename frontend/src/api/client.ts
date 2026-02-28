@@ -657,11 +657,6 @@ export interface AthleteProfileResponse {
   ftp_source: string | null;
   height_cm: number | null;
   birth_year: number | null;
-  strava_firstname: string | null;
-  strava_lastname: string | null;
-  strava_profile_url: string | null;
-  strava_sex: string | null;
-  strava_updated_at: string | null;
   display_name: string;
   nutrition_goals?: NutritionGoals | null;
 }

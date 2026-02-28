@@ -10,9 +10,6 @@ class Settings(BaseSettings):
     gemini_request_timeout_seconds: int = 90
     intervals_icu_base_url: str = "https://intervals.icu/api/v1"
     intervals_sync_timeout_seconds: int = 120
-    strava_client_id: str = ""
-    strava_client_secret: str = ""
-    strava_redirect_uri: str = ""
     s3_endpoint_url: str = "http://minio:9000"
     s3_access_key: str = "minioadmin"
     s3_secret_key: str = "minioadmin"

@@ -1,5 +1,5 @@
 """
-Shared long-lived httpx.AsyncClient for Strava and Intervals.icu.
+Shared long-lived httpx.AsyncClient for Intervals.icu and other HTTP requests.
 Initialized in app lifespan to avoid creating a new client per request.
 """
 from __future__ import annotations

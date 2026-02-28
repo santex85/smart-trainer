@@ -77,17 +77,16 @@ git clone <url> smart_trainer
 cd smart_trainer
 cp .env.production.example .env
 # Отредактировать .env: POSTGRES_PASSWORD, SECRET_KEY, ENCRYPTION_KEY,
-# APP_ENV=production, GOOGLE_GEMINI_API_KEY, STRAVA_*, STRAVA_REDIRECT_URI=https://<домен>/api/v1/strava/callback,
+# APP_ENV=production, GOOGLE_GEMINI_API_KEY,
 # DEBUG=false, DOMAIN=<ваш-домен>. Опционально: JWT_PRIVATE_KEY и JWT_PUBLIC_KEY для RS256 (см. раздел про JWT ниже).
 docker compose -f docker-compose.yml -f docker-compose.prod.yml build
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend alembic upgrade head
 ```
 
-## 4. Strava и проверка
+## 4. Проверка
 
-- В [Strava API settings](https://www.strava.com/settings/api): Authorization Callback Domain и Callback URL: `https://<ваш-домен>/api/v1/strava/callback`.
-- Открыть `https://<ваш-домен>`, проверить логин и API.
+Открыть `https://<ваш-домен>`, проверить логин и API.
 
 ## 5. Prometheus и Grafana (мониторинг)
 

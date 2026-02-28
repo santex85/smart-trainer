@@ -10,8 +10,7 @@
 
 Если `.env` или ключи когда-либо коммитились или репозиторий был публичным:
 
-1. Смените все пароли и ключи (PostgreSQL, Gemini, Strava, `SECRET_KEY`, `ENCRYPTION_KEY`).
-2. Создайте новое приложение Strava и обновите `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET`.
+1. Смените все пароли и ключи (PostgreSQL, Gemini, `SECRET_KEY`, `ENCRYPTION_KEY`).
 3. Сгенерируйте новый `ENCRYPTION_KEY` (после смены старые зашифрованные токены в БД станут нечитаемыми).
 
 ## Скрипты
