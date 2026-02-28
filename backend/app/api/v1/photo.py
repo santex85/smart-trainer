@@ -131,7 +131,7 @@ async def analyze_photo(
                     protein_g=log.protein_g,
                     fat_g=log.fat_g,
                     carbs_g=log.carbs_g,
-                    extended_nutrients=log.extended_nutrients,
+                    extended_nutrients=log.extended_nutrients if user.is_premium else None,
                 ),
             )
         return PhotoFoodResponse(
@@ -144,7 +144,7 @@ async def analyze_photo(
                 protein_g=food_result.protein_g,
                 fat_g=food_result.fat_g,
                 carbs_g=food_result.carbs_g,
-                extended_nutrients=extended_nutrients,
+                extended_nutrients=extended_nutrients if user.is_premium else None,
             ),
         )
 
@@ -396,6 +396,6 @@ async def list_sleep_extractions(
             "sleep_date": data.get("date"),
             "sleep_hours": sh,
             "actual_sleep_hours": ah,
-            "can_reanalyze": bool(image_storage_path),
+            "can_reanalyze": bool(image_storage_path) and user.is_premium,
         })
     return out

@@ -117,7 +117,7 @@ async def analyze_nutrition(
         protein_g=log.protein_g,
         fat_g=log.fat_g,
         carbs_g=log.carbs_g,
-        extended_nutrients=extended_nutrients,
+        extended_nutrients=extended_nutrients if user.is_premium else None,
     )
 
 
@@ -226,8 +226,8 @@ async def get_nutrition_day(
             carbs_g=r.carbs_g,
             meal_type=r.meal_type,
             timestamp=r.timestamp.isoformat() if r.timestamp else "",
-            extended_nutrients=r.extended_nutrients,
-            can_reanalyze=bool(r.image_storage_path),
+            extended_nutrients=r.extended_nutrients if user.is_premium else None,
+            can_reanalyze=bool(r.image_storage_path) and user.is_premium,
         )
         for r in rows
     ]
@@ -269,8 +269,8 @@ async def get_nutrition_entry(
         carbs_g=entry.carbs_g,
         meal_type=entry.meal_type,
         timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
-        extended_nutrients=entry.extended_nutrients,
-        can_reanalyze=bool(entry.image_storage_path),
+        extended_nutrients=entry.extended_nutrients if user.is_premium else None,
+        can_reanalyze=bool(entry.image_storage_path) and user.is_premium,
     )
 
 
@@ -398,8 +398,8 @@ async def update_nutrition_entry(
         carbs_g=entry.carbs_g,
         meal_type=entry.meal_type,
         timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
-        extended_nutrients=entry.extended_nutrients,
-        can_reanalyze=bool(entry.image_storage_path),
+        extended_nutrients=entry.extended_nutrients if user.is_premium else None,
+        can_reanalyze=bool(entry.image_storage_path) and user.is_premium,
     )
 
 
