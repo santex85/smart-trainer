@@ -88,6 +88,7 @@ export const ru = {
     dateLabel: "На дату",
     fromWellness: "Из wellness. Добавляйте тренировки для расчёта по TSS.",
     placeholder: "Добавляйте тренировки вручную или загружайте FIT — CTL/ATL/TSB посчитаются по TSS.",
+    sync: "Синхронизировать",
   },
   workouts: {
     title: "Тренировки",

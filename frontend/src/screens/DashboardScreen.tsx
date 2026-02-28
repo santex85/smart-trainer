@@ -1334,12 +1334,12 @@ export function DashboardScreen({
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.surface }]}>
-            <View style={styles.cardTitleRow}>
-              <Text style={styles.cardTitle}>Фитнес (CTL / ATL / TSB)</Text>
-              <View style={styles.intervalsActionsRow}>
+            <View style={styles.fitnessHeaderRow}>
+              <Text style={[styles.cardTitle, { color: colors.textSecondary }]}>{t("fitness.title")}</Text>
+              <View style={styles.fitnessActionsRow}>
                 {onOpenIntervals ? (
-                  <TouchableOpacity onPress={onOpenIntervals}>
-                    <Text style={styles.intervalsLinkText}>Intervals.icu</Text>
+                  <TouchableOpacity onPress={onOpenIntervals} style={styles.fitnessActionLink}>
+                    <Text style={[styles.fitnessActionPrimary, { color: colors.primary }]}>Intervals.icu</Text>
                   </TouchableOpacity>
                 ) : null}
                 {onSyncIntervals ? (
@@ -1362,33 +1362,34 @@ export function DashboardScreen({
                       }
                     }}
                     disabled={intervalsSyncLoading}
+                    style={[styles.fitnessActionSync, intervalsSyncLoading && styles.fitnessActionSyncDisabled]}
                   >
                     {intervalsSyncLoading ? (
-                      <ActivityIndicator size="small" color="#38bdf8" />
+                      <ActivityIndicator size="small" color={colors.primary} />
                     ) : (
-                      <Text style={styles.intervalsLinkText}>Синхронизировать</Text>
+                      <Text style={[styles.fitnessActionSecondary, { color: colors.primary }]}>{t("fitness.sync")}</Text>
                     )}
                   </TouchableOpacity>
                 ) : null}
               </View>
             </View>
-            <Text style={styles.hint}>По TSS из тренировок. Подключите Intervals.icu для планов и синхронизации.</Text>
+            <Text style={[styles.fitnessHint, { color: colors.textMuted }]}>{t("fitness.hint")}</Text>
             {workoutFitness ? (
-              <>
-                <Text style={styles.cardValue}>
+              <View style={styles.fitnessMetricsBlock}>
+                <Text style={[styles.fitnessMetricsLine, { color: colors.text }]}>
                   CTL {workoutFitness.ctl.toFixed(0)} · ATL {workoutFitness.atl.toFixed(0)} · TSB {workoutFitness.tsb.toFixed(0)}
                 </Text>
-                <Text style={styles.hint}>На дату {workoutFitness.date}</Text>
-              </>
+                <Text style={[styles.fitnessCaption, { color: colors.textMuted }]}>{t("fitness.dateLabel")} {workoutFitness.date}</Text>
+              </View>
             ) : (wellnessToday?.ctl != null || wellnessToday?.atl != null || wellnessToday?.tsb != null) ? (
-              <>
-                <Text style={styles.cardValue}>
+              <View style={styles.fitnessMetricsBlock}>
+                <Text style={[styles.fitnessMetricsLine, { color: colors.text }]}>
                   CTL {wellnessToday?.ctl?.toFixed(0) ?? "—"} · ATL {wellnessToday?.atl?.toFixed(0) ?? "—"} · TSB {wellnessToday?.tsb?.toFixed(0) ?? "—"}
                 </Text>
-                <Text style={styles.hint}>Из wellness. Добавляйте тренировки для расчёта по TSS.</Text>
-              </>
+                <Text style={[styles.fitnessCaption, styles.fitnessCaptionMuted, { color: colors.textMuted }]}>{t("fitness.fromWellness")}</Text>
+              </View>
             ) : (
-              <Text style={styles.placeholder}>Добавляйте тренировки вручную или загружайте FIT — CTL/ATL/TSB посчитаются по TSS.</Text>
+              <Text style={[styles.placeholder, styles.fitnessPlaceholder, { color: colors.textMuted }]}>{t("fitness.placeholder")}</Text>
             )}
           </View>
 
@@ -1597,6 +1598,19 @@ const styles = StyleSheet.create({
   calendarLink: { marginBottom: 8, paddingVertical: 4 },
   intervalsActionsRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   intervalsLinkText: { fontSize: 14, color: "#38bdf8" },
+  fitnessHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  fitnessActionsRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 },
+  fitnessActionLink: { paddingVertical: 4, paddingRight: 4 },
+  fitnessActionPrimary: { fontSize: 14, fontWeight: "600" },
+  fitnessActionSync: { paddingVertical: 4, paddingHorizontal: 8, minHeight: 28, justifyContent: "center" },
+  fitnessActionSyncDisabled: { opacity: 0.7 },
+  fitnessActionSecondary: { fontSize: 14 },
+  fitnessHint: { fontSize: 12, marginTop: 2, marginBottom: 10 },
+  fitnessMetricsBlock: { marginTop: 2 },
+  fitnessMetricsLine: { fontSize: 20, fontWeight: "700", lineHeight: 28 },
+  fitnessCaption: { fontSize: 12, marginTop: 4 },
+  fitnessCaptionMuted: { fontStyle: "italic" },
+  fitnessPlaceholder: { marginTop: 4 },
   errorHint: { fontSize: 12, color: "#f87171", marginBottom: 4 },
   dateNavBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
   dateNavBtnActive: { backgroundColor: "#38bdf8" },
