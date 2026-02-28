@@ -405,6 +405,23 @@ export function CameraScreen({
                 <Text style={styles.hint}>Порция: {photoResult.food.portion_grams}г</Text>
               </>
             )}
+            {photoResult.food.extended_nutrients && Object.keys(photoResult.food.extended_nutrients).length > 0 ? (
+              <>
+                <Text style={styles.editLabel}>{t("nutrition.micronutrients")}</Text>
+                <View style={styles.micronutrientsBlock}>
+                  {Object.entries(photoResult.food.extended_nutrients).map(([key, value]) => {
+                    const labelKey = `nutrition.micronutrientLabels.${key}`;
+                    const label = t(labelKey) !== labelKey ? t(labelKey) : key;
+                    return (
+                      <View key={key} style={styles.microRow}>
+                        <Text style={styles.microLabel}>{label}</Text>
+                        <Text style={styles.microValue}>{typeof value === "number" ? Math.round(value * 10) / 10 : value}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
             <Text style={styles.resultWhere}>
               {isPreview() ? "Проверьте данные и нажмите Сохранить." : "Сохранено. Закройте, чтобы вернуться."}
             </Text>
@@ -557,6 +574,10 @@ const styles = StyleSheet.create({
   mealTypeBtnActive: { backgroundColor: "#38bdf8" },
   mealTypeBtnText: { fontSize: 12, color: "#94a3b8" },
   mealTypeBtnTextActive: { fontSize: 12, color: "#0f172a", fontWeight: "600" },
+  micronutrientsBlock: { marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: "#1e293b", borderRadius: 8 },
+  microRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
+  microLabel: { fontSize: 12, color: "#94a3b8" },
+  microValue: { fontSize: 12, color: "#e2e8f0" },
   logPanel: { marginBottom: 12, backgroundColor: "#0f172a", borderRadius: 8, maxHeight: 180, borderWidth: 1, borderColor: "#334155" },
   logHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#334155" },
   logTitle: { fontSize: 12, fontWeight: "600", color: "#94a3b8" },
