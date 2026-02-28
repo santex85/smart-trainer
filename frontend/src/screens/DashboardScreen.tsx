@@ -1211,10 +1211,11 @@ export function DashboardScreen({
               </TouchableOpacity>
             </View>
             <View style={{ marginBottom: 12 }}>
-              <Text style={styles.hint}>{t("wellness.hint")}</Text>
+              <Text style={styles.hint}>{t("wellness.todayLabel")}</Text>
+              <Text style={[styles.hint, styles.disclaimer]}>{t("wellness.disclaimer")}</Text>
               {(wellnessToday || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
                 <>
-                  <Text style={styles.cardValue}>
+                  <Text style={[styles.cardValue, { marginTop: 8 }]}>
                     {wellnessToday?.sleep_hours != null ? `Сон ${wellnessToday.sleep_hours} ч` : "Сон —"}
                     {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
                     {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
@@ -1227,7 +1228,7 @@ export function DashboardScreen({
                   )}
                 </>
               ) : (
-                <Text style={styles.placeholder}>{t("wellness.placeholder")}</Text>
+                <Text style={[styles.placeholder, { marginTop: 8 }]}>{t("wellness.placeholder")}</Text>
               )}
             </View>
             {sleepExtractions.length > 0 ? (
@@ -1590,6 +1591,7 @@ const styles = StyleSheet.create({
   cardValue: { fontSize: 20, fontWeight: "700", color: "#e2e8f0" },
   placeholder: { fontSize: 16, color: "#94a3b8" },
   hint: { fontSize: 12, color: "#94a3b8", marginTop: 4 },
+  disclaimer: { fontSize: 11, color: "#64748b", marginTop: 2 },
   hintRemaining: { fontSize: 12, color: "#94a3b8", marginTop: 8 },
   weeklySleepLine: { fontSize: 14, color: "#e2e8f0", marginTop: 8 },
   calendarLink: { marginBottom: 8, paddingVertical: 4 },
