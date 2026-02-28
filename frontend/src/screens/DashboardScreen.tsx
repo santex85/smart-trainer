@@ -841,6 +841,7 @@ export function DashboardScreen({
   const [sleepReanalyzingId, setSleepReanalyzingId] = useState<number | null>(null);
   const [sleepReanalyzeExtId, setSleepReanalyzeExtId] = useState<number | null>(null);
   const [sleepReanalyzeCorrection, setSleepReanalyzeCorrection] = useState("");
+  const [menuVisible, setMenuVisible] = useState(false);
   const { colors, toggleTheme } = useTheme();
 
   const today = getTodayLocal();
@@ -1001,33 +1002,56 @@ export function DashboardScreen({
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable style={styles.menuBackdrop} onPress={() => setMenuVisible(false)}>
+          <Pressable style={[styles.menuBox, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+            {user?.email ? <Text style={styles.menuEmail} numberOfLines={1}>{user.email}</Text> : null}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); toggleTheme(); setMenuVisible(false); }}
+            >
+              <Text style={styles.menuItemText}>Тема</Text>
+            </TouchableOpacity>
+            {onLogout ? (
+              <TouchableOpacity style={styles.menuItem} onPress={() => { onLogout(); setMenuVisible(false); }}>
+                <Text style={styles.menuItemText}>{t("app.logout")}</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onOpenAthleteProfile ? (
+              <TouchableOpacity style={styles.menuItem} onPress={() => { onOpenAthleteProfile(); setMenuVisible(false); }}>
+                <Text style={styles.menuItemText}>Профиль атлета →</Text>
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity style={styles.menuItem} onPress={() => { onOpenChat(); setMenuVisible(false); }}>
+              <Text style={styles.menuItemText}>Открыть чат AI-тренера →</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
       <View style={styles.contentWrap}>
-      <View style={styles.brandHeader}>
+      <View style={styles.topBar}>
         <Text style={styles.brandTitle}>Smart Trainer</Text>
-        <Text style={styles.brandSubtitle}>{t("app.brandSubtitle")}</Text>
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            setMenuVisible(true);
+          }}
+          style={styles.menuIconBtn}
+          accessibilityLabel="Меню"
+        >
+          <Text style={styles.menuIcon}>☰</Text>
+        </TouchableOpacity>
       </View>
-      {user && onLogout ? (
-        <View style={styles.userRow}>
-          <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
-          <View style={styles.userActions}>
-            <TouchableOpacity onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-              toggleTheme();
-            }}>
-              <Text style={styles.logoutText}>Тема</Text>
-            </TouchableOpacity>
-            <Text style={styles.headerSeparator}> | </Text>
-            <TouchableOpacity onPress={onLogout}>
-              <Text style={styles.logoutText}>{t("app.logout")}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : null}
       <Text style={styles.title}>{t("today")}</Text>
 
       {loading ? (
@@ -1444,14 +1468,6 @@ export function DashboardScreen({
             )}
           </TouchableOpacity>
 
-          {onOpenAthleteProfile && (
-            <TouchableOpacity style={styles.chatLink} onPress={onOpenAthleteProfile}>
-              <Text style={styles.chatLinkText}>Профиль атлета →</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.chatLink} onPress={onOpenChat}>
-            <Text style={styles.chatLinkText}>Открыть чат AI-тренера →</Text>
-          </TouchableOpacity>
         </>
       )}
       </View>
@@ -1474,10 +1490,18 @@ const styles = StyleSheet.create({
   logoutText: { fontSize: 14, color: "#38bdf8" },
   content: { padding: 20, paddingBottom: 120 },
   contentWrap: { maxWidth: 960, width: "100%", alignSelf: "center" as const },
+  topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12 },
+  menuIconBtn: { padding: 8 },
+  menuIcon: { fontSize: 24, color: "#38bdf8", fontWeight: "700" },
   brandHeader: { marginBottom: 8 },
   brandTitle: { fontSize: 18, fontWeight: "700", color: "#eee", marginBottom: 2 },
   brandSubtitle: { fontSize: 13, color: "#94a3b8" },
   title: { fontSize: 24, fontWeight: "700", color: "#eee", marginBottom: 20 },
+  menuBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 50, paddingRight: 16, paddingHorizontal: 20 },
+  menuBox: { minWidth: 260, borderRadius: 12, padding: 16, paddingVertical: 12 },
+  menuEmail: { fontSize: 14, color: "#94a3b8", marginBottom: 12 },
+  menuItem: { paddingVertical: 12 },
+  menuItemText: { fontSize: 16, color: "#38bdf8" },
   loader: { marginTop: 40 },
   skeletonWrap: { gap: 12 },
   skeletonCard: { backgroundColor: "#16213e", borderRadius: 12, padding: 16, marginBottom: 12 },
