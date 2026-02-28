@@ -1014,15 +1014,18 @@ export function DashboardScreen({
       {user && onLogout ? (
         <View style={styles.userRow}>
           <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
-          <TouchableOpacity onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-            toggleTheme();
-          }}>
-            <Text style={styles.logoutText}>Тема</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onLogout}>
-            <Text style={styles.logoutText}>{t("app.logout")}</Text>
-          </TouchableOpacity>
+          <View style={styles.userActions}>
+            <TouchableOpacity onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              toggleTheme();
+            }}>
+              <Text style={styles.logoutText}>Тема</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerSeparator}> | </Text>
+            <TouchableOpacity onPress={onLogout}>
+              <Text style={styles.logoutText}>{t("app.logout")}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : null}
       <Text style={styles.title}>{t("today")}</Text>
@@ -1084,10 +1087,11 @@ export function DashboardScreen({
                   {t("nutrition.eaten")}: {Math.round(nutritionDay.totals.calories)} {t("nutrition.kcal")} · {t("nutrition.proteinShort")} {Math.round(nutritionDay.totals.protein_g)}{t("nutrition.grams")} · {t("nutrition.fatShort")}{" "}
                   {Math.round(nutritionDay.totals.fat_g)}{t("nutrition.grams")} · {t("nutrition.carbsShort")} {Math.round(nutritionDay.totals.carbs_g)}{t("nutrition.grams")}
                 </Text>
-                <Text style={styles.hint}>
-                  {t("nutrition.left")}: {Math.max(0, calorieGoal - nutritionDay.totals.calories)} {t("nutrition.kcal")} · {t("nutrition.carbsShort")}{" "}
-                  {Math.max(0, carbsGoal - nutritionDay.totals.carbs_g)}г · Б {Math.max(0, proteinGoal - nutritionDay.totals.protein_g)}{t("nutrition.grams")} · {t("nutrition.fatShort")}{" "}
-                  {Math.max(0, fatGoal - nutritionDay.totals.fat_g)}{t("nutrition.grams")}
+                <Text style={styles.hintRemaining}>
+                  {t("nutrition.left")}: {Math.round(Math.max(0, calorieGoal - nutritionDay.totals.calories))} {t("nutrition.kcal")} · {t("nutrition.proteinShort")}{" "}
+                  {Math.round(Math.max(0, proteinGoal - nutritionDay.totals.protein_g))}{t("nutrition.grams")} · {t("nutrition.fatShort")}{" "}
+                  {Math.round(Math.max(0, fatGoal - nutritionDay.totals.fat_g))}{t("nutrition.grams")} · {t("nutrition.carbsShort")}{" "}
+                  {Math.round(Math.max(0, carbsGoal - nutritionDay.totals.carbs_g))}{t("nutrition.grams")}
                 </Text>
                 <NutritionProgressBar
                   current={nutritionDay.totals.calories}
@@ -1464,14 +1468,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1a1a2e" },
   scrollView: { flex: 1 },
   userRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
+  userActions: { flexDirection: "row", alignItems: "center", gap: 4 },
+  headerSeparator: { fontSize: 14, color: "#64748b" },
   userEmail: { fontSize: 14, color: "#b8c5d6", flex: 1, marginRight: 12 },
   logoutText: { fontSize: 14, color: "#38bdf8" },
   content: { padding: 20, paddingBottom: 120 },
   contentWrap: { maxWidth: 960, width: "100%", alignSelf: "center" as const },
-  brandHeader: { marginBottom: 12 },
-  brandTitle: { fontSize: 22, fontWeight: "700", color: "#eee", marginBottom: 2 },
-  brandSubtitle: { fontSize: 14, color: "#94a3b8" },
-  title: { fontSize: 28, fontWeight: "700", color: "#eee", marginBottom: 20 },
+  brandHeader: { marginBottom: 8 },
+  brandTitle: { fontSize: 18, fontWeight: "700", color: "#eee", marginBottom: 2 },
+  brandSubtitle: { fontSize: 13, color: "#94a3b8" },
+  title: { fontSize: 24, fontWeight: "700", color: "#eee", marginBottom: 20 },
   loader: { marginTop: 40 },
   skeletonWrap: { gap: 12 },
   skeletonCard: { backgroundColor: "#16213e", borderRadius: 12, padding: 16, marginBottom: 12 },
@@ -1482,7 +1488,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#16213e",
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   cardTitle: { fontSize: 16, color: "#b8c5d6", marginBottom: 6 },
   cardTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 0 },
@@ -1500,6 +1506,7 @@ const styles = StyleSheet.create({
   cardValue: { fontSize: 20, fontWeight: "700", color: "#e2e8f0" },
   placeholder: { fontSize: 16, color: "#94a3b8" },
   hint: { fontSize: 12, color: "#94a3b8", marginTop: 4 },
+  hintRemaining: { fontSize: 12, color: "#94a3b8", marginTop: 8 },
   calendarLink: { marginBottom: 8, paddingVertical: 4 },
   intervalsActionsRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   intervalsLinkText: { fontSize: 14, color: "#38bdf8" },
