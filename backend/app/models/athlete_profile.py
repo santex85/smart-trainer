@@ -17,6 +17,10 @@ class AthleteProfile(Base):
     height_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
     birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ftp: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    calorie_goal: Mapped[float | None] = mapped_column(Float, nullable=True)
+    protein_goal: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fat_goal: Mapped[float | None] = mapped_column(Float, nullable=True)
+    carbs_goal: Mapped[float | None] = mapped_column(Float, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user: Mapped["User"] = relationship("User", back_populates="athlete_profile")

@@ -695,6 +695,10 @@ export async function updateAthleteProfile(body: {
   height_cm?: number | null;
   birth_year?: number | null;
   ftp?: number | null;
+  calorie_goal?: number | null;
+  protein_goal?: number | null;
+  fat_goal?: number | null;
+  carbs_goal?: number | null;
 }): Promise<AthleteProfileResponse> {
   return api<AthleteProfileResponse>("/api/v1/athlete-profile", {
     method: "PATCH",

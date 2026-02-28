@@ -32,6 +32,20 @@ def _profile_response(profile: AthleteProfile | None, user: User) -> dict:
             "height_cm": None,
             "birth_year": None,
             "display_name": user.email,
+            "nutrition_goals": None,
+        }
+    nutrition_goals = None
+    if (
+        profile.calorie_goal is not None
+        or profile.protein_goal is not None
+        or profile.fat_goal is not None
+        or profile.carbs_goal is not None
+    ):
+        nutrition_goals = {
+            "calorie_goal": profile.calorie_goal,
+            "protein_goal": profile.protein_goal,
+            "fat_goal": profile.fat_goal,
+            "carbs_goal": profile.carbs_goal,
         }
     return {
         **base,
@@ -42,6 +56,7 @@ def _profile_response(profile: AthleteProfile | None, user: User) -> dict:
         "height_cm": profile.height_cm,
         "birth_year": profile.birth_year,
         "display_name": user.email,
+        "nutrition_goals": nutrition_goals,
     }
 
 
@@ -50,6 +65,10 @@ class AthleteProfileUpdate(BaseModel):
     height_cm: float | None = Field(None, description="Height in cm")
     birth_year: int | None = Field(None, ge=1900, le=2100, description="Birth year")
     ftp: int | None = Field(None, ge=1, le=999, description="Functional threshold power (watts)")
+    calorie_goal: float | None = Field(None, ge=0, le=10000, description="Daily calorie goal (kcal)")
+    protein_goal: float | None = Field(None, ge=0, le=1000, description="Daily protein goal (g)")
+    fat_goal: float | None = Field(None, ge=0, le=1000, description="Daily fat goal (g)")
+    carbs_goal: float | None = Field(None, ge=0, le=1000, description="Daily carbs goal (g)")
 
 
 @router.get(
@@ -94,6 +113,14 @@ async def update_athlete_profile(
         profile.birth_year = body.birth_year
     if body.ftp is not None:
         profile.ftp = body.ftp
+    if body.calorie_goal is not None:
+        profile.calorie_goal = body.calorie_goal
+    if body.protein_goal is not None:
+        profile.protein_goal = body.protein_goal
+    if body.fat_goal is not None:
+        profile.fat_goal = body.fat_goal
+    if body.carbs_goal is not None:
+        profile.carbs_goal = body.carbs_goal
     await session.commit()
     await session.refresh(profile)
     r = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))

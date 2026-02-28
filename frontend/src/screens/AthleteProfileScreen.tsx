@@ -18,6 +18,11 @@ import {
   type AthleteProfileResponse,
 } from "../api/client";
 
+const DEFAULT_CALORIE_GOAL = 2200;
+const DEFAULT_PROTEIN_GOAL = 120;
+const DEFAULT_FAT_GOAL = 80;
+const DEFAULT_CARBS_GOAL = 250;
+
 function getErrorMessage(e: unknown): string {
   if (!(e instanceof Error)) return "Request failed.";
   try {
@@ -38,6 +43,10 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
   const [height, setHeight] = useState("");
   const [birthYear, setBirthYear] = useState("");
   const [ftp, setFtp] = useState("");
+  const [calorieGoal, setCalorieGoal] = useState("");
+  const [proteinGoal, setProteinGoal] = useState("");
+  const [fatGoal, setFatGoal] = useState("");
+  const [carbsGoal, setCarbsGoal] = useState("");
   const [premiumToggling, setPremiumToggling] = useState(false);
 
   const load = useCallback(async () => {
@@ -49,6 +58,11 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
       setHeight(p.height_cm != null ? String(p.height_cm) : "");
       setBirthYear(p.birth_year != null ? String(p.birth_year) : "");
       setFtp(p.ftp != null ? String(p.ftp) : "");
+      const g = p.nutrition_goals;
+      setCalorieGoal(g?.calorie_goal != null ? String(g.calorie_goal) : String(DEFAULT_CALORIE_GOAL));
+      setProteinGoal(g?.protein_goal != null ? String(g.protein_goal) : String(DEFAULT_PROTEIN_GOAL));
+      setFatGoal(g?.fat_goal != null ? String(g.fat_goal) : String(DEFAULT_FAT_GOAL));
+      setCarbsGoal(g?.carbs_goal != null ? String(g.carbs_goal) : String(DEFAULT_CARBS_GOAL));
     } catch {
       setProfile(null);
     } finally {
@@ -63,7 +77,16 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const payload: { weight_kg?: number; height_cm?: number; birth_year?: number; ftp?: number } = {};
+      const payload: {
+        weight_kg?: number;
+        height_cm?: number;
+        birth_year?: number;
+        ftp?: number;
+        calorie_goal?: number;
+        protein_goal?: number;
+        fat_goal?: number;
+        carbs_goal?: number;
+      } = {};
       if (weight.trim() !== "") {
         const v = parseFloat(weight);
         if (!Number.isNaN(v) && v > 0) payload.weight_kg = v;
@@ -80,6 +103,14 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
         const v = parseInt(ftp, 10);
         if (!Number.isNaN(v) && v > 0) payload.ftp = v;
       }
+      const c = parseFloat(calorieGoal);
+      if (!Number.isNaN(c) && c >= 0) payload.calorie_goal = c;
+      const pr = parseFloat(proteinGoal);
+      if (!Number.isNaN(pr) && pr >= 0) payload.protein_goal = pr;
+      const f = parseFloat(fatGoal);
+      if (!Number.isNaN(f) && f >= 0) payload.fat_goal = f;
+      const ca = parseFloat(carbsGoal);
+      if (!Number.isNaN(ca) && ca >= 0) payload.carbs_goal = ca;
       const updated = await updateAthleteProfile(payload);
       setProfile(updated);
       setEditing(false);
@@ -178,7 +209,44 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
               placeholderTextColor="#64748b"
               keyboardType="number-pad"
             />
-            <Text style={styles.hint}>Введите вес, рост, год рождения и FTP. FTP используется для расчёта TSS по мощности.</Text>
+            <Text style={styles.sectionTitle}>Цели по питанию</Text>
+            <Text style={styles.label}>Калории (ккал/день)</Text>
+            <TextInput
+              style={styles.input}
+              value={calorieGoal}
+              onChangeText={setCalorieGoal}
+              placeholder={String(DEFAULT_CALORIE_GOAL)}
+              placeholderTextColor="#64748b"
+              keyboardType="number-pad"
+            />
+            <Text style={styles.label}>Белки (г)</Text>
+            <TextInput
+              style={styles.input}
+              value={proteinGoal}
+              onChangeText={setProteinGoal}
+              placeholder={String(DEFAULT_PROTEIN_GOAL)}
+              placeholderTextColor="#64748b"
+              keyboardType="number-pad"
+            />
+            <Text style={styles.label}>Жиры (г)</Text>
+            <TextInput
+              style={styles.input}
+              value={fatGoal}
+              onChangeText={setFatGoal}
+              placeholder={String(DEFAULT_FAT_GOAL)}
+              placeholderTextColor="#64748b"
+              keyboardType="number-pad"
+            />
+            <Text style={styles.label}>Углеводы (г)</Text>
+            <TextInput
+              style={styles.input}
+              value={carbsGoal}
+              onChangeText={setCarbsGoal}
+              placeholder={String(DEFAULT_CARBS_GOAL)}
+              placeholderTextColor="#64748b"
+              keyboardType="number-pad"
+            />
+            <Text style={styles.hint}>Введите вес, рост, год рождения, FTP и цели по питанию. Цели используются на дашборде.</Text>
             <View style={styles.editActions}>
               <TouchableOpacity style={styles.btnSecondary} onPress={() => setEditing(false)}>
                 <Text style={styles.btnSecondaryText}>Отмена</Text>
@@ -212,6 +280,23 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
               <Text style={styles.label}>Birth year</Text>
               <Text style={styles.value}>{profile?.birth_year != null ? profile.birth_year : "—"}</Text>
             </View>
+            <Text style={styles.sectionTitle}>Цели по питанию</Text>
+            <View style={styles.row}>
+              <Text style={styles.label}>Калории</Text>
+              <Text style={styles.value}>{profile?.nutrition_goals?.calorie_goal ?? DEFAULT_CALORIE_GOAL} ккал</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Белки</Text>
+              <Text style={styles.value}>{profile?.nutrition_goals?.protein_goal ?? DEFAULT_PROTEIN_GOAL} г</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Жиры</Text>
+              <Text style={styles.value}>{profile?.nutrition_goals?.fat_goal ?? DEFAULT_FAT_GOAL} г</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Углеводы</Text>
+              <Text style={styles.value}>{profile?.nutrition_goals?.carbs_goal ?? DEFAULT_CARBS_GOAL} г</Text>
+            </View>
             <TouchableOpacity style={styles.editBtn} onPress={() => setEditing(true)}>
               <Text style={styles.editBtnText}>Редактировать профиль</Text>
             </TouchableOpacity>
@@ -241,6 +326,7 @@ const styles = StyleSheet.create({
   avatar: { width: 80, height: 80, borderRadius: 40, alignSelf: "center", marginBottom: 12 },
   displayName: { fontSize: 20, fontWeight: "600", color: "#e2e8f0", textAlign: "center", marginBottom: 4 },
   hint: { fontSize: 12, color: "#64748b", marginTop: 4, marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: "600", color: "#e2e8f0", marginTop: 20, marginBottom: 4 },
   label: { fontSize: 14, color: "#94a3b8", marginTop: 12 },
   value: { fontSize: 16, color: "#e2e8f0", fontWeight: "500" },
   source: { fontSize: 12, color: "#64748b", marginLeft: 6 },
