@@ -1210,36 +1210,41 @@ export function DashboardScreen({
                 <Text style={styles.intervalsLinkText}>{t("wellness.edit")}</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.hint}>{t("wellness.hint")}</Text>
-            {(wellnessToday || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
-              <>
-                <Text style={styles.cardValue}>
-                  {wellnessToday?.sleep_hours != null ? `Сон ${wellnessToday.sleep_hours} ч` : "Сон —"}
-                  {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
-                  {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
-                  {(wellnessToday?.weight_kg ?? athleteProfile?.weight_kg) != null
-                    ? ` · Вес ${wellnessToday?.weight_kg ?? athleteProfile?.weight_kg} кг`
-                    : " · Вес —"}
-                </Text>
-                {wellnessToday?.sleep_hours == null && (
-                  <Text style={styles.hint}>{t("wellness.manualHint")}</Text>
-                )}
-              </>
-            ) : (
-              <Text style={styles.placeholder}>{t("wellness.placeholder")}</Text>
-            )}
-            {sleepExtractions.length > 0 ? (
-              sleepExtractions.length >= 7 ? (
-                <Text style={[styles.hint, { marginTop: 8 }]}>
-                  {t("wellness.weeklySleep")}: {Math.round(weeklySleepTotal * 10) / 10} {t("wellness.sleepHours")}
-                  {weeklySleepDeficit > 0 ? ` · ${t("wellness.deficit")} ${Math.round(weeklySleepDeficit * 10) / 10} ${t("wellness.sleepHours")}` : null}
-                  {" "}({t("wellness.normPerNight")})
-                </Text>
+            <View style={{ marginBottom: 12 }}>
+              <Text style={styles.hint}>{t("wellness.hint")}</Text>
+              {(wellnessToday || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
+                <>
+                  <Text style={styles.cardValue}>
+                    {wellnessToday?.sleep_hours != null ? `Сон ${wellnessToday.sleep_hours} ч` : "Сон —"}
+                    {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
+                    {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
+                    {(wellnessToday?.weight_kg ?? athleteProfile?.weight_kg) != null
+                      ? ` · Вес ${wellnessToday?.weight_kg ?? athleteProfile?.weight_kg} кг`
+                      : " · Вес —"}
+                  </Text>
+                  {wellnessToday?.sleep_hours == null && (
+                    <Text style={styles.hint}>{t("wellness.manualHint")}</Text>
+                  )}
+                </>
               ) : (
-                <Text style={[styles.hint, { marginTop: 8 }]}>{t("wellness.insufficientData")}</Text>
-              )
+                <Text style={styles.placeholder}>{t("wellness.placeholder")}</Text>
+              )}
+            </View>
+            {sleepExtractions.length > 0 ? (
+              <View style={{ marginTop: 4, marginBottom: 12 }}>
+                {sleepExtractions.length >= 7 ? (
+                  <Text style={styles.weeklySleepLine}>
+                    {t("wellness.weeklySleep")}: {Math.round(weeklySleepTotal * 10) / 10} {t("wellness.sleepHours")}
+                    {weeklySleepDeficit > 0 ? ` · ${t("wellness.deficit")} ${Math.round(weeklySleepDeficit * 10) / 10} ${t("wellness.sleepHours")}` : null}
+                    {" "}
+                    <Text style={[styles.hint, { marginTop: 0 }]}>({t("wellness.normPerNight")})</Text>
+                  </Text>
+                ) : (
+                  <Text style={[styles.hint, { marginTop: 8 }]}>{t("wellness.insufficientData")}</Text>
+                )}
+              </View>
             ) : null}
-            <View style={{ marginTop: 12 }}>
+            <View style={{ marginTop: 4 }}>
               <View style={styles.cardTitleRow}>
                 <Text style={[styles.modalLabel, { marginBottom: 0 }]}>{t("wellness.history")}</Text>
                 <TouchableOpacity
@@ -1257,7 +1262,7 @@ export function DashboardScreen({
             </View>
             {sleepExtractions.length > 0 ? (
               <View style={{ marginTop: 6 }}>
-                {sleepExtractions.slice(0, 5).map((ext) => (
+                {sleepExtractions.slice(0, 7).map((ext) => (
                   <View key={ext.id}>
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
                       <Text style={styles.hint}>
@@ -1586,6 +1591,7 @@ const styles = StyleSheet.create({
   placeholder: { fontSize: 16, color: "#94a3b8" },
   hint: { fontSize: 12, color: "#94a3b8", marginTop: 4 },
   hintRemaining: { fontSize: 12, color: "#94a3b8", marginTop: 8 },
+  weeklySleepLine: { fontSize: 14, color: "#e2e8f0", marginTop: 8 },
   calendarLink: { marginBottom: 8, paddingVertical: 4 },
   intervalsActionsRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   intervalsLinkText: { fontSize: 14, color: "#38bdf8" },
