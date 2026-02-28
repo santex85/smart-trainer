@@ -310,6 +310,7 @@ export interface NutritionDayEntry {
   meal_type: string;
   timestamp: string;
   extended_nutrients?: Record<string, number> | null;
+  can_reanalyze?: boolean;
 }
 
 export interface NutritionDayTotals {
@@ -539,6 +540,16 @@ export async function deleteNutritionEntry(entryId: number): Promise<{ status: s
   return api<{ status: string }>(`/api/v1/nutrition/entries/${entryId}`, { method: "DELETE" });
 }
 
+export async function reanalyzeNutritionEntry(
+  entryId: number,
+  correction: string
+): Promise<NutritionDayEntry> {
+  return api<NutritionDayEntry>(`/api/v1/nutrition/entries/${entryId}/reanalyze`, {
+    method: "POST",
+    body: { correction },
+  });
+}
+
 export type CreateNutritionEntryPayload = {
   name: string;
   portion_grams: number;
@@ -590,10 +601,12 @@ export async function createOrUpdateWellness(payload: WellnessUpsertPayload): Pr
 }
 
 export interface SleepExtractionSummary {
+  id: number;
   created_at: string;
   sleep_date?: string | null;
   sleep_hours?: number | null;
   actual_sleep_hours?: number | null;
+  can_reanalyze?: boolean;
 }
 
 export async function getSleepExtractions(fromDate?: string, toDate?: string): Promise<SleepExtractionSummary[]> {
@@ -601,6 +614,16 @@ export async function getSleepExtractions(fromDate?: string, toDate?: string): P
   if (fromDate) params.set("from_date", fromDate);
   if (toDate) params.set("to_date", toDate);
   return api<SleepExtractionSummary[]>(`/api/v1/photo/sleep-extractions?${params}`);
+}
+
+export async function reanalyzeSleepExtraction(
+  extractionId: number,
+  correction: string
+): Promise<SleepExtractionResponse> {
+  return api<SleepExtractionResponse>(`/api/v1/photo/sleep-extractions/${extractionId}/reanalyze`, {
+    method: "POST",
+    body: { correction },
+  });
 }
 
 export async function getEvents(fromDate?: string, toDate?: string): Promise<EventItem[]> {
@@ -659,6 +682,8 @@ export interface AthleteProfileResponse {
   birth_year: number | null;
   display_name: string;
   nutrition_goals?: NutritionGoals | null;
+  is_premium?: boolean;
+  dev_can_toggle_premium?: boolean;
 }
 
 export async function getAthleteProfile(): Promise<AthleteProfileResponse> {
@@ -674,6 +699,13 @@ export async function updateAthleteProfile(body: {
   return api<AthleteProfileResponse>("/api/v1/athlete-profile", {
     method: "PATCH",
     body,
+  });
+}
+
+export async function updateMyPremium(is_premium: boolean): Promise<{ is_premium: boolean }> {
+  return api<{ is_premium: boolean }>("/api/v1/users/me/premium", {
+    method: "PATCH",
+    body: { is_premium },
   });
 }
 

@@ -1,4 +1,4 @@
-"""User endpoints: seed (dev), push token (Expo notifications)."""
+"""User endpoints: seed (dev), push token (Expo notifications), premium toggle (dev)."""
 
 from typing import Annotated
 
@@ -24,6 +24,10 @@ class PushTokenBody(BaseModel):
     platform: str | None = None  # "ios" | "android" | "web"
 
 
+class PremiumToggleBody(BaseModel):
+    is_premium: bool
+
+
 @router.post(
     "/push-token",
     summary="Save Expo push token",
@@ -39,6 +43,27 @@ async def save_push_token(
     user.push_platform = (body.platform or "").strip() or None
     await session.flush()
     return {"ok": True}
+
+
+@router.patch(
+    "/me/premium",
+    summary="Toggle premium (development only)",
+    responses={
+        401: {"description": "Not authenticated"},
+        403: {"description": "Only available in development"},
+    },
+)
+async def update_my_premium(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    body: PremiumToggleBody,
+) -> dict:
+    """Set is_premium for current user. Only allowed when app_env != production (for testing)."""
+    if settings.app_env == "production":
+        raise HTTPException(status_code=403, detail="Premium toggle only available in development.")
+    user.is_premium = body.is_premium
+    await session.flush()
+    return {"is_premium": user.is_premium}
 
 
 @router.post(

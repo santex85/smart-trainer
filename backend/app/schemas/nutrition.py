@@ -36,6 +36,12 @@ class CreateFoodEntryRequest(BaseModel):
     date: str | None = Field(None, description="YYYY-MM-DD; default today")
 
 
+class ReanalyzeRequest(BaseModel):
+    """Body for POST /nutrition/entries/{id}/reanalyze (premium)."""
+
+    correction: str = Field(..., min_length=1, max_length=512)
+
+
 class NutritionEntryUpdate(BaseModel):
     """Optional fields for PATCH; same bounds as NutritionAnalysisResult."""
 
@@ -59,6 +65,7 @@ class NutritionDayEntry(BaseModel):
     meal_type: str
     timestamp: str
     extended_nutrients: dict | None = None
+    can_reanalyze: bool = False
 
 
 class NutritionDayTotals(BaseModel):

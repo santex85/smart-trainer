@@ -68,9 +68,17 @@ Other:
 Rules: No rounding. Fill factor_ratings from the factors section; fill phase minutes from graph or text; add sleep_phases timeline if you can estimate segments. Prefer null over guessing. Output ONLY valid JSON, no markdown."""
 
 
-async def extract_sleep_data(image_bytes: bytes, mode: str = "lite") -> SleepExtractionResult:
+async def extract_sleep_data(
+    image_bytes: bytes, mode: str = "lite", user_correction: str | None = None
+) -> SleepExtractionResult:
     """Parse image and return structured sleep extraction result. mode: 'lite' (default) or 'full'."""
     prompt = SLEEP_EXTRACT_PROMPT_LITE if mode == "lite" else SLEEP_EXTRACT_PROMPT
+    if user_correction:
+        correction_line = (
+            f'User correction: {user_correction}\n\n'
+            "Re-extract sleep data from the image taking this correction into account.\n\n"
+        )
+        prompt = correction_line + prompt
     model = genai.GenerativeModel(
         settings.gemini_model,
         generation_config=GENERATION_CONFIG,

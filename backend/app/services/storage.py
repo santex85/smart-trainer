@@ -47,3 +47,15 @@ async def upload_image(image_bytes: bytes, user_id: int, category: str = "food")
     await ensure_bucket_exists()
     await asyncio.to_thread(_upload)
     return key
+
+
+async def download_image(key: str) -> bytes:
+    """Download image from S3 by key. Raises if not found."""
+    client = get_s3_client()
+
+    def _get() -> bytes:
+        resp = client.get_object(Bucket=settings.s3_bucket, Key=key)
+        return resp["Body"].read()
+
+    await ensure_bucket_exists()
+    return await asyncio.to_thread(_get)

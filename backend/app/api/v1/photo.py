@@ -3,7 +3,7 @@ import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
@@ -12,15 +12,15 @@ from app.models.user import User
 from app.models.wellness_cache import WellnessCache
 from app.schemas.nutrition import NutritionAnalyzeResponse
 from app.schemas.photo import PhotoAnalyzeResponse, PhotoFoodResponse, PhotoSleepResponse, PhotoWellnessResponse, WellnessPhotoResult
-from app.schemas.sleep_extraction import SleepExtractionResponse
+from app.schemas.sleep_extraction import SleepExtractionResponse, SleepExtractionResult, SleepReanalyzeRequest
 from app.models.sleep_extraction import SleepExtraction
-from app.schemas.sleep_extraction import SleepExtractionResult
 from app.services.gemini_nutrition import analyze_food_from_image
 from app.services.gemini_photo_analyzer import classify_and_analyze_image
+from app.services.gemini_sleep_parser import extract_sleep_data
 from app.services.image_resize import resize_image_for_ai_async
-from app.services.sleep_analysis import analyze_and_save_sleep, save_sleep_result
+from app.services.sleep_analysis import analyze_and_save_sleep, save_sleep_result, update_sleep_extraction_result
 from app.services.audit import log_action
-from app.services.storage import upload_image
+from app.services.storage import download_image, upload_image
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -229,9 +229,16 @@ async def analyze_sleep_photo(
         mode = "lite"
     image_bytes = await file.read()
     _validate_image(file, image_bytes)
+    image_storage_path: str | None = None
+    try:
+        image_storage_path = await upload_image(image_bytes, user.id, category="sleep")
+    except Exception:
+        logging.exception("Failed to store sleep image for user_id=%s", user.id)
     image_bytes = await resize_image_for_ai_async(image_bytes)
     try:
-        record, data = await analyze_and_save_sleep(session, user.id, image_bytes, mode=mode)
+        record, data = await analyze_and_save_sleep(
+            session, user.id, image_bytes, mode=mode, image_storage_path=image_storage_path
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except Exception:
@@ -272,6 +279,71 @@ async def save_sleep_from_preview(
     )
 
 
+@router.post(
+    "/sleep-extractions/{extraction_id}/reanalyze",
+    response_model=SleepExtractionResponse,
+    summary="Re-analyze sleep photo with user correction (premium)",
+    responses={
+        400: {"description": "No image for re-analysis"},
+        401: {"description": "Not authenticated"},
+        403: {"description": "Premium required"},
+        404: {"description": "Extraction not found"},
+        422: {"description": "Could not extract sleep data"},
+        502: {"description": "Sleep extraction failed"},
+    },
+)
+async def reanalyze_sleep_extraction(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    extraction_id: Annotated[int, Path(description="Sleep extraction ID")],
+    body: SleepReanalyzeRequest,
+) -> SleepExtractionResponse:
+    """Re-analyze stored sleep image with user correction; update extraction. Premium only."""
+    if not user.is_premium:
+        raise HTTPException(status_code=403, detail="Premium required for re-analysis.")
+    result = await session.execute(
+        select(SleepExtraction).where(
+            SleepExtraction.id == extraction_id,
+            SleepExtraction.user_id == user.id,
+        )
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="Extraction not found.")
+    if not record.image_storage_path:
+        raise HTTPException(status_code=400, detail="No image for re-analysis.")
+    try:
+        image_bytes = await download_image(record.image_storage_path)
+    except Exception as e:
+        logging.exception("Failed to download sleep image for extraction_id=%s", extraction_id)
+        raise HTTPException(status_code=502, detail="Failed to load stored image.") from e
+    image_bytes = await resize_image_for_ai_async(image_bytes)
+    try:
+        new_result = await extract_sleep_data(
+            image_bytes, mode="lite", user_correction=body.correction
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception:
+        logging.exception("Sleep reanalyze failed for extraction_id=%s", extraction_id)
+        raise HTTPException(status_code=502, detail="Sleep extraction failed. Please try again.")
+    data = await update_sleep_extraction_result(session, user.id, record, new_result)
+    await log_action(
+        session,
+        user_id=user.id,
+        action="reanalyze",
+        resource="sleep_extraction",
+        resource_id=str(record.id),
+        details={"correction": body.correction},
+    )
+    await session.refresh(record)
+    return SleepExtractionResponse(
+        id=record.id,
+        extracted_data=data,
+        created_at=record.created_at.isoformat() if record.created_at else "",
+    )
+
+
 @router.get(
     "/sleep-extractions",
     response_model=list[dict],
@@ -294,14 +366,20 @@ async def list_sleep_extractions(
     from_dt = datetime.combine(start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
     to_dt = datetime.combine(end_date, datetime.max.time()).replace(tzinfo=timezone.utc)
     r = await session.execute(
-        select(SleepExtraction.created_at, SleepExtraction.extracted_data).where(
+        select(
+            SleepExtraction.id,
+            SleepExtraction.created_at,
+            SleepExtraction.extracted_data,
+            SleepExtraction.image_storage_path,
+        ).where(
             SleepExtraction.user_id == uid,
             SleepExtraction.created_at >= from_dt,
             SleepExtraction.created_at <= to_dt,
         ).order_by(SleepExtraction.created_at.desc()).limit(limit)
     )
     out = []
-    for created_at, data_json in r.all():
+    for row in r.all():
+        ext_id, created_at, data_json, image_storage_path = row
         try:
             data = json.loads(data_json) if isinstance(data_json, str) else data_json
         except (json.JSONDecodeError, TypeError):
@@ -313,9 +391,11 @@ async def list_sleep_extractions(
         if ah is None and data.get("actual_sleep_minutes") is not None:
             ah = round(data["actual_sleep_minutes"] / 60.0, 2)
         out.append({
+            "id": ext_id,
             "created_at": created_at.isoformat() if created_at else "",
             "sleep_date": data.get("date"),
             "sleep_hours": sh,
             "actual_sleep_hours": ah,
+            "can_reanalyze": bool(image_storage_path),
         })
     return out

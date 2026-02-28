@@ -84,6 +84,7 @@ async def save_sleep_result(
     session: AsyncSession,
     user_id: int,
     result: SleepExtractionResult,
+    image_storage_path: str | None = None,
 ) -> tuple[SleepExtraction, dict]:
     """
     Save already-extracted sleep result to DB (no Gemini call).
@@ -93,6 +94,7 @@ async def save_sleep_result(
     record = SleepExtraction(
         user_id=user_id,
         extracted_data=json.dumps(stored, ensure_ascii=False),
+        image_storage_path=image_storage_path,
     )
     session.add(record)
     await _upsert_sleep_into_wellness_cache(session, user_id, result)
@@ -101,15 +103,30 @@ async def save_sleep_result(
     return record, data
 
 
+async def update_sleep_extraction_result(
+    session: AsyncSession,
+    user_id: int,
+    record: SleepExtraction,
+    result: SleepExtractionResult,
+) -> dict:
+    """Update existing SleepExtraction with new result and refresh wellness cache. Returns extracted_data for response."""
+    stored = _payload_for_storage(result)
+    record.extracted_data = json.dumps(stored, ensure_ascii=False)
+    await _upsert_sleep_into_wellness_cache(session, user_id, result)
+    await session.flush()
+    return stored
+
+
 async def analyze_and_save_sleep(
     session: AsyncSession,
     user_id: int,
     image_bytes: bytes,
     mode: str = "lite",
+    image_storage_path: str | None = None,
 ) -> tuple[SleepExtraction, dict]:
     """
     Глубокий анализ фото сна: извлечение метрик (Gemini), сохранение в sleep_extractions,
     возврат записи и extracted_data для ответа API. mode: 'lite' (default) or 'full'.
     """
     result = await extract_sleep_data(image_bytes, mode=mode)
-    return await save_sleep_result(session, user_id, result)
+    return await save_sleep_result(session, user_id, result, image_storage_path=image_storage_path)

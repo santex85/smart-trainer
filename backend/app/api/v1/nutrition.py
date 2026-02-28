@@ -17,11 +17,12 @@ from app.schemas.nutrition import (
     NutritionDayResponse,
     NutritionDayTotals,
     NutritionEntryUpdate,
+    ReanalyzeRequest,
 )
 from app.services.gemini_nutrition import analyze_food_from_image
 from app.services.image_resize import resize_image_for_ai_async
 from app.services.audit import log_action
-from app.services.storage import upload_image
+from app.services.storage import download_image, upload_image
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
@@ -175,6 +176,7 @@ async def create_nutrition_entry(
         carbs_g=log.carbs_g,
         meal_type=log.meal_type,
         timestamp=log.timestamp.isoformat() if log.timestamp else "",
+        can_reanalyze=False,
     )
 
 
@@ -225,6 +227,7 @@ async def get_nutrition_day(
             meal_type=r.meal_type,
             timestamp=r.timestamp.isoformat() if r.timestamp else "",
             extended_nutrients=r.extended_nutrients,
+            can_reanalyze=bool(r.image_storage_path),
         )
         for r in rows
     ]
@@ -267,6 +270,82 @@ async def get_nutrition_entry(
         meal_type=entry.meal_type,
         timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
         extended_nutrients=entry.extended_nutrients,
+        can_reanalyze=bool(entry.image_storage_path),
+    )
+
+
+@router.post(
+    "/entries/{entry_id}/reanalyze",
+    response_model=NutritionDayEntry,
+    summary="Re-analyze food photo with user correction (premium)",
+    responses={
+        400: {"description": "No image for re-analysis"},
+        401: {"description": "Not authenticated"},
+        403: {"description": "Premium required"},
+        404: {"description": "Entry not found"},
+        422: {"description": "AI could not analyze"},
+        502: {"description": "AI service unavailable"},
+    },
+)
+async def reanalyze_nutrition_entry(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    entry_id: Annotated[int, Path(description="Food log entry ID")],
+    body: ReanalyzeRequest,
+) -> NutritionDayEntry:
+    """Re-analyze stored image with user correction; update entry. Premium only."""
+    if not user.is_premium:
+        raise HTTPException(status_code=403, detail="Premium required for re-analysis.")
+    result = await session.execute(select(FoodLog).where(FoodLog.id == entry_id))
+    entry = result.scalar_one_or_none()
+    if not entry or entry.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Entry not found.")
+    if not entry.image_storage_path:
+        raise HTTPException(status_code=400, detail="No image for re-analysis.")
+    try:
+        image_bytes = await download_image(entry.image_storage_path)
+    except Exception as e:
+        logging.exception("Failed to download image for reanalyze entry_id=%s", entry_id)
+        raise HTTPException(status_code=502, detail="Failed to load stored image.") from e
+    image_bytes = await resize_image_for_ai_async(image_bytes)
+    try:
+        food_result, extended_nutrients = await analyze_food_from_image(
+            image_bytes, extended=True, user_correction=body.correction
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception:
+        logging.exception("Reanalyze failed for entry_id=%s", entry_id)
+        raise HTTPException(status_code=502, detail="AI analysis failed. Please try again.")
+    entry.name = food_result.name
+    entry.portion_grams = food_result.portion_grams
+    entry.calories = food_result.calories
+    entry.protein_g = food_result.protein_g
+    entry.fat_g = food_result.fat_g
+    entry.carbs_g = food_result.carbs_g
+    entry.extended_nutrients = extended_nutrients
+    await session.flush()
+    await log_action(
+        session,
+        user_id=user.id,
+        action="reanalyze",
+        resource="food_log",
+        resource_id=str(entry.id),
+        details={"correction": body.correction},
+    )
+    await session.refresh(entry)
+    return NutritionDayEntry(
+        id=entry.id,
+        name=entry.name,
+        portion_grams=entry.portion_grams,
+        calories=entry.calories,
+        protein_g=entry.protein_g,
+        fat_g=entry.fat_g,
+        carbs_g=entry.carbs_g,
+        meal_type=entry.meal_type,
+        timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
+        extended_nutrients=entry.extended_nutrients,
+        can_reanalyze=True,
     )
 
 
@@ -320,6 +399,7 @@ async def update_nutrition_entry(
         meal_type=entry.meal_type,
         timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
         extended_nutrients=entry.extended_nutrients,
+        can_reanalyze=bool(entry.image_storage_path),
     )
 
 

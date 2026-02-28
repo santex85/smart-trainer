@@ -67,7 +67,7 @@ def _extract_extended_nutrients(data: dict) -> dict | None:
 
 
 async def analyze_food_from_image(
-    image_bytes: bytes, *, extended: bool = False
+    image_bytes: bytes, *, extended: bool = False, user_correction: str | None = None
 ) -> tuple[NutritionAnalysisResult, dict | None]:
     """Send image to Gemini; return (nutrition result, extended_nutrients or None)."""
     if extended:
@@ -76,6 +76,12 @@ async def analyze_food_from_image(
     else:
         prompt = SYSTEM_PROMPT
         config = GENERATION_CONFIG
+    if user_correction:
+        correction_line = (
+            f'User correction: the dish is actually "{user_correction}". '
+            "Re-analyze the image with this correction and return updated macros/micronutrients.\n\n"
+        )
+        prompt = correction_line + prompt
     model = genai.GenerativeModel(
         settings.gemini_model,
         generation_config=config,

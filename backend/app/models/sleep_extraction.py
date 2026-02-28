@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, Integer, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -12,5 +12,6 @@ class SleepExtraction(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     extracted_data: Mapped[str] = mapped_column(Text, nullable=False)  # JSON string
+    image_storage_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="sleep_extractions")

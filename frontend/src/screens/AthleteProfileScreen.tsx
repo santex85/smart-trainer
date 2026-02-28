@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   getAthleteProfile,
   updateAthleteProfile,
+  updateMyPremium,
   type AthleteProfileResponse,
 } from "../api/client";
 
@@ -36,6 +38,7 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
   const [height, setHeight] = useState("");
   const [birthYear, setBirthYear] = useState("");
   const [ftp, setFtp] = useState("");
+  const [premiumToggling, setPremiumToggling] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -113,6 +116,29 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.displayName}>{profile?.display_name ?? "—"}</Text>
+
+        {profile?.dev_can_toggle_premium ? (
+          <View style={styles.premiumRow}>
+            <Text style={styles.label}>Премиум (для теста)</Text>
+            <Switch
+              value={profile?.is_premium ?? false}
+              onValueChange={async (value) => {
+                setPremiumToggling(true);
+                try {
+                  await updateMyPremium(value);
+                  setProfile((p) => (p ? { ...p, is_premium: value } : p));
+                } catch (e) {
+                  Alert.alert("Ошибка", getErrorMessage(e));
+                } finally {
+                  setPremiumToggling(false);
+                }
+              }}
+              disabled={premiumToggling}
+              trackColor={{ false: "#334155", true: "#38bdf8" }}
+              thumbColor="#e2e8f0"
+            />
+          </View>
+        ) : null}
 
         {editing ? (
           <>
@@ -219,6 +245,7 @@ const styles = StyleSheet.create({
   value: { fontSize: 16, color: "#e2e8f0", fontWeight: "500" },
   source: { fontSize: 12, color: "#64748b", marginLeft: 6 },
   row: { flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", marginTop: 4 },
+  premiumRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16, marginBottom: 8 },
   input: {
     backgroundColor: "#16213e",
     borderRadius: 8,

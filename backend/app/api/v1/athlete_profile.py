@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.config import settings
 from app.db.session import get_db
 from app.models.athlete_profile import AthleteProfile
 from app.models.user import User
@@ -17,8 +18,13 @@ router = APIRouter(prefix="/athlete-profile", tags=["athlete-profile"])
 
 def _profile_response(profile: AthleteProfile | None, user: User) -> dict:
     """Build GET response: manual profile fields."""
+    base = {
+        "is_premium": user.is_premium,
+        "dev_can_toggle_premium": settings.app_env != "production",
+    }
     if not profile:
         return {
+            **base,
             "weight_kg": None,
             "weight_source": None,
             "ftp": None,
@@ -28,6 +34,7 @@ def _profile_response(profile: AthleteProfile | None, user: User) -> dict:
             "display_name": user.email,
         }
     return {
+        **base,
         "weight_kg": profile.weight_kg,
         "weight_source": "manual" if profile.weight_kg is not None else None,
         "ftp": profile.ftp,

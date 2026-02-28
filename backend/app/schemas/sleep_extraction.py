@@ -91,6 +91,12 @@ class SleepExtractionResult(BaseModel):
     raw_notes: str | None = Field(None, max_length=2048)
 
 
+class SleepReanalyzeRequest(BaseModel):
+    """Body for POST /photo/sleep-extractions/{id}/reanalyze (premium)."""
+
+    correction: str = Field(..., min_length=1, max_length=512)
+
+
 class SleepExtractionResponse(BaseModel):
     id: int
     extracted_data: dict

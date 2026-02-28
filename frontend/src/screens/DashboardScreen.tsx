@@ -21,9 +21,12 @@ import {
   createNutritionEntry,
   updateNutritionEntry,
   deleteNutritionEntry,
+  reanalyzeNutritionEntry,
   runOrchestrator,
   getWellness,
   createOrUpdateWellness,
+  getSleepExtractions,
+  reanalyzeSleepExtraction,
   getAthleteProfile,
   updateAthleteProfile,
   getWorkouts,
@@ -40,6 +43,7 @@ import {
   type WorkoutItem,
   type WorkoutPreviewItem,
   type WorkoutFitness,
+  type SleepExtractionSummary,
 } from "../api/client";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
@@ -139,6 +143,9 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [reanalyzing, setReanalyzing] = useState(false);
+  const [showReanalyzeInput, setShowReanalyzeInput] = useState(false);
+  const [reanalyzeCorrection, setReanalyzeCorrection] = useState("");
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 
   const handleSave = async () => {
@@ -183,6 +190,25 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
       Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleReanalyze = async () => {
+    const correction = reanalyzeCorrection.trim();
+    if (!correction) {
+      Alert.alert("Ошибка", "Введите исправление (например: веганская сосиска)");
+      return;
+    }
+    setReanalyzing(true);
+    try {
+      await reanalyzeNutritionEntry(entry.id, correction);
+      onSaved();
+      onClose();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Не удалось выполнить повторный анализ";
+      Alert.alert("Ошибка", msg);
+    } finally {
+      setReanalyzing(false);
     }
   };
 
@@ -304,6 +330,47 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
                 </View>
               </>
             ) : null}
+            {entry.can_reanalyze ? (
+              <View style={{ marginTop: 16 }}>
+                {!showReanalyzeInput ? (
+                  <TouchableOpacity
+                    style={[styles.modalBtnSave, { backgroundColor: "#0ea5e9" }]}
+                    onPress={() => setShowReanalyzeInput(true)}
+                    disabled={saving || deleting || copying || reanalyzing}
+                  >
+                    <Text style={styles.modalBtnSaveText}>Повторный анализ</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <>
+                    <Text style={styles.modalLabel}>Исправление (например: веганская сосиска)</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      value={reanalyzeCorrection}
+                      onChangeText={setReanalyzeCorrection}
+                      placeholder="Введите правильное название блюда"
+                      placeholderTextColor="#64748b"
+                      editable={!reanalyzing}
+                    />
+                    <View style={{ flexDirection: "row", marginTop: 8, gap: 8 }}>
+                      <TouchableOpacity
+                        style={styles.modalBtnCancel}
+                        onPress={() => { setShowReanalyzeInput(false); setReanalyzeCorrection(""); }}
+                        disabled={reanalyzing}
+                      >
+                        <Text style={styles.modalBtnCancelText}>Отмена</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modalBtnSave, reanalyzing && styles.modalBtnDisabled]}
+                        onPress={handleReanalyze}
+                        disabled={reanalyzing || !reanalyzeCorrection.trim()}
+                      >
+                        {reanalyzing ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Отправить на анализ</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
+            ) : null}
           </ScrollView>
           {confirmDeleteVisible ? (
             <View style={styles.deleteConfirmBox}>
@@ -324,23 +391,23 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
                 <Text style={styles.modalBtnCancelText}>Отмена</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtnDelete, (saving || deleting || copying) && styles.modalBtnDisabled]}
+                style={[styles.modalBtnDelete, (saving || deleting || copying || reanalyzing) && styles.modalBtnDisabled]}
                 onPress={showDeleteConfirm}
-                disabled={saving || deleting || copying}
+                disabled={saving || deleting || copying || reanalyzing}
               >
                 <Text style={styles.modalBtnDeleteText}>Удалить</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtnCopy, (saving || deleting || copying) && styles.modalBtnDisabled]}
+                style={[styles.modalBtnCopy, (saving || deleting || copying || reanalyzing) && styles.modalBtnDisabled]}
                 onPress={handleCopy}
-                disabled={saving || deleting || copying}
+                disabled={saving || deleting || copying || reanalyzing}
               >
                 {copying ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnCopyText}>{t("nutrition.copy")}</Text>}
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtnSave, (saving || deleting || copying) && styles.modalBtnDisabled]}
+                style={[styles.modalBtnSave, (saving || deleting || copying || reanalyzing) && styles.modalBtnDisabled]}
                 onPress={handleSave}
-                disabled={saving || deleting || copying}
+                disabled={saving || deleting || copying || reanalyzing}
               >
                 {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Сохранить</Text>}
               </TouchableOpacity>
@@ -792,6 +859,10 @@ export function DashboardScreen({
     suggestions_next_days?: string;
   } | null>(null);
   const [intervalsSyncLoading, setIntervalsSyncLoading] = useState(false);
+  const [sleepExtractions, setSleepExtractions] = useState<SleepExtractionSummary[]>([]);
+  const [sleepReanalyzingId, setSleepReanalyzingId] = useState<number | null>(null);
+  const [sleepReanalyzeExtId, setSleepReanalyzeExtId] = useState<number | null>(null);
+  const [sleepReanalyzeCorrection, setSleepReanalyzeCorrection] = useState("");
   const { colors, toggleTheme } = useTheme();
 
   const today = getTodayLocal();
@@ -811,7 +882,7 @@ export function DashboardScreen({
     setNutritionLoadError(false);
     try {
       const activitiesStart = addDays(today, -14);
-      const [nResult, wellnessList, profile, workoutsList, fitness] = await Promise.all([
+      const [nResult, wellnessList, profile, workoutsList, fitness, sleepList] = await Promise.all([
         getNutritionDay(nutritionDate).then((n) => ({ ok: true as const, data: n })).catch(() => ({ ok: false as const, data: null })),
         getWellness(addDays(today, -6), addDays(today, 1)).then((res) => {
           const w = res?.items ?? [];
@@ -825,6 +896,7 @@ export function DashboardScreen({
         getAthleteProfile().catch(() => null),
         getWorkouts(activitiesStart, today).then((r) => r.items).catch(() => []),
         getWorkoutFitness().catch(() => null),
+        getSleepExtractions(addDays(today, -14), today).catch(() => []),
       ]);
       setNutritionDay(nResult.ok ? nResult.data : null);
       setNutritionLoadError(!nResult.ok);
@@ -832,6 +904,7 @@ export function DashboardScreen({
       setAthleteProfile(profile);
       setWorkouts(workoutsList ?? []);
       setWorkoutFitness(fitness ?? null);
+      setSleepExtractions(sleepList ?? []);
     } catch {
       setNutritionDay(null);
       setNutritionLoadError(true);
@@ -1125,6 +1198,75 @@ export function DashboardScreen({
             ) : (
               <Text style={styles.placeholder}>Нажмите «Изменить», чтобы ввести сон, RHR, HRV и вес.</Text>
             )}
+            {sleepExtractions.length > 0 ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={[styles.modalLabel, { marginBottom: 6 }]}>Фото сна</Text>
+                {sleepExtractions.slice(0, 5).map((ext) => (
+                  <View key={ext.id}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
+                      <Text style={styles.hint}>
+                        {ext.sleep_date ?? ext.created_at?.slice(0, 10)} · {(ext.actual_sleep_hours ?? ext.sleep_hours) ?? "—"} ч
+                      </Text>
+                      {ext.can_reanalyze && sleepReanalyzeExtId !== ext.id ? (
+                        <TouchableOpacity
+                          style={[styles.modalBtnSave, { paddingHorizontal: 10, paddingVertical: 6 }]}
+                          onPress={() => { setSleepReanalyzeExtId(ext.id); setSleepReanalyzeCorrection(""); }}
+                          disabled={sleepReanalyzingId != null}
+                        >
+                          <Text style={styles.modalBtnSaveText}>Повторный анализ</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                    {sleepReanalyzeExtId === ext.id ? (
+                      <View style={{ marginTop: 6, marginBottom: 8 }}>
+                        <TextInput
+                          style={styles.modalInput}
+                          value={sleepReanalyzeCorrection}
+                          onChangeText={setSleepReanalyzeCorrection}
+                          placeholder="Например: actual sleep was 7.5 hours"
+                          placeholderTextColor="#64748b"
+                          editable={sleepReanalyzingId === null}
+                        />
+                        <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+                          <TouchableOpacity
+                            style={styles.modalBtnCancel}
+                            onPress={() => { setSleepReanalyzeExtId(null); setSleepReanalyzeCorrection(""); }}
+                            disabled={sleepReanalyzingId !== null}
+                          >
+                            <Text style={styles.modalBtnCancelText}>Отмена</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.modalBtnSave, (sleepReanalyzingId !== null || !sleepReanalyzeCorrection.trim()) && styles.modalBtnDisabled]}
+                            onPress={async () => {
+                              const correction = sleepReanalyzeCorrection.trim();
+                              if (!correction) return;
+                              setSleepReanalyzingId(ext.id);
+                              try {
+                                await reanalyzeSleepExtraction(ext.id, correction);
+                                setSleepReanalyzeExtId(null);
+                                setSleepReanalyzeCorrection("");
+                                load();
+                              } catch (e) {
+                                Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось выполнить повторный анализ");
+                              } finally {
+                                setSleepReanalyzingId(null);
+                              }
+                            }}
+                            disabled={sleepReanalyzingId !== null || !sleepReanalyzeCorrection.trim()}
+                          >
+                            {sleepReanalyzingId === ext.id ? (
+                              <ActivityIndicator size="small" color="#0f172a" />
+                            ) : (
+                              <Text style={styles.modalBtnSaveText}>Отправить на анализ</Text>
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : null}
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.surface }]}>
