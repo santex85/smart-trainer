@@ -70,6 +70,13 @@ export const ru = {
     weightKg: "кг",
     manualHint: "Введите сон вручную (Изменить) или загрузите фото сна через камеру.",
     placeholder: "Нажмите «Изменить», чтобы ввести сон, RHR, HRV и вес.",
+    addByPhoto: "Добавить по фото",
+    weeklySleep: "За неделю",
+    deficit: "дефицит",
+    normPerNight: "норма 7 ч/ночь",
+    noData: "нет данных",
+    sleepByPhoto: "Фото сна",
+    uploadSleepPhotoHint: "Загрузите фото сна",
   },
   fitness: {
     title: "Фитнес (CTL / ATL / TSB)",

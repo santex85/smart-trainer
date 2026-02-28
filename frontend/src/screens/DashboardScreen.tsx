@@ -825,6 +825,7 @@ export function DashboardScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [wellnessToday, setWellnessToday] = useState<WellnessDay | null>(null);
+  const [wellnessWeek, setWellnessWeek] = useState<WellnessDay[]>([]);
   const [athleteProfile, setAthleteProfile] = useState<AthleteProfileResponse | null>(null);
   const [wellnessEditVisible, setWellnessEditVisible] = useState(false);
   const [workoutAddVisible, setWorkoutAddVisible] = useState(false);
@@ -861,17 +862,21 @@ export function DashboardScreen({
     setNutritionLoadError(false);
     try {
       const activitiesStart = addDays(today, -14);
-      const [nResult, wellnessList, profile, workoutsList, fitness, sleepList] = await Promise.all([
+      const [nResult, wellnessResult, profile, workoutsList, fitness, sleepList] = await Promise.all([
         getNutritionDay(nutritionDate).then((n) => ({ ok: true as const, data: n })).catch(() => ({ ok: false as const, data: null })),
         getWellness(addDays(today, -6), addDays(today, 1)).then((res) => {
           const w = res?.items ?? [];
-          if (!w.length) return null;
+          setWellnessWeek(w);
+          if (!w.length) return { week: w, today: null };
           const todayNorm = today.slice(0, 10);
           const forToday = w.find((d) => String(d?.date ?? "").slice(0, 10) === todayNorm);
-          if (forToday) return forToday;
+          if (forToday) return { week: w, today: forToday };
           const withSleep = w.filter((d) => (d?.sleep_hours ?? 0) > 0).sort((a, b) => String(b?.date ?? "").localeCompare(String(a?.date ?? "")));
-          return withSleep[0] ?? null;
-        }).catch(() => null),
+          return { week: w, today: withSleep[0] ?? null };
+        }).catch(() => {
+          setWellnessWeek([]);
+          return { week: [], today: null };
+        }),
         getAthleteProfile().catch(() => null),
         getWorkouts(activitiesStart, today).then((r) => r.items).catch(() => []),
         getWorkoutFitness().catch(() => null),
@@ -879,7 +884,7 @@ export function DashboardScreen({
       ]);
       setNutritionDay(nResult.ok ? nResult.data : null);
       setNutritionLoadError(!nResult.ok);
-      setWellnessToday(wellnessList);
+      setWellnessToday(wellnessResult?.today ?? null);
       setAthleteProfile(profile);
       setWorkouts(workoutsList ?? []);
       setWorkoutFitness(fitness ?? null);
@@ -888,6 +893,7 @@ export function DashboardScreen({
       setNutritionDay(null);
       setNutritionLoadError(true);
       setWellnessToday(null);
+      setWellnessWeek([]);
       setAthleteProfile(null);
       setWorkouts([]);
       setWorkoutFitness(null);
@@ -925,6 +931,13 @@ export function DashboardScreen({
     ]
   );
   const { calorieGoal, proteinGoal, fatGoal, carbsGoal } = nutritionGoals;
+
+  const WEEKLY_SLEEP_NORM_HOURS = 7 * 7;
+  const { weeklySleepTotal, weeklySleepDeficit } = useMemo(() => {
+    const total = wellnessWeek.reduce((sum, d) => sum + (d?.sleep_hours ?? 0), 0);
+    const deficit = Math.max(0, WEEKLY_SLEEP_NORM_HOURS - total);
+    return { weeklySleepTotal: total, weeklySleepDeficit: deficit };
+  }, [wellnessWeek]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -1208,15 +1221,37 @@ export function DashboardScreen({
                     : " · Вес —"}
                 </Text>
                 {wellnessToday?.sleep_hours == null && (
-                  <Text style={styles.hint}>Введите сон вручную (Изменить) или загрузите фото сна через камеру.</Text>
+                  <Text style={styles.hint}>{t("wellness.manualHint")}</Text>
                 )}
               </>
             ) : (
-              <Text style={styles.placeholder}>Нажмите «Изменить», чтобы ввести сон, RHR, HRV и вес.</Text>
+              <Text style={styles.placeholder}>{t("wellness.placeholder")}</Text>
             )}
+            {wellnessWeek.length > 0 ? (
+              <Text style={[styles.hint, { marginTop: 8 }]}>
+                {t("wellness.weeklySleep")}: {Math.round(weeklySleepTotal * 10) / 10} {t("wellness.sleepHours")}
+                {weeklySleepDeficit > 0 ? ` · ${t("wellness.deficit")} ${Math.round(weeklySleepDeficit * 10) / 10} ${t("wellness.sleepHours")}` : null}
+                {" "}({t("wellness.normPerNight")})
+              </Text>
+            ) : null}
+            <View style={{ marginTop: 12 }}>
+              <View style={styles.cardTitleRow}>
+                <Text style={[styles.modalLabel, { marginBottom: 0 }]}>{t("wellness.sleepByPhoto")}</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                    onOpenCamera();
+                  }}
+                >
+                  <Text style={styles.intervalsLinkText}>{t("wellness.addByPhoto")}</Text>
+                </TouchableOpacity>
+              </View>
+              {sleepExtractions.length === 0 ? (
+                <Text style={[styles.hint, { marginTop: 4 }]}>{t("wellness.uploadSleepPhotoHint")}</Text>
+              ) : null}
+            </View>
             {sleepExtractions.length > 0 ? (
-              <View style={{ marginTop: 12 }}>
-                <Text style={[styles.modalLabel, { marginBottom: 6 }]}>Фото сна</Text>
+              <View style={{ marginTop: 6 }}>
                 {sleepExtractions.slice(0, 5).map((ext) => (
                   <View key={ext.id}>
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
@@ -1262,6 +1297,8 @@ export function DashboardScreen({
                                 setSleepReanalyzeExtId(null);
                                 setSleepReanalyzeCorrection("");
                                 load();
+                                const fresh = await getSleepExtractions(addDays(today, -14), today).catch(() => []);
+                                setSleepExtractions(fresh ?? []);
                               } catch (e) {
                                 Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось выполнить повторный анализ");
                               } finally {
