@@ -22,6 +22,7 @@ import {
   getChatThreads,
   createChatThread,
   clearChatThread,
+  deleteChatThread,
   type ChatMessage,
   type ChatThreadItem,
 } from "../api/client";
@@ -155,6 +156,49 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
     }
   }, [currentThreadId]);
 
+  const onDeleteThread = useCallback(
+    (threadId: number, title: string) => {
+      Alert.alert(
+        "Удалить чат?",
+        `Чат «${title}» будет удалён безвозвратно.`,
+        [
+          { text: "Отмена", style: "cancel" },
+          {
+            text: "Удалить",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await deleteChatThread(threadId);
+                setThreads((prev) => {
+                  const next = prev.filter((t) => t.id !== threadId);
+                  if (currentThreadId === threadId) {
+                    if (next.length > 0) {
+                      setCurrentThreadId(next[0].id);
+                      setLoadingHistory(true);
+                      loadHistoryForThread(next[0].id);
+                    } else {
+                      setCurrentThreadId(null);
+                      setMessages([]);
+                      createChatThread("Основной").then((created) => {
+                        setThreads([created]);
+                        setCurrentThreadId(created.id);
+                        loadHistoryForThread(created.id);
+                      });
+                    }
+                  }
+                  return next;
+                });
+              } catch {
+                // ignore
+              }
+            },
+          },
+        ]
+      );
+    },
+    [currentThreadId, loadHistoryForThread]
+  );
+
   const send = async (runOrch = false) => {
     if (runOrch) {
       if (loading) return;
@@ -247,6 +291,7 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
               key={t.id}
               style={[styles.tab, t.id === currentThreadId && styles.tabActive]}
               onPress={() => selectThread(t.id)}
+              onLongPress={() => onDeleteThread(t.id, t.title)}
             >
               <Text style={[styles.tabText, t.id === currentThreadId && styles.tabTextActive]} numberOfLines={1}>
                 {t.title}

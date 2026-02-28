@@ -11,6 +11,7 @@ jest.mock("../../api/client", () => ({
   getChatThreads: jest.fn().mockResolvedValue({ items: [], total: 0 }),
   createChatThread: jest.fn().mockResolvedValue({ id: 1 }),
   clearChatThread: jest.fn().mockResolvedValue(undefined),
+  deleteChatThread: jest.fn().mockResolvedValue(undefined),
 }));
 
 describe("ChatScreen", () => {
