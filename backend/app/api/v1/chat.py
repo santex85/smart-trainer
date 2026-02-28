@@ -38,7 +38,7 @@ CHAT_WORKOUTS_LIMIT = 10
 CHAT_SECTION_MAX_CHARS = 1200
 
 
-async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
+async def _build_athlete_context(session: AsyncSession, user_id: int, is_premium: bool = False) -> str:
     """Build a compressed text summary: profile, food/wellness today + last N days, last M workouts. No passwords/tokens."""
     today = date.today()
     sleep_from = today - timedelta(days=CHAT_CONTEXT_DAYS)
@@ -58,7 +58,7 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
         session.execute(select(User.email).where(User.id == user_id)),
         session.execute(select(AthleteProfile).where(AthleteProfile.user_id == user_id)),
         session.execute(
-            select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type, FoodLog.timestamp).where(
+            select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type, FoodLog.timestamp, FoodLog.extended_nutrients).where(
                 FoodLog.user_id == user_id,
                 FoodLog.timestamp >= datetime.combine(today, datetime.min.time()),
                 FoodLog.timestamp < datetime.combine(today + timedelta(days=1), datetime.min.time()),
@@ -120,6 +120,7 @@ async def _build_athlete_context(session: AsyncSession, user_id: int) -> str:
         food_entries.append({
             "name": row[0], "portion_grams": row[1], "calories": row[2], "protein_g": row[3], "fat_g": row[4], "carbs_g": row[5],
             "meal_type": row[6], "timestamp": row[7].isoformat() if row[7] else None,
+            "extended_nutrients": row[8] if is_premium else None,
         })
 
     w = r_wellness.scalar_one_or_none()
@@ -410,7 +411,7 @@ async def send_message(
         import google.generativeai as genai
         from app.config import settings
         from app.services.gemini_common import run_generate_content
-        context = await _build_athlete_context(session, uid)
+        context = await _build_athlete_context(session, uid, user.is_premium)
         model = genai.GenerativeModel(settings.gemini_model)
         prompt = f"{CHAT_SYSTEM}\n\nContext:\n{context}\n\nUser message: {body.message}"
         response = await run_generate_content(model, prompt)
@@ -520,7 +521,7 @@ async def send_message_with_file(
         from app.config import settings
         from app.services.gemini_common import run_generate_content
 
-        context = await _build_athlete_context(session, uid)
+        context = await _build_athlete_context(session, uid, user.is_premium)
         if fit_summary:
             context += "\n\n## Uploaded workout (this message)\n" + fit_summary
         model = genai.GenerativeModel(settings.gemini_model)

@@ -176,10 +176,10 @@ async def run_daily_decision(
             WellnessCache.date == today,
         )
     )
-    r_user = await session.execute(select(User.email).where(User.id == user_id))
+    r_user = await session.execute(select(User.email, User.is_premium).where(User.id == user_id))
     r_prof = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == user_id))
     r_fe = await session.execute(
-        select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type).where(
+        select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type, FoodLog.extended_nutrients).where(
             FoodLog.user_id == user_id,
             FoodLog.timestamp >= datetime.combine(today, datetime.min.time()),
             FoodLog.timestamp < datetime.combine(today + timedelta(days=1), datetime.min.time()),
@@ -231,6 +231,7 @@ async def run_daily_decision(
 
     user_row = r_user.one_or_none()
     email = user_row[0] if user_row else None
+    is_premium = bool(user_row[1]) if user_row and len(user_row) > 1 else False
     profile = r_prof.scalar_one_or_none()
     athlete_profile: dict[str, Any] = {}
     if profile:
@@ -250,6 +251,7 @@ async def run_daily_decision(
     for row in r_fe.all():
         food_entries.append({
             "name": row[0], "portion_grams": row[1], "calories": row[2], "protein_g": row[3], "fat_g": row[4], "carbs_g": row[5], "meal_type": row[6],
+            "extended_nutrients": row[7] if is_premium else None,
         })
 
     wellness_history = []
