@@ -293,11 +293,14 @@ async def reanalyze_nutrition_entry(
     entry = result.scalar_one_or_none()
     if not entry or entry.user_id != user.id:
         raise HTTPException(status_code=404, detail="Entry not found.")
+    recalc_name = (body.name or entry.name or "").strip() or entry.name
+    recalc_portion = body.portion_grams if body.portion_grams is not None else float(entry.portion_grams or 0)
+    recalc_correction = (body.correction or "").strip()
     try:
         food_result, extended_nutrients = await analyze_food_from_text(
-            name=entry.name,
-            portion_grams=float(entry.portion_grams or 0),
-            correction=body.correction,
+            name=recalc_name,
+            portion_grams=recalc_portion,
+            correction=recalc_correction,
             extended=True,
         )
     except ValueError as e:
@@ -319,7 +322,7 @@ async def reanalyze_nutrition_entry(
         action="reanalyze",
         resource="food_log",
         resource_id=str(entry.id),
-        details={"correction": body.correction},
+        details={"name": recalc_name, "portion_grams": recalc_portion, "correction": recalc_correction},
     )
     await session.refresh(entry)
     return NutritionDayEntry(

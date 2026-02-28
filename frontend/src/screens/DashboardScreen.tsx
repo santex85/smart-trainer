@@ -144,8 +144,6 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
   const [deleting, setDeleting] = useState(false);
   const [copying, setCopying] = useState(false);
   const [reanalyzing, setReanalyzing] = useState(false);
-  const [showReanalyzeInput, setShowReanalyzeInput] = useState(false);
-  const [reanalyzeCorrection, setReanalyzeCorrection] = useState("");
   const [confirmDeleteVisible, setConfirmDeleteVisible] = useState(false);
 
   const handleSave = async () => {
@@ -194,18 +192,21 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
   };
 
   const handleReanalyze = async () => {
-    const correction = reanalyzeCorrection.trim();
-    if (!correction) {
-      Alert.alert("Ошибка", "Введите исправление (например: веганская сосиска)");
+    const p = Number(portionGrams);
+    if (Number.isNaN(p) || p < 0) {
+      Alert.alert("Ошибка", "Укажите корректную порцию (г).");
       return;
     }
     setReanalyzing(true);
     try {
-      await reanalyzeNutritionEntry(entry.id, correction);
+      await reanalyzeNutritionEntry(entry.id, {
+        name: name.trim() || undefined,
+        portion_grams: p,
+      });
       onSaved();
       onClose();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Не удалось выполнить повторный анализ";
+      const msg = e instanceof Error ? e.message : "Не удалось выполнить пересчёт";
       Alert.alert("Ошибка", msg);
     } finally {
       setReanalyzing(false);
@@ -332,43 +333,20 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
             ) : null}
             {entry.can_reanalyze ? (
               <View style={{ marginTop: 16 }}>
-                {!showReanalyzeInput ? (
-                  <TouchableOpacity
-                    style={[styles.modalBtnSave, { backgroundColor: "#0ea5e9" }]}
-                    onPress={() => setShowReanalyzeInput(true)}
-                    disabled={saving || deleting || copying || reanalyzing}
-                  >
+                <TouchableOpacity
+                  style={[styles.modalBtnSave, { backgroundColor: "#0ea5e9" }]}
+                  onPress={handleReanalyze}
+                  disabled={saving || deleting || copying || reanalyzing}
+                >
+                  {reanalyzing ? (
+                    <ActivityIndicator size="small" color="#0f172a" />
+                  ) : (
                     <Text style={styles.modalBtnSaveText}>Пересчитать</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <>
-                    <Text style={styles.modalLabel}>Исправление (например: веганская сосиска)</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      value={reanalyzeCorrection}
-                      onChangeText={setReanalyzeCorrection}
-                      placeholder="Введите правильное название блюда"
-                      placeholderTextColor="#64748b"
-                      editable={!reanalyzing}
-                    />
-                    <View style={{ flexDirection: "row", marginTop: 8, gap: 8 }}>
-                      <TouchableOpacity
-                        style={styles.modalBtnCancel}
-                        onPress={() => { setShowReanalyzeInput(false); setReanalyzeCorrection(""); }}
-                        disabled={reanalyzing}
-                      >
-                        <Text style={styles.modalBtnCancelText}>Отмена</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.modalBtnSave, reanalyzing && styles.modalBtnDisabled]}
-                        onPress={handleReanalyze}
-                        disabled={reanalyzing || !reanalyzeCorrection.trim()}
-                      >
-                        {reanalyzing ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Пересчитать</Text>}
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
+                  )}
+                </TouchableOpacity>
+                <Text style={[styles.modalLabel, { marginTop: 6, fontSize: 12, opacity: 0.8 }]}>
+                  Пересчёт макросов по текущему названию и порции
+                </Text>
               </View>
             ) : null}
           </ScrollView>

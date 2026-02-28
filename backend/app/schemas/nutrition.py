@@ -37,9 +37,11 @@ class CreateFoodEntryRequest(BaseModel):
 
 
 class ReanalyzeRequest(BaseModel):
-    """Body for POST /nutrition/entries/{id}/reanalyze (premium)."""
+    """Body for POST /nutrition/entries/{id}/reanalyze (premium). Uses current name/portion if not provided."""
 
-    correction: str = Field(..., min_length=1, max_length=512)
+    name: str | None = Field(None, min_length=1, max_length=512)
+    portion_grams: float | None = Field(None, ge=0, le=10000)
+    correction: str | None = Field(None, max_length=512)
 
 
 class NutritionEntryUpdate(BaseModel):

@@ -542,11 +542,11 @@ export async function deleteNutritionEntry(entryId: number): Promise<{ status: s
 
 export async function reanalyzeNutritionEntry(
   entryId: number,
-  correction: string
+  payload: { name?: string; portion_grams?: number; correction?: string }
 ): Promise<NutritionDayEntry> {
   return api<NutritionDayEntry>(`/api/v1/nutrition/entries/${entryId}/reanalyze`, {
     method: "POST",
-    body: { correction },
+    body: payload,
   });
 }
 

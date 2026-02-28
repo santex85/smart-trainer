@@ -127,7 +127,8 @@ async def analyze_food_from_text(
 ) -> tuple[NutritionAnalysisResult, dict | None]:
     """Recalculate macros from text (dish name + portion + user correction). No image needed."""
     prompt = TEXT_RECALC_PROMPT_EXTENDED if extended else TEXT_RECALC_PROMPT
-    user_input = f"Dish: {name}, portion: {portion_grams}g. User correction: {correction}."
+    correction_part = f" User correction: {correction}." if correction else " No additional correction."
+    user_input = f"Dish: {name}, portion: {portion_grams}g.{correction_part}"
     full_prompt = f"{user_input}\n\n{prompt}"
     config = GENERATION_CONFIG_EXTENDED if extended else GENERATION_CONFIG
     model = genai.GenerativeModel(
