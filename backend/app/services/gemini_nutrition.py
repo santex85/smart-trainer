@@ -100,3 +100,49 @@ async def analyze_food_from_image(
     result = NutritionAnalysisResult(**base)
     extended_nutrients = _extract_extended_nutrients(data) if extended else None
     return (result, extended_nutrients)
+
+
+TEXT_RECALC_PROMPT = """You are a nutrition analysis system. Recalculate macros for a dish based on text description.
+
+Input: dish name, portion size in grams, and optional user correction (e.g. "vegan sausage instead of regular").
+Output ONLY valid JSON with exactly these fields: name (short dish name), portion_grams, calories, protein_g, fat_g, carbs_g.
+All numeric values must be non-negative numbers. portion_grams and macros in grams, calories in kcal.
+No explanations, no markdown. Only the JSON object."""
+
+TEXT_RECALC_PROMPT_EXTENDED = """You are a nutrition analysis system for premium users. Recalculate macros and micronutrients for a dish based on text description.
+
+Input: dish name, portion size in grams, and optional user correction.
+Output ONLY valid JSON. No explanations, no markdown.
+Required fields: name, portion_grams, calories, protein_g, fat_g, carbs_g. All non-negative numbers.
+Additional fields (use null if not estimable): fiber_g, sodium_mg, calcium_mg, iron_mg, potassium_mg, magnesium_mg, zinc_mg, vitamin_a_mcg, vitamin_c_mg, vitamin_d_iu.
+Standard units: fiber in g; sodium, calcium, iron, potassium, magnesium, zinc in mg; vitamin_a in mcg RAE; vitamin_c in mg; vitamin_d in IU."""
+
+
+async def analyze_food_from_text(
+    name: str,
+    portion_grams: float,
+    correction: str,
+    *,
+    extended: bool = True,
+) -> tuple[NutritionAnalysisResult, dict | None]:
+    """Recalculate macros from text (dish name + portion + user correction). No image needed."""
+    prompt = TEXT_RECALC_PROMPT_EXTENDED if extended else TEXT_RECALC_PROMPT
+    user_input = f"Dish: {name}, portion: {portion_grams}g. User correction: {correction}."
+    full_prompt = f"{user_input}\n\n{prompt}"
+    config = GENERATION_CONFIG_EXTENDED if extended else GENERATION_CONFIG
+    model = genai.GenerativeModel(
+        settings.gemini_model,
+        generation_config=config,
+        safety_settings=SAFETY_SETTINGS,
+    )
+    response = await run_generate_content(model, [full_prompt])
+    if not response or not response.text:
+        raise ValueError("Empty response from Gemini")
+    text = response.text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    data = json.loads(text)
+    base = {k: data[k] for k in ("name", "portion_grams", "calories", "protein_g", "fat_g", "carbs_g") if k in data}
+    result = NutritionAnalysisResult(**base)
+    extended_nutrients = _extract_extended_nutrients(data) if extended else None
+    return (result, extended_nutrients)

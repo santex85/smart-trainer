@@ -70,11 +70,6 @@ async def analyze_photo(
     """
     image_bytes = await file.read()
     _validate_image(file, image_bytes)
-    image_storage_path: str | None = None
-    try:
-        image_storage_path = await upload_image(image_bytes, user.id, category="food")
-    except Exception:
-        logging.exception("Failed to store photo upload for user_id=%s", user.id)
     image_bytes = await resize_image_for_ai_async(image_bytes)
 
     try:
@@ -108,7 +103,7 @@ async def analyze_photo(
                 protein_g=food_result.protein_g,
                 fat_g=food_result.fat_g,
                 carbs_g=food_result.carbs_g,
-                image_storage_path=image_storage_path,
+                image_storage_path=None,
                 extended_nutrients=extended_nutrients,
             )
             session.add(log)
@@ -119,7 +114,7 @@ async def analyze_photo(
                 action="create",
                 resource="food_log",
                 resource_id=str(log.id),
-                details={"source": "photo.analyze", "image_storage_path": image_storage_path},
+                details={"source": "photo.analyze"},
             )
             return PhotoFoodResponse(
                 type="food",

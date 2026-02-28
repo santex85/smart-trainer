@@ -19,10 +19,9 @@ from app.schemas.nutrition import (
     NutritionEntryUpdate,
     ReanalyzeRequest,
 )
-from app.services.gemini_nutrition import analyze_food_from_image
+from app.services.gemini_nutrition import analyze_food_from_image, analyze_food_from_text
 from app.services.image_resize import resize_image_for_ai_async
 from app.services.audit import log_action
-from app.services.storage import download_image, upload_image
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
@@ -65,11 +64,6 @@ async def analyze_nutrition(
         or (magic[:4] == b"RIFF" and magic[8:12] == b"WEBP")
     ):
         raise HTTPException(status_code=400, detail="File must be a valid image (JPEG, PNG, GIF or WebP).")
-    image_storage_path: str | None = None
-    try:
-        image_storage_path = await upload_image(image_bytes, user.id, category="food")
-    except Exception:
-        logging.exception("Failed to store nutrition image for user_id=%s", user.id)
     image_bytes = await resize_image_for_ai_async(image_bytes)
     try:
         result, extended_nutrients = await analyze_food_from_image(
@@ -96,7 +90,7 @@ async def analyze_nutrition(
         protein_g=result.protein_g,
         fat_g=result.fat_g,
         carbs_g=result.carbs_g,
-        image_storage_path=image_storage_path,
+        image_storage_path=None,
         extended_nutrients=extended_nutrients,
     )
     session.add(log)
@@ -107,7 +101,7 @@ async def analyze_nutrition(
         action="create",
         resource="food_log",
         resource_id=str(log.id),
-        details={"source": "nutrition.analyze", "image_storage_path": image_storage_path},
+        details={"source": "nutrition.analyze"},
     )
     return NutritionAnalyzeResponse(
         id=log.id,
@@ -227,7 +221,7 @@ async def get_nutrition_day(
             meal_type=r.meal_type,
             timestamp=r.timestamp.isoformat() if r.timestamp else "",
             extended_nutrients=r.extended_nutrients if user.is_premium else None,
-            can_reanalyze=bool(r.image_storage_path) and user.is_premium,
+            can_reanalyze=user.is_premium,
         )
         for r in rows
     ]
@@ -270,16 +264,15 @@ async def get_nutrition_entry(
         meal_type=entry.meal_type,
         timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
         extended_nutrients=entry.extended_nutrients if user.is_premium else None,
-        can_reanalyze=bool(entry.image_storage_path) and user.is_premium,
+        can_reanalyze=user.is_premium,
     )
 
 
 @router.post(
     "/entries/{entry_id}/reanalyze",
     response_model=NutritionDayEntry,
-    summary="Re-analyze food photo with user correction (premium)",
+    summary="Recalculate macros from text (dish name + portion + correction). Premium only.",
     responses={
-        400: {"description": "No image for re-analysis"},
         401: {"description": "Not authenticated"},
         403: {"description": "Premium required"},
         404: {"description": "Entry not found"},
@@ -293,24 +286,19 @@ async def reanalyze_nutrition_entry(
     entry_id: Annotated[int, Path(description="Food log entry ID")],
     body: ReanalyzeRequest,
 ) -> NutritionDayEntry:
-    """Re-analyze stored image with user correction; update entry. Premium only."""
+    """Recalculate macros from text (dish name, portion, user correction). No image needed. Premium only."""
     if not user.is_premium:
         raise HTTPException(status_code=403, detail="Premium required for re-analysis.")
     result = await session.execute(select(FoodLog).where(FoodLog.id == entry_id))
     entry = result.scalar_one_or_none()
     if not entry or entry.user_id != user.id:
         raise HTTPException(status_code=404, detail="Entry not found.")
-    if not entry.image_storage_path:
-        raise HTTPException(status_code=400, detail="No image for re-analysis.")
     try:
-        image_bytes = await download_image(entry.image_storage_path)
-    except Exception as e:
-        logging.exception("Failed to download image for reanalyze entry_id=%s", entry_id)
-        raise HTTPException(status_code=502, detail="Failed to load stored image.") from e
-    image_bytes = await resize_image_for_ai_async(image_bytes)
-    try:
-        food_result, extended_nutrients = await analyze_food_from_image(
-            image_bytes, extended=True, user_correction=body.correction
+        food_result, extended_nutrients = await analyze_food_from_text(
+            name=entry.name,
+            portion_grams=float(entry.portion_grams or 0),
+            correction=body.correction,
+            extended=True,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -345,7 +333,7 @@ async def reanalyze_nutrition_entry(
         meal_type=entry.meal_type,
         timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
         extended_nutrients=entry.extended_nutrients,
-        can_reanalyze=True,
+        can_reanalyze=user.is_premium,
     )
 
 
@@ -399,7 +387,7 @@ async def update_nutrition_entry(
         meal_type=entry.meal_type,
         timestamp=entry.timestamp.isoformat() if entry.timestamp else "",
         extended_nutrients=entry.extended_nutrients if user.is_premium else None,
-        can_reanalyze=bool(entry.image_storage_path) and user.is_premium,
+        can_reanalyze=user.is_premium,
     )
 
 

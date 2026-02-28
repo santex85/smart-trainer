@@ -338,7 +338,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
                     onPress={() => setShowReanalyzeInput(true)}
                     disabled={saving || deleting || copying || reanalyzing}
                   >
-                    <Text style={styles.modalBtnSaveText}>Повторный анализ</Text>
+                    <Text style={styles.modalBtnSaveText}>Пересчитать</Text>
                   </TouchableOpacity>
                 ) : (
                   <>
@@ -364,7 +364,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
                         onPress={handleReanalyze}
                         disabled={reanalyzing || !reanalyzeCorrection.trim()}
                       >
-                        {reanalyzing ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Отправить на анализ</Text>}
+                        {reanalyzing ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Пересчитать</Text>}
                       </TouchableOpacity>
                     </View>
                   </>
