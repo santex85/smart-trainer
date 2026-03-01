@@ -15,6 +15,7 @@ import {
   LayoutAnimation,
 } from "react-native";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { Swipeable } from "react-native-gesture-handler";
 import {
   getNutritionDay,
@@ -35,6 +36,7 @@ import {
   uploadFitWorkout,
   previewFitWorkout,
   deleteWorkout,
+  uploadPhotoForAnalysis,
   type AthleteProfileResponse,
   type NutritionDayResponse,
   type NutritionDayEntry,
@@ -114,11 +116,11 @@ const NutritionProgressBar = React.memo(function NutritionProgressBar({
 });
 
 const progressBarStyles = StyleSheet.create({
-  container: { marginTop: 8 },
-  labelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
-  label: { fontSize: 12, color: "#FFFFFF" },
-  value: { fontSize: 12, color: "#b8c5d6" },
-  track: { height: 7, backgroundColor: "rgba(255, 255, 255, 0.1)", borderRadius: 100, overflow: "hidden" },
+  container: { marginTop: 12 },
+  labelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
+  label: { fontSize: 13, color: "#FFFFFF", fontWeight: "600" },
+  value: { fontSize: 13, color: "#e2e8f0" },
+  track: { height: 10, backgroundColor: "rgba(255, 255, 255, 0.1)", borderRadius: 100, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 100 },
 });
 
@@ -523,6 +525,57 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
   const [tss, setTss] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const handleScan = async () => {
+    try {
+      if (Platform.OS !== "web") {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Ошибка", "Нужен доступ к галерее для загрузки скриншота.");
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (result.canceled) return;
+
+      const asset = result.assets[0];
+      setAnalyzing(true);
+
+      try {
+        const response = await uploadPhotoForAnalysis(
+          { uri: asset.uri, name: asset.fileName ?? "photo.jpg", type: asset.type },
+          "workout",
+          false
+        );
+
+        if (response.type === "workout" && response.workout) {
+          const w = response.workout;
+          if (w.date) setDateStr(w.date);
+          if (w.name) setName(w.name);
+          if (w.sport_type) setType(w.sport_type);
+          if (w.duration_sec) setDurationMin(String(Math.round(w.duration_sec / 60)));
+          if (w.distance_m) setDistanceKm(String((w.distance_m / 1000).toFixed(2)));
+          if (w.tss) setTss(String(Math.round(w.tss)));
+          if (w.notes) setNotes(w.notes);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        } else {
+          Alert.alert("Info", "Не удалось распознать данные тренировки.");
+        }
+      } catch (e) {
+        Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось проанализировать фото");
+      } finally {
+        setAnalyzing(false);
+      }
+    } catch (e) {
+      Alert.alert("Ошибка", "Не удалось выбрать изображение");
+    }
+  };
 
   const handleSave = async () => {
     const durationSec = durationMin.trim() ? parseInt(durationMin, 10) * 60 : undefined;
@@ -556,59 +609,82 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
     <Modal visible transparent animationType="fade">
       <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
         <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
-          <Text style={styles.cardTitle}>Добавить тренировку</Text>
-          <TextInput
-            style={styles.modalInput}
-            placeholder="Дата (YYYY-MM-DD)"
-            placeholderTextColor="#64748b"
-            value={dateStr}
-            onChangeText={setDateStr}
-          />
-          <TextInput
-            style={styles.modalInput}
-            placeholder="Название"
-            placeholderTextColor="#64748b"
-            value={name}
-            onChangeText={setName}
-          />
-          <TextInput
-            style={styles.modalInput}
-            placeholder="Тип (Run, Ride, Swim...)"
-            placeholderTextColor="#64748b"
-            value={type}
-            onChangeText={setType}
-          />
-          <TextInput
-            style={styles.modalInput}
-            placeholder="Длительность (мин)"
-            placeholderTextColor="#64748b"
-            value={durationMin}
-            onChangeText={setDurationMin}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={styles.modalInput}
-            placeholder="Дистанция (км)"
-            placeholderTextColor="#64748b"
-            value={distanceKm}
-            onChangeText={setDistanceKm}
-            keyboardType="decimal-pad"
-          />
-          <TextInput
-            style={styles.modalInput}
-            placeholder="TSS"
-            placeholderTextColor="#64748b"
-            value={tss}
-            onChangeText={setTss}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={styles.modalInput}
-            placeholder="Заметки"
-            placeholderTextColor="#64748b"
-            value={notes}
-            onChangeText={setNotes}
-          />
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <Text style={styles.cardTitle}>Добавить тренировку</Text>
+            <TouchableOpacity 
+              style={[styles.outlineButton, { borderColor: "#38bdf8" }]} 
+              onPress={handleScan}
+              disabled={analyzing}
+            >
+               {analyzing ? <ActivityIndicator size="small" color="#38bdf8" /> : <Text style={styles.outlineButtonText}>📷 Скан фото</Text>}
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
+            <Text style={styles.modalLabel}>Дата (YYYY-MM-DD)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="2024-01-01"
+              placeholderTextColor="#64748b"
+              value={dateStr}
+              onChangeText={setDateStr}
+            />
+            <Text style={styles.modalLabel}>Название</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Утренняя пробежка"
+              placeholderTextColor="#64748b"
+              value={name}
+              onChangeText={setName}
+            />
+            <Text style={styles.modalLabel}>Тип</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Run, Ride, Swim..."
+              placeholderTextColor="#64748b"
+              value={type}
+              onChangeText={setType}
+            />
+            <Text style={styles.modalLabel}>Длительность (мин)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="60"
+              placeholderTextColor="#64748b"
+              value={durationMin}
+              onChangeText={setDurationMin}
+              keyboardType="numeric"
+            />
+            <Text style={styles.modalLabel}>Дистанция (км)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="10.5"
+              placeholderTextColor="#64748b"
+              value={distanceKm}
+              onChangeText={setDistanceKm}
+              keyboardType="decimal-pad"
+            />
+            <Text style={styles.modalLabel}>TSS</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="50"
+              placeholderTextColor="#64748b"
+              value={tss}
+              onChangeText={setTss}
+              keyboardType="numeric"
+            />
+            <Text style={styles.modalLabel}>Заметки</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Самочувствие, условия..."
+              placeholderTextColor="#64748b"
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </ScrollView>
+
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
               <Text style={styles.modalBtnCancelText}>Отмена</Text>
@@ -1674,7 +1750,7 @@ const styles = StyleSheet.create({
   syncBtnDisabled: { opacity: 0.7 },
   syncBtnText: { fontSize: 14, color: "#0f172a", fontWeight: "600" },
   value: { fontSize: 18, color: "#e2e8f0", fontWeight: "600" },
-  cardValue: { fontSize: 20, fontWeight: "700", color: "#e2e8f0" },
+  cardValue: { fontSize: 22, fontWeight: "700", color: "#e2e8f0", marginBottom: 8, letterSpacing: 0.5 },
   placeholder: { fontSize: 16, color: "#94a3b8" },
   hint: { fontSize: 12, color: "#94a3b8", marginTop: 4 },
   disclaimer: { fontSize: 11, color: "#64748b", marginTop: 2 },
@@ -1691,7 +1767,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.2)",
   },
   outlineButtonText: { fontSize: 14, color: "#38bdf8", fontWeight: "600" },
-  wellnessMetricsLine: { fontSize: 22, fontWeight: "700", color: "#e2e8f0" },
+  wellnessMetricsLine: { fontSize: 24, fontWeight: "700", color: "#e2e8f0", letterSpacing: 0.5 },
   sleepReminderBanner: {
     marginTop: 12,
     marginBottom: 12,
@@ -1717,7 +1793,7 @@ const styles = StyleSheet.create({
   fitnessActionSecondary: { fontSize: 14 },
   fitnessHint: { fontSize: 12, marginTop: 2, marginBottom: 10 },
   fitnessMetricsBlock: { marginTop: 2 },
-  fitnessMetricsLine: { fontSize: 20, fontWeight: "700", lineHeight: 28 },
+  fitnessMetricsLine: { fontSize: 24, fontWeight: "700", lineHeight: 32, letterSpacing: 0.5 },
   fitnessCaption: { fontSize: 12, marginTop: 4 },
   fitnessCaptionMuted: { fontStyle: "italic" },
   fitnessPlaceholder: { marginTop: 4 },
@@ -1752,11 +1828,14 @@ const styles = StyleSheet.create({
   modalScroll: { maxHeight: 320 },
   modalLabel: { fontSize: 12, color: "#b8c5d6", marginTop: 8, marginBottom: 4 },
   modalInput: {
-    backgroundColor: "#1a1a2e",
+    backgroundColor: "#2a2a40",
     borderRadius: 8,
-    padding: 10,
+    padding: 12,
     fontSize: 16,
     color: "#e2e8f0",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    marginBottom: 12,
   },
   mealTypeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8, marginBottom: 12 },
   mealTypeBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: "#1a1a2e" },

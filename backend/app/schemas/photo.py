@@ -23,9 +23,29 @@ class WellnessPhotoResult(BaseModel):
     hrv: float | None = None
 
 
+class WorkoutPhotoResult(BaseModel):
+    """Workout data extracted from a screenshot."""
+
+    name: str | None = None
+    date: str | None = None
+    sport_type: str | None = None
+    duration_sec: int | None = None
+    distance_m: float | None = None
+    calories: float | None = None
+    avg_hr: int | None = None
+    max_hr: int | None = None
+    tss: int | None = None
+    notes: str | None = None
+
+
 class PhotoWellnessResponse(BaseModel):
     type: Literal["wellness"] = "wellness"
     wellness: WellnessPhotoResult
 
 
-PhotoAnalyzeResponse = Union[PhotoFoodResponse, PhotoSleepResponse, PhotoWellnessResponse]
+class PhotoWorkoutResponse(BaseModel):
+    type: Literal["workout"] = "workout"
+    workout: WorkoutPhotoResult
+
+
+PhotoAnalyzeResponse = Union[PhotoFoodResponse, PhotoSleepResponse, PhotoWellnessResponse, PhotoWorkoutResponse]

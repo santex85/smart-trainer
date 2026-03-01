@@ -294,10 +294,24 @@ export interface WellnessPhotoResult {
   hrv?: number | null;
 }
 
+export interface WorkoutPhotoResult {
+  name?: string | null;
+  date?: string | null;
+  sport_type?: string | null;
+  duration_sec?: number | null;
+  distance_m?: number | null;
+  calories?: number | null;
+  avg_hr?: number | null;
+  max_hr?: number | null;
+  tss?: number | null;
+  notes?: string | null;
+}
+
 export type PhotoAnalyzeResponse =
   | { type: "food"; food: NutritionResult }
   | { type: "sleep"; sleep: SleepExtractionResponse }
-  | { type: "wellness"; wellness: WellnessPhotoResult };
+  | { type: "wellness"; wellness: WellnessPhotoResult }
+  | { type: "workout"; workout: WorkoutPhotoResult };
 
 export interface NutritionDayEntry {
   id: number;

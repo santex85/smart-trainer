@@ -11,7 +11,7 @@ from app.models.food_log import FoodLog, MealType
 from app.models.user import User
 from app.models.wellness_cache import WellnessCache
 from app.schemas.nutrition import NutritionAnalyzeResponse
-from app.schemas.photo import PhotoAnalyzeResponse, PhotoFoodResponse, PhotoSleepResponse, PhotoWellnessResponse, WellnessPhotoResult
+from app.schemas.photo import PhotoAnalyzeResponse, PhotoFoodResponse, PhotoSleepResponse, PhotoWellnessResponse, PhotoWorkoutResponse, WellnessPhotoResult, WorkoutPhotoResult
 from app.schemas.sleep_extraction import SleepExtractionResponse, SleepExtractionResult, SleepReanalyzeRequest
 from app.models.sleep_extraction import SleepExtraction
 from app.services.gemini_nutrition import analyze_food_from_image
@@ -172,6 +172,13 @@ async def analyze_photo(
         return PhotoWellnessResponse(
             type="wellness",
             wellness=WellnessPhotoResult(rhr=result_wellness.rhr, hrv=result_wellness.hrv),
+        )
+
+    if kind == "workout":
+        # result is WorkoutPhotoResult
+        return PhotoWorkoutResponse(
+            type="workout",
+            workout=result,
         )
 
     # kind == "sleep"
