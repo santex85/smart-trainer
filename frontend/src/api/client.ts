@@ -866,6 +866,7 @@ export interface AnalyticsNutritionItem {
   fat_g: number;
   carbs_g: number;
   entries: number;
+  extended_nutrients?: Record<string, number>;
 }
 
 export interface AnalyticsNutritionResponse {

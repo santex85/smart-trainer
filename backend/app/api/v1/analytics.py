@@ -314,22 +314,36 @@ async def get_analytics_nutrition(
     r = await session.execute(stmt)
     rows = r.scalars().all()
 
-    # Aggregate by date
-    by_date: dict[str, dict[str, float | list]] = {}
+    # Aggregate by date (macros + extended_nutrients)
+    by_date: dict[str, dict[str, Any]] = {}
     for row in rows:
         d = row.timestamp.date().isoformat() if row.timestamp else None
         if not d:
             continue
         if d not in by_date:
-            by_date[d] = {"calories": 0.0, "protein_g": 0.0, "fat_g": 0.0, "carbs_g": 0.0, "entries": 0}
+            by_date[d] = {
+                "calories": 0.0,
+                "protein_g": 0.0,
+                "fat_g": 0.0,
+                "carbs_g": 0.0,
+                "entries": 0,
+                "extended_nutrients": {},
+            }
         by_date[d]["calories"] += row.calories or 0
         by_date[d]["protein_g"] += row.protein_g or 0
         by_date[d]["fat_g"] += row.fat_g or 0
         by_date[d]["carbs_g"] += row.carbs_g or 0
         by_date[d]["entries"] += 1
+        if row.extended_nutrients and isinstance(row.extended_nutrients, dict):
+            for key, val in row.extended_nutrients.items():
+                if isinstance(val, (int, float)):
+                    by_date[d]["extended_nutrients"][key] = (
+                        by_date[d]["extended_nutrients"].get(key, 0.0) + float(val)
+                    )
 
-    items = [
-        {
+    items = []
+    for d, v in sorted(by_date.items()):
+        item: dict[str, Any] = {
             "date": d,
             "calories": round(v["calories"], 0),
             "protein_g": round(v["protein_g"], 0),
@@ -337,8 +351,11 @@ async def get_analytics_nutrition(
             "carbs_g": round(v["carbs_g"], 0),
             "entries": v["entries"],
         }
-        for d, v in sorted(by_date.items())
-    ]
+        if v.get("extended_nutrients"):
+            item["extended_nutrients"] = {
+                k: round(float(x), 1) for k, x in v["extended_nutrients"].items()
+            }
+        items.append(item)
 
     prof = (await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))).scalar_one_or_none()
     goals = {}
@@ -358,6 +375,40 @@ async def get_analytics_nutrition(
         "items": items,
         "goals": goals,
     }
+
+
+def _insight_instruction(chart_type: str, has_question: bool) -> str:
+    """Return chart-type-specific instruction for the AI insight."""
+    if has_question:
+        return "Answer briefly in 2–5 bullet points. Use only the numbers from the data; do not invent data."
+    instructions = {
+        "nutrition": (
+            "Analyze the user's nutrition data: macronutrients (calories, protein, fat, carbs) and, if present, "
+            "micronutrients (vitamins and minerals in extended_nutrients, e.g. fiber_g, vitamin_c_mg, iron_mg, "
+            "calcium_mg, vitamin_d_iu). Note any deficiencies, excesses, or imbalances. Give 2–5 short bullet points "
+            "and practical recommendations. Reply in the same language as the user's interface (e.g. Russian)."
+        ),
+        "sleep": (
+            "Analyze sleep and recovery: consistency of sleep hours, trends in RHR and HRV if present. "
+            "Highlight notable patterns (e.g. under-sleeping, recovery trends). Give 2–5 short bullet points "
+            "and one or two practical recommendations. Reply in the same language as the user's interface."
+        ),
+        "workouts": (
+            "Analyze training data: volume (TSS, duration, distance), load trends (CTL/ATL/TSB if present), "
+            "and consistency. Note any overreaching or recovery needs. Give 2–5 short bullet points and "
+            "practical recommendations. Reply in the same language as the user's interface."
+        ),
+        "overview": (
+            "Summarize the overview: main stats (sleep, workouts, nutrition, load). Note any notable highs/lows "
+            "and give one or two practical recommendations. Reply in 2–5 short bullet points in the same "
+            "language as the user's interface."
+        ),
+    }
+    return instructions.get(
+        chart_type,
+        "Summarize what this chart shows: main trends, notable highs/lows, and one or two practical recommendations. "
+        "Reply in 2–5 short bullet points in the same language as the user's interface.",
+    )
 
 
 class InsightRequest(BaseModel):
@@ -396,15 +447,19 @@ async def post_analytics_insight(
         model = genai.GenerativeModel(settings.gemini_model)
 
         data_str = json.dumps(body.data, default=str, ensure_ascii=False)
+        has_question = bool(body.question and body.question.strip())
+        instruction = _insight_instruction(body.chart_type, has_question)
+
         prompt = f"""You are a sports and wellness coach. The user is viewing an analytics chart of type "{body.chart_type}".
-Here is the data used for the chart (dates, values, etc.):
+
+Data (dates, values, macros, and if present extended_nutrients with vitamins/minerals):
 
 {data_str}
 """
-        if body.question and body.question.strip():
-            prompt += f"\nUser question: {body.question.strip()}\n\nAnswer briefly in 2–5 bullet points. Use only the numbers from the data; do not invent data."
+        if has_question:
+            prompt += f"\nUser question: {body.question.strip()}\n\n{instruction}"
         else:
-            prompt += "\nSummarize what this chart shows: main trends, any notable highs/lows, and one or two practical recommendations. Reply in 2–5 short bullet points in the same language as the user's interface (e.g. Russian if the data labels are in Russian)."
+            prompt += f"\n{instruction}"
 
         response = await run_generate_content(model, prompt)
         text = (response.text or "").strip()
