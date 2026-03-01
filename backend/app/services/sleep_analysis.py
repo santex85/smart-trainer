@@ -55,27 +55,57 @@ def _sleep_hours_from_result(result: SleepExtractionResult) -> float | None:
         return None
 
 
+def _rhr_from_result(result: SleepExtractionResult) -> float | None:
+    v = getattr(result, "rhr", None)
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _hrv_from_result(result: SleepExtractionResult) -> float | None:
+    v = getattr(result, "hrv", None)
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 async def _upsert_sleep_into_wellness_cache(
     session: AsyncSession,
     user_id: int,
     result: SleepExtractionResult,
 ) -> None:
     sleep_hours = _sleep_hours_from_result(result)
-    if sleep_hours is None:
-        return
     sleep_date = _sleep_date_from_result(result)
-    stmt = pg_insert(WellnessCache).values(
-        {
-            "user_id": user_id,
-            "date": sleep_date,
-            "sleep_hours": sleep_hours,
-        }
-    )
+    rhr = _rhr_from_result(result)
+    hrv = _hrv_from_result(result)
+    if sleep_hours is None and rhr is None and hrv is None:
+        return
+    values: dict[str, object] = {
+        "user_id": user_id,
+        "date": sleep_date,
+        "sleep_hours": sleep_hours,
+        "rhr": rhr,
+        "hrv": hrv,
+    }
+    stmt = pg_insert(WellnessCache).values(values)
+    set_: dict[str, object] = {}
+    if sleep_hours is not None:
+        set_["sleep_hours"] = stmt.excluded.sleep_hours
+    if rhr is not None:
+        set_["rhr"] = stmt.excluded.rhr
+    if hrv is not None:
+        set_["hrv"] = stmt.excluded.hrv
+    if not set_:
+        return
     stmt = stmt.on_conflict_do_update(
         constraint="uq_wellness_cache_user_id_date",
-        set_={
-            "sleep_hours": stmt.excluded.sleep_hours,
-        },
+        set_=set_,
     )
     await session.execute(stmt)
 

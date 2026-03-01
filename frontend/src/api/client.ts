@@ -216,6 +216,8 @@ export async function uploadPhotoForAnalysis(
     form.append("file", blob, file.name || "photo.jpg");
   }
   if (mealType) form.append("meal_type", mealType);
+  const today = new Date().toISOString().slice(0, 10);
+  form.append("wellness_date", today);
   const query = save ? "" : "?save=false";
   const url = `${API_BASE}/api/v1/photo/analyze${query}`;
   const token = await getAccessToken();

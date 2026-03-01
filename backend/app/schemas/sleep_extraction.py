@@ -87,6 +87,10 @@ class SleepExtractionResult(BaseModel):
     # Несколько периодов сна, если указаны (напр. 22:47-04:23 и 04:54-07:12)
     sleep_periods: list[str] | None = Field(None, description='e.g. ["22:47 - 04:23", "04:54 - 07:12"]')
 
+    # RHR / HRV если есть на скриншоте (часы сна + пульс покоя / HRV)
+    rhr: int | float | None = Field(None, description="Resting heart rate from sleep/wellness screenshot")
+    hrv: int | float | None = Field(None, description="Heart rate variability from sleep/wellness screenshot")
+
     source_app: str | None = Field(None, max_length=256)
     raw_notes: str | None = Field(None, max_length=2048)
 

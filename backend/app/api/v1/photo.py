@@ -56,12 +56,26 @@ def _validate_image(file: UploadFile, image_bytes: bytes) -> None:
         502: {"description": "AI service unavailable"},
     },
 )
+def _parse_optional_date(value: str | None) -> date | None:
+    """Parse YYYY-MM-DD from client; return None if invalid or missing."""
+    if not value or not isinstance(value, str):
+        return None
+    s = value.strip()[:10]
+    if len(s) == 10 and s[4] == "-" and s[7] == "-":
+        try:
+            return date.fromisoformat(s)
+        except ValueError:
+            pass
+    return None
+
+
 async def analyze_photo(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
     _usage: Annotated[None, Depends(check_photo_usage)],
     file: Annotated[UploadFile, File(description="Photo: food or sleep data")],
     meal_type: Annotated[str | None, Form()] = None,
+    wellness_date: Annotated[str | None, Form(description="Date for wellness/sleep save (YYYY-MM-DD), client's today")] = None,
     save: Annotated[bool, Query(description="If false, analyze only and do not save")] = True,
 ) -> PhotoAnalyzeResponse:
     """
@@ -146,12 +160,12 @@ async def analyze_photo(
 
     if kind == "wellness":
         result_wellness: WellnessPhotoResult = result
-        today = date.today()
+        save_date = _parse_optional_date(wellness_date) or date.today()
         if save and (result_wellness.rhr is not None or result_wellness.hrv is not None):
             r = await session.execute(
                 select(WellnessCache).where(
                     WellnessCache.user_id == user.id,
-                    WellnessCache.date == today,
+                    WellnessCache.date == save_date,
                 )
             )
             row = r.scalar_one_or_none()
@@ -164,7 +178,7 @@ async def analyze_photo(
                 session.add(
                     WellnessCache(
                         user_id=user.id,
-                        date=today,
+                        date=save_date,
                         rhr=float(result_wellness.rhr) if result_wellness.rhr is not None else None,
                         hrv=float(result_wellness.hrv) if result_wellness.hrv is not None else None,
                     )
@@ -185,7 +199,11 @@ async def analyze_photo(
     # kind == "sleep"
     if save:
         try:
-            record, data = await save_sleep_result(session, user.id, result)
+            sleep_result: SleepExtractionResult = result
+            client_date = _parse_optional_date(wellness_date)
+            if client_date and not (sleep_result.date and str(sleep_result.date).strip()):
+                sleep_result = sleep_result.model_copy(update={"date": client_date.isoformat()})
+            record, data = await save_sleep_result(session, user.id, sleep_result)
             await session.commit()
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))

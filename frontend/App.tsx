@@ -238,10 +238,12 @@ function AppContent() {
               }}
               onSleepSaved={() => {
                 setRefreshSleepTrigger((t) => t + 1);
+                setRefreshWellnessTrigger((t) => t + 1);
                 setCameraVisible(false);
               }}
               onWellnessSaved={() => {
                 setRefreshSleepTrigger((t) => t + 1);
+                setRefreshWellnessTrigger((t) => t + 1);
                 setCameraVisible(false);
               }}
             />

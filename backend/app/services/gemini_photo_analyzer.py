@@ -50,7 +50,7 @@ Output ONLY a single JSON object with exactly these fields:
 - workout: object or null
 
 When type is "food", set "food" to: { name, portion_grams, calories, protein_g, fat_g, carbs_g }. All numbers non-negative.
-When type is "sleep", set "sleep" to: { date, sleep_hours, sleep_minutes, actual_sleep_hours, actual_sleep_minutes, time_in_bed_min, quality_score, score_delta, efficiency_pct, rest_min, bedtime, wake_time, sleep_periods, deep_sleep_min, rem_min, light_sleep_min, awake_min, factor_ratings, sleep_phases, latency_min, awakenings, source_app, raw_notes }. Use exact decimals.
+When type is "sleep", set "sleep" to: { date, sleep_hours, sleep_minutes, actual_sleep_hours, actual_sleep_minutes, time_in_bed_min, quality_score, score_delta, efficiency_pct, rest_min, bedtime, wake_time, sleep_periods, deep_sleep_min, rem_min, light_sleep_min, awake_min, factor_ratings, sleep_phases, latency_min, awakenings, source_app, raw_notes, rhr, hrv }. Use exact decimals. If the screenshot also shows resting heart rate (RHR) or heart rate variability (HRV), set rhr (integer) and/or hrv (number) in the sleep object.
 When type is "wellness", set "wellness" to: { "rhr": <number or null>, "hrv": <number or null> }.
 When type is "workout", set "workout" to: {
   "name": string or null (e.g. "Morning Run", "Zwift - Watopia"),
