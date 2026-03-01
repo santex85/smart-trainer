@@ -31,16 +31,16 @@ export function PricingScreen({
   const { colors } = useTheme();
   const [loading, setLoading] = useState<BillingPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isPremium, setIsPremium] = useState<boolean>(props.isPremium ?? false);
+  const [premium, setPremium] = useState<boolean>(isPremium ?? false);
   useEffect(() => {
-    if (props.isPremium !== undefined) {
-      setIsPremium(props.isPremium);
+    if (isPremium !== undefined) {
+      setPremium(isPremium);
       return;
     }
     getSubscription()
-      .then((s) => setIsPremium(s.is_premium))
+      .then((s) => setPremium(s.is_premium))
       .catch(() => {});
-  }, [props.isPremium]);
+  }, [isPremium]);
 
   const handleCheckout = async (plan: BillingPlan) => {
     setError(null);
@@ -79,7 +79,7 @@ export function PricingScreen({
       >
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>{t("pricing.subtitle")}</Text>
 
-        {isPremium && (
+        {premium && (
           <View style={[styles.badge, { backgroundColor: colors.success + "22" }]}>
             <Ionicons name="checkmark-circle" size={20} color={colors.success} />
             <Text style={[styles.badgeText, { color: colors.success }]}>{t("pricing.pro")}</Text>
@@ -94,16 +94,16 @@ export function PricingScreen({
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.primary }]}
             onPress={() => handleCheckout("monthly")}
-            disabled={!!loading || !!isPremium}
+            disabled={!!loading || !!premium}
           >
             {loading === "monthly" ? (
               <ActivityIndicator color={colors.primaryText} />
             ) : (
               <>
                 <Text style={[styles.buttonText, { color: colors.primaryText }]}>
-                  {isPremium ? t("pricing.currentPlan") : t("pricing.upgradeCta")}
+                  {premium ? t("pricing.currentPlan") : t("pricing.upgradeCta")}
                 </Text>
-                {!isPremium && (
+                {!premium && (
                   <Text style={[styles.trialBadge, { color: colors.primaryText }]}>
                     {t("pricing.trialBadge")}
                   </Text>
@@ -128,16 +128,16 @@ export function PricingScreen({
           <TouchableOpacity
             style={[styles.button, { backgroundColor: colors.primary }]}
             onPress={() => handleCheckout("annual")}
-            disabled={!!loading || !!isPremium}
+            disabled={!!loading || !!premium}
           >
             {loading === "annual" ? (
               <ActivityIndicator color={colors.primaryText} />
             ) : (
               <>
                 <Text style={[styles.buttonText, { color: colors.primaryText }]}>
-                  {isPremium ? t("pricing.currentPlan") : t("pricing.upgradeCta")}
+                  {premium ? t("pricing.currentPlan") : t("pricing.upgradeCta")}
                 </Text>
-                {!isPremium && (
+                {!premium && (
                   <Text style={[styles.trialBadge, { color: colors.primaryText }]}>
                     {t("pricing.trialBadge")}
                   </Text>
@@ -153,7 +153,7 @@ export function PricingScreen({
           </View>
         )}
 
-        {Platform.OS === "web" && !isPremium && (
+        {Platform.OS === "web" && !premium && (
           <Text style={[styles.hint, { color: colors.textMuted }]}>
             Оплата через Stripe. После подписки вы вернётесь в приложение.
           </Text>
