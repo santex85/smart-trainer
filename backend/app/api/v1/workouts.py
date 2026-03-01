@@ -19,6 +19,7 @@ from app.schemas.pagination import PaginatedResponse
 from app.schemas.workout import WorkoutCreate, WorkoutUpdate
 from app.services.fit_parser import parse_fit_session
 from app.services.load_metrics import compute_fitness_from_workouts
+from app.services.workout_merge import merge_raw
 from app.services.audit import log_action
 
 # Default TSS per hour when no power (by sport)
@@ -52,6 +53,107 @@ def _row_to_response(row: Workout) -> dict:
 def _logical_key(row: Workout) -> str:
     start_iso = row.start_date.isoformat() if row.start_date else ""
     return f"{start_iso}|{row.name or ''}|{row.duration_sec or ''}|{row.tss or ''}"
+
+
+# Matching tolerances for "same workout" (merge)
+DURATION_TOLERANCE = 0.02   # ±2%
+TSS_TOLERANCE = 0.05       # ±5%
+DISTANCE_TOLERANCE = 0.02  # ±2%
+START_WINDOW_SEC = 5 * 60  # 5 minutes for "same start" match
+
+
+def _within_tolerance(a: float | int | None, b: float | int | None, tol: float) -> bool:
+    """True if both are None or both within tolerance of each other."""
+    if a is None and b is None:
+        return True
+    if a is None or b is None:
+        return False
+    try:
+        va, vb = float(a), float(b)
+        if va == 0 and vb == 0:
+            return True
+        if va == 0 or vb == 0:
+            return abs(va - vb) < 1e-6
+        return abs(va - vb) / max(abs(va), abs(vb)) <= tol
+    except (TypeError, ValueError):
+        return False
+
+
+async def _find_matching_workout(
+    session: AsyncSession,
+    user_id: int,
+    start_date: datetime,
+    duration_sec: int | None = None,
+    tss: float | None = None,
+    distance_m: float | None = None,
+) -> Workout | None:
+    """
+    Find an existing workout for the same user on the same day that matches by
+    duration/tss/distance within tolerance, or by start time within 5 minutes.
+    """
+    day_start = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    if day_start.tzinfo is None:
+        day_start = day_start.replace(tzinfo=timezone.utc)
+    day_end = day_start + timedelta(days=1)
+    q = select(Workout).where(
+        Workout.user_id == user_id,
+        Workout.start_date >= day_start,
+        Workout.start_date < day_end,
+    ).order_by(Workout.start_date.desc())
+    r = await session.execute(q)
+    rows = r.scalars().all()
+    for row in rows:
+        # Same start within 5 min
+        if row.start_date and start_date:
+            delta = abs((row.start_date - start_date).total_seconds())
+            if delta <= START_WINDOW_SEC:
+                return row
+        # Or matching duration/tss/distance within tolerance
+        dur_ok = _within_tolerance(duration_sec, row.duration_sec, DURATION_TOLERANCE)
+        tss_ok = _within_tolerance(tss, row.tss, TSS_TOLERANCE)
+        dist_ok = _within_tolerance(distance_m, row.distance_m, DISTANCE_TOLERANCE)
+        if (duration_sec is not None or row.duration_sec is not None) and not dur_ok:
+            continue
+        if (tss is not None or row.tss is not None) and not tss_ok:
+            continue
+        if (distance_m is not None or row.distance_m is not None) and not dist_ok:
+            continue
+        if (duration_sec is not None or tss is not None or distance_m is not None) or (row.duration_sec is not None or row.tss is not None or row.distance_m is not None):
+            return row
+    return None
+
+
+def _merge_workout_fields(
+    existing: Workout,
+    name: str | None = None,
+    type_: str | None = None,
+    duration_sec: int | None = None,
+    distance_m: float | None = None,
+    tss: float | None = None,
+    notes: str | None = None,
+    raw: dict | None = None,
+    fit_checksum: str | None = None,
+    source: str | None = None,
+) -> None:
+    """Update existing workout with non-null values (prefer incoming)."""
+    if name is not None:
+        existing.name = name
+    if type_ is not None:
+        existing.type = type_
+    if duration_sec is not None:
+        existing.duration_sec = duration_sec
+    if distance_m is not None:
+        existing.distance_m = distance_m
+    if tss is not None:
+        existing.tss = tss
+    if notes is not None:
+        existing.notes = notes
+    if fit_checksum is not None:
+        existing.fit_checksum = fit_checksum
+    if source is not None:
+        existing.source = source
+    if raw is not None:
+        existing.raw = merge_raw(existing.raw, raw)
 
 
 @router.get(
@@ -115,11 +217,41 @@ async def create_workout(
     user: Annotated[User, Depends(get_current_user)],
     body: WorkoutCreate,
 ) -> dict:
-    """Create a manual workout entry."""
+    """Create a manual workout entry, or merge into existing match (e.g. from screenshot)."""
     uid = user.id
     start = body.start_date
     if start.tzinfo is None:
         start = start.replace(tzinfo=timezone.utc)
+    match = await _find_matching_workout(
+        session,
+        uid,
+        start,
+        duration_sec=body.duration_sec,
+        tss=float(body.tss) if body.tss is not None else None,
+        distance_m=body.distance_m,
+    )
+    if match:
+        _merge_workout_fields(
+            match,
+            name=body.name if body.name is not None else match.name,
+            type_=body.type if body.type is not None else match.type,
+            duration_sec=body.duration_sec if body.duration_sec is not None else match.duration_sec,
+            distance_m=body.distance_m if body.distance_m is not None else match.distance_m,
+            tss=float(body.tss) if body.tss is not None else (float(match.tss) if match.tss is not None else None),
+            notes=body.notes if body.notes is not None else match.notes,
+            raw={"photo": {"name": body.name, "type": body.type, "duration_sec": body.duration_sec, "distance_m": body.distance_m, "tss": body.tss, "notes": body.notes}} if (body.name is not None or body.type is not None or body.duration_sec is not None or body.distance_m is not None or body.tss is not None or body.notes is not None) else None,
+        )
+        await log_action(
+            session,
+            user_id=uid,
+            action="update",
+            resource="workout",
+            resource_id=str(match.id),
+            details={"source": "manual", "merged": True},
+        )
+        await session.commit()
+        await session.refresh(match)
+        return _row_to_response(match)
     w = Workout(
         user_id=uid,
         start_date=start,
@@ -395,19 +527,55 @@ async def upload_fit(
         ftp,
         data.get("sport"),
     )
-
+    distance_m = data.get("distance_m")
     sport_name = (data.get("sport") or "Workout").capitalize()
+    fit_raw = data.get("raw") or {}
+    if data.get("series"):
+        fit_raw = merge_raw(fit_raw, {"series": data["series"]})
+
+    match = await _find_matching_workout(
+        session,
+        uid,
+        start_date,
+        duration_sec=duration_sec or None,
+        tss=tss if tss > 0 else None,
+        distance_m=distance_m,
+    )
+    if match:
+        _merge_workout_fields(
+            match,
+            name=sport_name,
+            type_=sport_name,
+            duration_sec=duration_sec or None,
+            distance_m=distance_m,
+            tss=tss if tss > 0 else None,
+            raw=fit_raw,
+            fit_checksum=checksum,
+            source="fit",
+        )
+        await log_action(
+            session,
+            user_id=uid,
+            action="update",
+            resource="workout",
+            resource_id=str(match.id),
+            details={"source": "fit", "merged": True},
+        )
+        await session.commit()
+        await session.refresh(match)
+        return _row_to_response(match)
+
     w = Workout(
         user_id=uid,
         start_date=start_date,
         name=sport_name,
         type=sport_name,
         duration_sec=duration_sec or None,
-        distance_m=data.get("distance_m"),
+        distance_m=distance_m,
         tss=tss if tss > 0 else None,
         source="fit",
         fit_checksum=checksum,
-        raw=data.get("raw"),
+        raw=fit_raw,
     )
     session.add(w)
     await session.flush()

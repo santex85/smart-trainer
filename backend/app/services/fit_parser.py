@@ -1,4 +1,4 @@
-"""Parse FIT files and extract session summary for workout ingestion."""
+"""Parse FIT files and extract session summary and optional time series for workout ingestion."""
 
 import hashlib
 import io
@@ -7,6 +7,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Max series points to store (e.g. ~1 point per 2–5 sec for long activities)
+MAX_SERIES_POINTS = 3600
+# Target interval in seconds between sampled points when downsampling
+SERIES_INTERVAL_SEC = 2
 
 
 def _get_value(msg: Any, name: str):
@@ -18,6 +23,56 @@ def _get_value(msg: Any, name: str):
         return field.value
     except Exception:
         return None
+
+
+def _extract_series(fitfile: Any, start_time: datetime | None) -> list[dict] | None:
+    """
+    Extract record messages into a time series: elapsed_sec, power, speed, heart_rate.
+    Downsample to at most MAX_SERIES_POINTS points, ~1 point per SERIES_INTERVAL_SEC.
+    """
+    records = list(fitfile.get_messages("record"))
+    if not records:
+        return None
+    if start_time is None:
+        start_time = _get_value(records[0], "timestamp")
+    if start_time is None or not isinstance(start_time, datetime):
+        return None
+    if start_time.tzinfo is None:
+        start_time = start_time.replace(tzinfo=timezone.utc)
+    series: list[dict] = []
+    last_elapsed = -SERIES_INTERVAL_SEC - 1
+    for msg in records:
+        ts = _get_value(msg, "timestamp")
+        if ts is None:
+            continue
+        if isinstance(ts, datetime) and ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        try:
+            elapsed = int((ts - start_time).total_seconds())
+        except (TypeError, ValueError):
+            continue
+        if elapsed < 0:
+            continue
+        # Downsample
+        if elapsed - last_elapsed < SERIES_INTERVAL_SEC and len(series) > 0:
+            continue
+        if len(series) >= MAX_SERIES_POINTS:
+            break
+        power = _get_value(msg, "power")
+        speed = _get_value(msg, "speed") or _get_value(msg, "enhanced_speed")
+        if speed is not None and isinstance(speed, (int, float)):
+            # FIT speed often in m/s; keep as-is or convert to km/h: * 3.6
+            pass
+        hr = _get_value(msg, "heart_rate")
+        point: dict = {
+            "elapsed_sec": elapsed,
+            "power": int(power) if power is not None else None,
+            "speed": round(float(speed), 2) if speed is not None else None,
+            "heart_rate": int(hr) if hr is not None else None,
+        }
+        series.append(point)
+        last_elapsed = elapsed
+    return series if series else None
 
 
 def parse_fit_session(file_content: bytes) -> dict | None:
@@ -107,6 +162,9 @@ def parse_fit_session(file_content: bytes) -> dict | None:
         "total_calories": total_calories,
         "sport": str(sport) if sport is not None else None,
     }
+    series = _extract_series(fitfile, start_time)
+    if series:
+        raw["series"] = series
 
     return {
         "start_date": start_time,
@@ -119,4 +177,5 @@ def parse_fit_session(file_content: bytes) -> dict | None:
         "total_calories": total_calories,
         "sport": str(sport) if sport is not None else None,
         "raw": raw,
+        "series": series,
     }

@@ -13,7 +13,9 @@ import {
   Pressable,
   Platform,
   LayoutAnimation,
+  useWindowDimensions,
 } from "react-native";
+import { LineChart } from "react-native-gifted-charts";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Swipeable } from "react-native-gesture-handler";
@@ -773,6 +775,34 @@ const WorkoutPreviewModal = React.memo(function WorkoutPreviewModal({
   );
 });
 
+const CHART_MAX_POINTS = 500;
+const WORKOUT_CHART_HEIGHT = 160;
+
+function formatElapsed(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function sampleSeries<T>(arr: T[], maxPoints: number): T[] {
+  if (arr.length <= maxPoints) return arr;
+  const step = arr.length / maxPoints;
+  const out: T[] = [];
+  for (let i = 0; i < maxPoints; i++) {
+    out.push(arr[Math.min(Math.floor(i * step), arr.length - 1)]);
+  }
+  return out;
+}
+
+function computeNpFromSeries(series: { power?: number | null }[]): number | null {
+  const values = series.map((p) => p.power).filter((v): v is number => v != null && v > 0);
+  if (values.length === 0) return null;
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  const sum4 = values.reduce((a, p) => a + p ** 4, 0);
+  const np = (sum4 / values.length) ** 0.25;
+  return Math.round(np);
+}
+
 const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
   workout,
   onClose,
@@ -782,10 +812,41 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const { colors } = useTheme();
+  const { width: chartWidth } = useWindowDimensions();
   const [deleting, setDeleting] = useState(false);
   if (!workout) return null;
   const raw = workout.raw as Record<string, unknown> | undefined;
   const sourceLabel = workout.source === "fit" ? "FIT-файл" : workout.source === "intervals" ? "Intervals.icu" : "Ручной ввод";
+  const series = raw?.series as Array<{ elapsed_sec?: number; power?: number | null; speed?: number | null; heart_rate?: number | null }> | undefined;
+  const hasSeries = Array.isArray(series) && series.length > 0;
+  const sampled = useMemo(() => (hasSeries ? sampleSeries(series, CHART_MAX_POINTS) : []), [series, hasSeries]);
+  const labelStep = useMemo(() => Math.max(1, Math.floor(sampled.length / 8)), [sampled.length]);
+  const powerData = useMemo(
+    () =>
+      sampled.map((p, i) => ({
+        value: p.power ?? 0,
+        label: p.elapsed_sec != null && i % labelStep === 0 ? formatElapsed(p.elapsed_sec) : "",
+      })),
+    [sampled, labelStep],
+  );
+  const speedData = useMemo(
+    () =>
+      sampled.map((p, i) => ({
+        value: (p.speed ?? 0) * 3.6,
+        label: p.elapsed_sec != null && i % labelStep === 0 ? formatElapsed(p.elapsed_sec) : "",
+      })),
+    [sampled, labelStep],
+  );
+  const avgPowerFromSeries = useMemo(() => {
+    if (!hasSeries) return null;
+    const vals = series.map((p) => p.power).filter((v): v is number => v != null && v > 0);
+    return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+  }, [series, hasSeries]);
+  const npFromSeries = useMemo(() => (hasSeries ? computeNpFromSeries(series) : null), [series, hasSeries]);
+  const avgPower = (raw?.avg_power as number | undefined) ?? avgPowerFromSeries ?? null;
+  const np = (raw?.normalized_power as number | undefined) ?? npFromSeries ?? null;
+  const vi = avgPower != null && avgPower > 0 && np != null ? (np / avgPower).toFixed(2) : null;
 
   const performDelete = async () => {
     setDeleting(true);
@@ -817,37 +878,38 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
   return (
     <Modal visible transparent animationType="fade">
       <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
-        <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
-          <Text style={styles.cardTitle}>Тренировка</Text>
-          <Text style={styles.modalLabel}>Название / тип</Text>
-          <Text style={styles.value}>{workout.name ?? workout.type ?? "—"}</Text>
-          <Text style={styles.modalLabel}>Дата и время</Text>
-          <Text style={styles.value}>{workout.start_date ? new Date(workout.start_date).toLocaleString() : "—"}</Text>
-          <Text style={styles.modalLabel}>Источник</Text>
-          <Text style={styles.value}>{sourceLabel}</Text>
-          <Text style={styles.modalLabel}>Длительность</Text>
-          <Text style={styles.value}>{formatDuration(workout.duration_sec ?? undefined) || "—"}</Text>
-          {workout.distance_m != null && (
+        <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }, hasSeries && { maxHeight: "85%" }]} onPress={(e) => e.stopPropagation()}>
+          <ScrollView style={{ maxHeight: hasSeries ? 400 : undefined }} showsVerticalScrollIndicator>
+            <Text style={styles.cardTitle}>Тренировка</Text>
+            <Text style={styles.modalLabel}>Название / тип</Text>
+            <Text style={styles.value}>{workout.name ?? workout.type ?? "—"}</Text>
+            <Text style={styles.modalLabel}>Дата и время</Text>
+            <Text style={styles.value}>{workout.start_date ? new Date(workout.start_date).toLocaleString() : "—"}</Text>
+            <Text style={styles.modalLabel}>Источник</Text>
+            <Text style={styles.value}>{sourceLabel}</Text>
+            <Text style={styles.modalLabel}>Длительность</Text>
+            <Text style={styles.value}>{formatDuration(workout.duration_sec ?? undefined) || "—"}</Text>
+            {workout.distance_m != null && (
+              <>
+                <Text style={styles.modalLabel}>Дистанция</Text>
+                <Text style={styles.value}>{(workout.distance_m / 1000).toFixed(2)} km</Text>
+              </>
+            )}
+            {workout.tss != null && (
+              <>
+                <Text style={styles.modalLabel}>TSS</Text>
+                <Text style={styles.value}>{Math.round(workout.tss)}</Text>
+              </>
+            )}
+            {workout.notes && (
+              <>
+                <Text style={styles.modalLabel}>Заметки</Text>
+                <Text style={styles.hint}>{workout.notes}</Text>
+              </>
+            )}
+            {raw && (workout.source === "fit" || workout.source === "intervals") && (
             <>
-              <Text style={styles.modalLabel}>Дистанция</Text>
-              <Text style={styles.value}>{(workout.distance_m / 1000).toFixed(2)} km</Text>
-            </>
-          )}
-          {workout.tss != null && (
-            <>
-              <Text style={styles.modalLabel}>TSS</Text>
-              <Text style={styles.value}>{Math.round(workout.tss)}</Text>
-            </>
-          )}
-          {workout.notes && (
-            <>
-              <Text style={styles.modalLabel}>Заметки</Text>
-              <Text style={styles.hint}>{workout.notes}</Text>
-            </>
-          )}
-          {raw && (workout.source === "fit") && (
-            <>
-              <Text style={[styles.modalLabel, { marginTop: 8 }]}>Из FIT (ЧСС, мощность, калории)</Text>
+              <Text style={[styles.modalLabel, { marginTop: 8 }]}>Из данных (ЧСС, мощность, калории)</Text>
               <View style={{ gap: 2 }}>
                 {raw.avg_heart_rate != null && <Text style={styles.hint}>ЧСС ср.: {String(raw.avg_heart_rate)}</Text>}
                 {raw.max_heart_rate != null && <Text style={styles.hint}>ЧСС макс.: {String(raw.max_heart_rate)}</Text>}
@@ -857,6 +919,63 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
               </View>
             </>
           )}
+          {hasSeries && (
+            <>
+              {(avgPower != null || np != null || vi != null) && (
+                <View style={{ marginTop: 12, gap: 4 }}>
+                  <Text style={[styles.modalLabel, { marginTop: 8 }]}>Метрики мощности</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+                    {avgPower != null && <Text style={styles.hint}>Ср. мощность: {avgPower} W</Text>}
+                    {np != null && <Text style={styles.hint}>NP: {np} W</Text>}
+                    {vi != null && <Text style={styles.hint}>VI: {vi}</Text>}
+                  </View>
+                </View>
+              )}
+              {powerData.some((d) => d.value > 0) && (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={[styles.modalLabel, { marginBottom: 4 }]}>Мощность (Вт)</Text>
+                  <View style={{ height: WORKOUT_CHART_HEIGHT }}>
+                    <LineChart
+                      data={powerData}
+                      width={Math.max(chartWidth - 80, powerData.length * 2)}
+                      height={WORKOUT_CHART_HEIGHT - 24}
+                      color={colors.primary ?? "#3b82f6"}
+                      thickness={1.5}
+                      hideDataPoints={powerData.length > 30}
+                      yAxisColor={colors.glassBorder ?? "rgba(255,255,255,0.1)"}
+                      xAxisColor={colors.glassBorder ?? "rgba(255,255,255,0.1)"}
+                      noOfSections={4}
+                      yAxisLabelWidth={32}
+                      xAxisLabelTextStyle={{ color: colors.textMuted ?? "#888", fontSize: 9 }}
+                      yAxisTextStyle={{ color: colors.textMuted ?? "#888", fontSize: 9 }}
+                    />
+                  </View>
+                </View>
+              )}
+              {speedData.some((d) => d.value > 0) && (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={[styles.modalLabel, { marginBottom: 4 }]}>Скорость (км/ч)</Text>
+                  <View style={{ height: WORKOUT_CHART_HEIGHT }}>
+                    <LineChart
+                      data={speedData}
+                      width={Math.max(chartWidth - 80, speedData.length * 2)}
+                      height={WORKOUT_CHART_HEIGHT - 24}
+                      color={colors.primary ?? "#8b5cf6"}
+                      thickness={1.5}
+                      hideDataPoints={speedData.length > 30}
+                      yAxisColor={colors.glassBorder ?? "rgba(255,255,255,0.1)"}
+                      xAxisColor={colors.glassBorder ?? "rgba(255,255,255,0.1)"}
+                      noOfSections={4}
+                      yAxisLabelWidth={32}
+                      xAxisLabelTextStyle={{ color: colors.textMuted ?? "#888", fontSize: 9 }}
+                      yAxisTextStyle={{ color: colors.textMuted ?? "#888", fontSize: 9 }}
+                    />
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+          </ScrollView>
           <View style={[styles.modalActions, styles.deleteConfirmBox]}>
             <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
               <Text style={styles.modalBtnCancelText}>Закрыть</Text>

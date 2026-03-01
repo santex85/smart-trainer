@@ -11,6 +11,7 @@ from sqlalchemy.sql import func
 from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
 from app.services.intervals_client import get_activities, get_wellness
+from app.services.workout_merge import merge_raw
 
 
 SYNC_DAYS = 90
@@ -79,7 +80,7 @@ async def sync_intervals_to_db(
         seen_ids.add(a.id)
         activities_deduped.append(a)
 
-    # Batch upsert workouts by (user_id, external_id)
+    # Batch upsert workouts by (user_id, external_id); merge raw with existing to preserve FIT series etc.
     workout_rows = []
     for a in activities_deduped:
         if not a.id:
@@ -90,6 +91,17 @@ async def sync_intervals_to_db(
         tss = a.icu_training_load if a.icu_training_load is not None else raw.get("icu_training_load") or raw.get("training_load") or raw.get("tss")
         workout_rows.append(_activity_to_workout_row(user_id, raw, a.id, start_dt, name, tss))
     if workout_rows:
+        external_ids = [r["external_id"] for r in workout_rows]
+        r = await session.execute(
+            select(Workout).where(
+                Workout.user_id == user_id,
+                Workout.external_id.in_(external_ids),
+            )
+        )
+        existing_by_ext = {w.external_id: w for w in r.scalars().all()}
+        for row in workout_rows:
+            existing = existing_by_ext.get(row["external_id"])
+            row["raw"] = merge_raw(existing.raw if existing else None, row["raw"])
         stmt_workouts = pg_insert(Workout).values(workout_rows)
         stmt_workouts = stmt_workouts.on_conflict_do_update(
             index_elements=["user_id", "external_id"],
