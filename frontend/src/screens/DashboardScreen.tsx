@@ -45,6 +45,7 @@ import {
   type WorkoutFitness,
   type SleepExtractionSummary,
 } from "../api/client";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -116,8 +117,8 @@ const progressBarStyles = StyleSheet.create({
   labelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
   label: { fontSize: 12, color: "#b8c5d6" },
   value: { fontSize: 12, color: "#e2e8f0" },
-  track: { height: 6, backgroundColor: "#334155", borderRadius: 3, overflow: "hidden" },
-  fill: { height: "100%", borderRadius: 3 },
+  track: { height: 7, backgroundColor: "rgba(255, 255, 255, 0.1)", borderRadius: 100, overflow: "hidden" },
+  fill: { height: "100%", borderRadius: 100 },
 });
 
 const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
@@ -1056,7 +1057,7 @@ export function DashboardScreen({
         onRequestClose={() => setMenuVisible(false)}
       >
         <Pressable style={styles.menuBackdrop} onPress={() => setMenuVisible(false)}>
-          <Pressable style={[styles.menuBox, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={styles.menuBox} onPress={(e) => e.stopPropagation()}>
             <View style={styles.menuHeader}>
               {user?.email ? <Text style={styles.menuEmail} numberOfLines={1}>{user.email}</Text> : <View />}
               <TouchableOpacity
@@ -1068,25 +1069,40 @@ export function DashboardScreen({
                 <Text style={styles.menuCloseIcon}>✕</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.menuItem}
+            <Pressable
+              style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
               onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); toggleTheme(); setMenuVisible(false); }}
             >
+              <Ionicons name="settings-outline" size={22} color="#9ca3af" style={styles.menuItemIcon} />
               <Text style={styles.menuItemText}>Тема</Text>
-            </TouchableOpacity>
+            </Pressable>
             {onLogout ? (
-              <TouchableOpacity style={styles.menuItem} onPress={() => { onLogout(); setMenuVisible(false); }}>
+              <Pressable
+                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                onPress={() => { onLogout(); setMenuVisible(false); }}
+              >
+                <Ionicons name="power-outline" size={22} color="#9ca3af" style={styles.menuItemIcon} />
                 <Text style={styles.menuItemText}>{t("app.logout")}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ) : null}
             {onOpenAthleteProfile ? (
-              <TouchableOpacity style={styles.menuItem} onPress={() => { onOpenAthleteProfile(); setMenuVisible(false); }}>
-                <Text style={styles.menuItemText}>Профиль атлета →</Text>
-              </TouchableOpacity>
+              <Pressable
+                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                onPress={() => { onOpenAthleteProfile(); setMenuVisible(false); }}
+              >
+                <Ionicons name="person-outline" size={22} color="#9ca3af" style={styles.menuItemIcon} />
+                <Text style={styles.menuItemText}>Профиль атлета</Text>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" style={styles.menuItemChevron} />
+              </Pressable>
             ) : null}
-            <TouchableOpacity style={styles.menuItem} onPress={() => { onOpenChat(); setMenuVisible(false); }}>
-              <Text style={styles.menuItemText}>Открыть чат AI-тренера →</Text>
-            </TouchableOpacity>
+            <Pressable
+              style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+              onPress={() => { onOpenChat(); setMenuVisible(false); }}
+            >
+              <Ionicons name="chatbubble-outline" size={22} color="#9ca3af" style={styles.menuItemIcon} />
+              <Text style={styles.menuItemText}>Открыть чат AI-тренера</Text>
+              <Ionicons name="chevron-forward" size={20} color="#9ca3af" style={styles.menuItemChevron} />
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1178,25 +1194,25 @@ export function DashboardScreen({
                   current={nutritionDay.totals.calories}
                   goal={calorieGoal}
                   label={t("nutrition.caloriesLabel")}
-                  color="#38bdf8"
+                  color="#22D3EE"
                 />
                 <NutritionProgressBar
                   current={nutritionDay.totals.protein_g}
                   goal={proteinGoal}
                   label={t("nutrition.proteinLabel")}
-                  color="#22c55e"
+                  color="#4ADE80"
                 />
                 <NutritionProgressBar
                   current={nutritionDay.totals.fat_g}
                   goal={fatGoal}
                   label={t("nutrition.fatLabel")}
-                  color="#f59e0b"
+                  color="#FBBF24"
                 />
                 <NutritionProgressBar
                   current={nutritionDay.totals.carbs_g}
                   goal={carbsGoal}
                   label={t("nutrition.carbsLabel")}
-                  color="#8b5cf6"
+                  color="#A78BFA"
                 />
                 {nutritionDay.entries.map((entry) => (
                   <Swipeable
@@ -1223,10 +1239,10 @@ export function DashboardScreen({
               <>
                 <Text style={styles.placeholder}>{t("nutrition.placeholder")}</Text>
                 <Text style={styles.hint}>{t("nutrition.goal")}: {calorieGoal} {t("nutrition.kcal")} · {t("nutrition.carbsShort")}: {carbsGoal}{t("nutrition.grams")} · {t("nutrition.proteinShort")}: {proteinGoal}{t("nutrition.grams")} · {t("nutrition.fatShort")}: {fatGoal}{t("nutrition.grams")}</Text>
-                <NutritionProgressBar current={nutritionDay.totals.calories} goal={calorieGoal} label={t("nutrition.caloriesLabel")} color="#38bdf8" />
-                <NutritionProgressBar current={nutritionDay.totals.protein_g} goal={proteinGoal} label={t("nutrition.proteinLabel")} color="#22c55e" />
-                <NutritionProgressBar current={nutritionDay.totals.fat_g} goal={fatGoal} label={t("nutrition.fatLabel")} color="#f59e0b" />
-                <NutritionProgressBar current={nutritionDay.totals.carbs_g} goal={carbsGoal} label={t("nutrition.carbsLabel")} color="#8b5cf6" />
+                <NutritionProgressBar current={nutritionDay.totals.calories} goal={calorieGoal} label={t("nutrition.caloriesLabel")} color="#22D3EE" />
+                <NutritionProgressBar current={nutritionDay.totals.protein_g} goal={proteinGoal} label={t("nutrition.proteinLabel")} color="#4ADE80" />
+                <NutritionProgressBar current={nutritionDay.totals.fat_g} goal={fatGoal} label={t("nutrition.fatLabel")} color="#FBBF24" />
+                <NutritionProgressBar current={nutritionDay.totals.carbs_g} goal={carbsGoal} label={t("nutrition.carbsLabel")} color="#A78BFA" />
               </>
             ) : !nutritionLoadError ? (
               <>
@@ -1604,13 +1620,22 @@ const styles = StyleSheet.create({
   brandSubtitle: { fontSize: 13, color: "#94a3b8" },
   title: { fontSize: 24, fontWeight: "700", color: "#eee", marginBottom: 20 },
   menuBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 50, paddingRight: 16, paddingHorizontal: 20 },
-  menuBox: { minWidth: 260, borderRadius: 12, padding: 16, paddingVertical: 12 },
-  menuHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  menuEmail: { fontSize: 14, color: "#94a3b8", flex: 1 },
+  menuBox: {
+    minWidth: 260,
+    borderRadius: 24,
+    padding: 24,
+    backgroundColor: "rgba(30, 30, 30, 0.7)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  menuHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  menuEmail: { fontSize: 12, color: "#888888", flex: 1 },
   menuCloseBtn: { padding: 4 },
   menuCloseIcon: { fontSize: 20, color: "#94a3b8", fontWeight: "600" },
-  menuItem: { paddingVertical: 12 },
-  menuItemText: { fontSize: 16, color: "#38bdf8" },
+  menuItem: { flexDirection: "row", alignItems: "center", paddingVertical: 8, borderRadius: 8 },
+  menuItemIcon: { marginRight: 12 },
+  menuItemText: { fontSize: 16, color: "#E0E0E0", flex: 1 },
+  menuItemChevron: { marginLeft: 4 },
   loader: { marginTop: 40 },
   skeletonWrap: { gap: 12 },
   skeletonCard: { backgroundColor: "#16213e", borderRadius: 12, padding: 16, marginBottom: 12 },
