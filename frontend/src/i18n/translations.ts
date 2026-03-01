@@ -127,6 +127,25 @@ export const ru = {
   fit: {
     webOnly: "Загрузка FIT доступна в веб-версии. Откройте приложение в браузере.",
   },
+  pricing: {
+    title: "Подписка Pro",
+    subtitle: "Безлимитный ИИ, расширенные нутриенты и оркестратор",
+    free: "Бесплатно",
+    pro: "Pro",
+    perMonth: "/мес",
+    perYear: "/год",
+    monthly: "Ежемесячно",
+    annual: "Ежегодно",
+    trialBadge: "7 дней бесплатно",
+    savePercent: "экономия 33%",
+    ctaMonthly: "$9.99 в месяц",
+    ctaAnnual: "$79.99 в год",
+    upgradeRequired: "Требуется подписка Pro",
+    upgradeCta: "Перейти на Pro",
+    limitReached: "Дневной лимит исчерпан. Перейдите на Pro для безлимитного доступа.",
+    manageSubscription: "Управление подпиской",
+    currentPlan: "Текущий план",
+  },
 } as const;
 
 export type TranslationKey = keyof typeof ru;

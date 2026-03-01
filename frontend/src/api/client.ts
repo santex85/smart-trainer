@@ -728,6 +728,41 @@ export async function updateMyPremium(is_premium: boolean): Promise<{ is_premium
   });
 }
 
+// Billing (Stripe)
+export type BillingPlan = "monthly" | "annual";
+
+export interface SubscriptionStatus {
+  has_subscription: boolean;
+  is_premium: boolean;
+  plan: string | null;
+  status: string | null;
+  current_period_end: string | null;
+  trial_end: string | null;
+  cancel_at_period_end: boolean | null;
+}
+
+export async function createCheckoutSession(
+  plan: BillingPlan,
+  successUrl: string,
+  cancelUrl: string
+): Promise<{ url: string }> {
+  return api<{ url: string }>("/api/v1/billing/checkout-session", {
+    method: "POST",
+    body: { plan, success_url: successUrl, cancel_url: cancelUrl },
+  });
+}
+
+export async function createPortalSession(returnUrl: string): Promise<{ url: string }> {
+  return api<{ url: string }>("/api/v1/billing/portal-session", {
+    method: "POST",
+    body: { return_url: returnUrl },
+  });
+}
+
+export async function getSubscription(): Promise<SubscriptionStatus> {
+  return api<SubscriptionStatus>("/api/v1/billing/subscription");
+}
+
 export interface ChatThreadItem {
   id: number;
   title: string;
@@ -744,6 +779,10 @@ export async function createChatThread(title?: string): Promise<ChatThreadItem> 
     method: "POST",
     body: title ? { title } : {},
   });
+}
+
+export async function updateChatThread(threadId: number, body: { title: string }): Promise<ChatThreadItem> {
+  return api<ChatThreadItem>(`/api/v1/chat/threads/${threadId}`, { method: "PATCH", body });
 }
 
 export async function deleteChatThread(threadId: number): Promise<void> {

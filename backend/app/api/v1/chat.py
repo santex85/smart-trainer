@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import check_chat_usage, get_current_user, require_premium
 from app.db.session import get_db
 from app.models.athlete_profile import AthleteProfile
 from app.models.chat_message import ChatMessage, MessageRole
@@ -305,6 +305,35 @@ async def create_thread(
     return {"id": thread.id, "title": thread.title, "created_at": thread.created_at.isoformat() if thread.created_at else None}
 
 
+class UpdateThreadBody(BaseModel):
+    title: str
+
+
+@router.patch(
+    "/threads/{thread_id}",
+    response_model=dict,
+    summary="Update chat thread (rename)",
+    responses={401: {"description": "Not authenticated"}, 404: {"description": "Thread not found"}},
+)
+async def update_thread(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    thread_id: int,
+    body: UpdateThreadBody,
+) -> dict:
+    """Rename a chat thread."""
+    uid = user.id
+    r = await session.execute(select(ChatThread).where(ChatThread.id == thread_id, ChatThread.user_id == uid))
+    thread = r.scalar_one_or_none()
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    title = (body.title or "").strip() or "Чат"
+    thread.title = title[:128]
+    await session.commit()
+    await session.refresh(thread)
+    return {"id": thread.id, "title": thread.title, "created_at": thread.created_at.isoformat() if thread.created_at else None}
+
+
 @router.delete(
     "/threads/{thread_id}",
     summary="Delete chat thread",
@@ -389,6 +418,7 @@ async def send_message(
     session: Annotated[AsyncSession, Depends(get_db)],
     body: SendMessageBody,
     user: Annotated[User, Depends(get_current_user)],
+    _usage: Annotated[None, Depends(check_chat_usage)],
 ) -> dict:
     """Append user message, optionally run orchestrator, then get AI reply and return it."""
     uid = user.id
@@ -438,6 +468,7 @@ async def send_message(
 async def send_message_with_file(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
+    _usage: Annotated[None, Depends(check_chat_usage)],
     message: Annotated[str, Form()] = "",
     run_orchestrator: Annotated[str, Form()] = "false",
     thread_id: Annotated[str | None, Form()] = None,
@@ -545,14 +576,14 @@ async def send_message_with_file(
     "/orchestrator/run",
     response_model=dict,
     summary="Run daily orchestrator",
-    responses={401: {"description": "Not authenticated"}, 502: {"description": "Orchestrator failed"}},
+    responses={401: {"description": "Not authenticated"}, 403: {"description": "Pro required"}, 502: {"description": "Orchestrator failed"}},
 )
 async def run_orchestrator(
     session: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_premium)],
     body: RunOrchestratorBody | None = Body(default=None),
 ) -> dict:
-    """Run daily decision (Go/Modify/Skip) for today and return result. May update Intervals and add chat message."""
+    """Run daily decision (Go/Modify/Skip) for today and return result. Pro only. May update Intervals and add chat message."""
     uid = user.id
     locale = body.locale if body else "ru"
     for_date = body.for_date if body else None

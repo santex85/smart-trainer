@@ -9,6 +9,8 @@ from app.models.athlete_profile import AthleteProfile
 from app.models.workout import Workout
 from app.models.refresh_token import RefreshToken
 from app.models.audit_log import AuditLog
+from app.models.subscription import Subscription
+from app.models.daily_usage import DailyUsage
 
 __all__ = [
     "User",
@@ -22,4 +24,6 @@ __all__ = [
     "Workout",
     "RefreshToken",
     "AuditLog",
+    "Subscription",
+    "DailyUsage",
 ]

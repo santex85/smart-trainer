@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_premium
 from app.db.session import get_db
 from app.models.athlete_profile import AthleteProfile
 from app.models.food_log import FoodLog
@@ -428,10 +428,10 @@ class InsightRequest(BaseModel):
 )
 async def post_analytics_insight(
     session: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_premium)],
     body: InsightRequest,
 ) -> dict[str, str]:
-    """Send chart data and optional question to Gemini; return text explanation."""
+    """Send chart data and optional question to Gemini; return text explanation. Pro only."""
     from app.config import settings
 
     if not settings.google_gemini_api_key:

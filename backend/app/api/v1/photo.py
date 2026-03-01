@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile
 
-from app.api.deps import get_current_user
+from app.api.deps import check_photo_usage, get_current_user
 from app.db.session import get_db
 from app.models.food_log import FoodLog, MealType
 from app.models.user import User
@@ -59,6 +59,7 @@ def _validate_image(file: UploadFile, image_bytes: bytes) -> None:
 async def analyze_photo(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
+    _usage: Annotated[None, Depends(check_photo_usage)],
     file: Annotated[UploadFile, File(description="Photo: food or sleep data")],
     meal_type: Annotated[str | None, Form()] = None,
     save: Annotated[bool, Query(description="If false, analyze only and do not save")] = True,
