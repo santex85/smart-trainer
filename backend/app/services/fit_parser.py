@@ -37,6 +37,12 @@ def parse_fit_session(file_content: bytes) -> dict | None:
         fitfile.parse()
     except Exception as e:
         logger.warning("FIT parse failed: %s", e)
+        try:
+            import sentry_sdk
+            sentry_sdk.set_context("fit_parse", {"content_length": len(file_content)})
+            sentry_sdk.capture_exception(e)
+        except Exception:
+            pass
         return None
 
     start_time = None

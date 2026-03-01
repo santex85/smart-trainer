@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Orchestrator run schedule: comma-separated hours (0-23), e.g. "7,16" for 07:00 and 16:00
     orchestrator_cron_hours: str = "7,16"
 
+    # Sentry
+    sentry_dsn: str = ""
+    sentry_environment: str = "production"
+
     # Stripe billing
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""

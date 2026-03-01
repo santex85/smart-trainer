@@ -1,5 +1,14 @@
+import * as Sentry from "@sentry/react-native";
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || "",
+  enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
+  tracesSampleRate: 0.2,
+  environment: process.env.EXPO_PUBLIC_APP_ENV || "development",
+});
+
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Text, ActivityIndicator, Platform } from "react-native";
+import { View, StyleSheet, Text, ActivityIndicator, Platform, Pressable } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
@@ -259,15 +268,42 @@ function AppContent() {
   );
 }
 
-export default function App() {
+function ErrorFallback({
+  error,
+  resetError,
+}: {
+  error: Error;
+  resetError: () => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.root, styles.centered, { backgroundColor: colors.background }]}>
+      <Text style={[styles.loadingText, { color: colors.text }]}>{t("app.errorBoundary")}</Text>
+      <Pressable
+        onPress={resetError}
+        style={({ pressed }) => [
+          { marginTop: 16, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: colors.primary, borderRadius: 8, opacity: pressed ? 0.8 : 1 },
+        ]}
+      >
+        <Text style={{ color: "#fff", fontWeight: "600" }}>{t("app.errorBoundaryBack")}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function App() {
   return (
     <QueryProvider>
       <ThemeProvider>
-        <AppContent />
+        <Sentry.ErrorBoundary fallback={({ error, resetError }) => <ErrorFallback error={error} resetError={resetError} />}>
+          <AppContent />
+        </Sentry.ErrorBoundary>
       </ThemeProvider>
     </QueryProvider>
   );
 }
+
+export default Sentry.wrap(App);
 
 const styles = StyleSheet.create({
   root: { flex: 1 },

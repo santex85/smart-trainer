@@ -25,6 +25,14 @@ from app.config import settings
 from app.db.session import init_db
 from app.services.http_client import close_http_client, init_http_client
 from prometheus_client import make_asgi_app
+import sentry_sdk
+
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.sentry_environment,
+        send_default_pii=True,
+    )
 
 scheduler = AsyncIOScheduler()
 
@@ -183,3 +191,10 @@ app.mount("/metrics", metrics_app)
 @limiter.exempt
 def health(request: Request):
     return {"status": "ok"}
+
+
+@app.get("/sentry-debug")
+@limiter.exempt
+async def sentry_debug():
+    """Trigger an error for Sentry verification."""
+    _ = 1 / 0  # noqa: F841

@@ -5,6 +5,8 @@
 export const ru = {
   app: {
     loading: "Загрузка…",
+    errorBoundary: "Что-то пошло не так",
+    errorBoundaryBack: "Назад",
     brandTitle: "tss.ai",
     brandSubtitle: "Питание, сон и тренировки в одном месте",
     logout: "Выйти",
