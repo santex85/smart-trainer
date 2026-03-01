@@ -126,12 +126,43 @@ function AppContent() {
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <NavigationContainer ref={navigationRef}>
           <Tab.Navigator
-            screenOptions={{
-              headerShown: false,
-              tabBarStyle: { backgroundColor: colors.tabBarBg, borderTopColor: colors.tabBarBorder },
-              tabBarActiveTintColor: colors.tabActive,
-              tabBarInactiveTintColor: colors.tabInactive,
-              animation: "fade",
+            screenOptions={({ route }) => {
+              const getIconName = (outline: string, filled: string, focused: boolean) =>
+                focused ? filled : outline;
+              return {
+                headerShown: false,
+                tabBarIcon: ({ focused, color, size }) => {
+                  let iconName: string;
+                  switch (route.name) {
+                    case "Home":
+                      iconName = getIconName("home-outline", "home", focused);
+                      break;
+                    case "Chat":
+                      iconName = getIconName("chatbubbles-outline", "chatbubbles", focused);
+                      break;
+                    case "Analytics":
+                      iconName = getIconName("stats-chart-outline", "stats-chart", focused);
+                      break;
+                    case "Profile":
+                      iconName = getIconName("person-outline", "person", focused);
+                      break;
+                    default:
+                      iconName = "ellipse-outline";
+                  }
+                  return <Ionicons name={iconName as any} size={size} color={color} />;
+                },
+                tabBarStyle: {
+                  backgroundColor: colors.glassBg,
+                  borderTopWidth: 1,
+                  borderTopColor: colors.glassBorder,
+                  borderTopLeftRadius: colors.borderRadiusLg,
+                  borderTopRightRadius: colors.borderRadiusLg,
+                  ...(Platform.OS === "web" ? { backdropFilter: "blur(20px)" as any } : {}),
+                },
+                tabBarActiveTintColor: colors.tabActive,
+                tabBarInactiveTintColor: colors.tabInactive,
+                animation: "fade",
+              };
             }}
           >
             <Tab.Screen
