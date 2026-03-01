@@ -16,9 +16,11 @@ import { RegisterScreen } from "./src/screens/RegisterScreen";
 import { CameraScreen } from "./src/screens/CameraScreen";
 import { ChatScreen } from "./src/screens/ChatScreen";
 import { AthleteProfileScreen } from "./src/screens/AthleteProfileScreen";
+import { AnalyticsScreen } from "./src/screens/AnalyticsScreen";
 import { IntervalsLinkScreen } from "./src/screens/IntervalsLinkScreen";
 import type { AuthUser } from "./src/api/client";
 import { t } from "./src/i18n";
+import { Ionicons } from "@expo/vector-icons";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -161,6 +163,14 @@ function AppContent() {
             >
               {({ navigation }) => (
                 <ChatScreen onClose={() => navigation.navigate("Home")} />
+              )}
+            </Tab.Screen>
+            <Tab.Screen
+              name="Analytics"
+              options={{ tabBarLabel: t("tabs.analytics") }}
+            >
+              {({ navigation }) => (
+                <AnalyticsScreen onClose={() => navigation.navigate("Home")} />
               )}
             </Tab.Screen>
             <Tab.Screen

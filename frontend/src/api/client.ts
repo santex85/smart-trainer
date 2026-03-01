@@ -807,6 +807,138 @@ export async function runOrchestrator(
   });
 }
 
+// Analytics
+export interface AnalyticsOverview {
+  from_date: string;
+  to_date: string;
+  avg_sleep_hours: number | null;
+  wellness_days_with_sleep: number;
+  ctl_atl_tsb: { ctl: number; atl: number; tsb: number } | null;
+  workout_count: number;
+  total_tss: number;
+  days_with_food: number;
+  avg_calories_per_day: number | null;
+  goals: { calorie_goal?: number; protein_goal?: number };
+}
+
+export interface AnalyticsSleepItem {
+  date: string;
+  sleep_hours: number | null;
+  rhr: number | null;
+  hrv: number | null;
+}
+
+export interface AnalyticsSleepResponse {
+  from_date: string;
+  to_date: string;
+  items: AnalyticsSleepItem[];
+}
+
+export interface AnalyticsWorkoutsResponse {
+  from_date: string;
+  to_date: string;
+  workouts: Array<{
+    date: string | null;
+    name: string | null;
+    type: string | null;
+    duration_sec: number | null;
+    distance_m: number | null;
+    tss: number | null;
+  }>;
+  daily: Array<{
+    date: string;
+    duration_sec: number;
+    tss: number;
+    distance_m: number;
+  }>;
+  load: Array<{
+    date: string;
+    ctl: number | null;
+    atl: number | null;
+    tsb: number | null;
+  }>;
+}
+
+export interface AnalyticsNutritionItem {
+  date: string;
+  calories: number;
+  protein_g: number;
+  fat_g: number;
+  carbs_g: number;
+  entries: number;
+}
+
+export interface AnalyticsNutritionResponse {
+  from_date: string;
+  to_date: string;
+  items: AnalyticsNutritionItem[];
+  goals: {
+    calorie_goal?: number;
+    protein_goal?: number;
+    fat_goal?: number;
+    carbs_goal?: number;
+  };
+}
+
+export async function getAnalyticsOverview(
+  fromDate?: string,
+  toDate?: string,
+  days = 30
+): Promise<AnalyticsOverview> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("from_date", fromDate);
+  if (toDate) params.set("to_date", toDate);
+  params.set("days", String(days));
+  return api<AnalyticsOverview>(`/api/v1/analytics/overview?${params}`);
+}
+
+export async function getAnalyticsSleep(
+  fromDate?: string,
+  toDate?: string,
+  days = 30
+): Promise<AnalyticsSleepResponse> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("from_date", fromDate);
+  if (toDate) params.set("to_date", toDate);
+  params.set("days", String(days));
+  return api<AnalyticsSleepResponse>(`/api/v1/analytics/sleep?${params}`);
+}
+
+export async function getAnalyticsWorkouts(
+  fromDate?: string,
+  toDate?: string,
+  days = 30
+): Promise<AnalyticsWorkoutsResponse> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("from_date", fromDate);
+  if (toDate) params.set("to_date", toDate);
+  params.set("days", String(days));
+  return api<AnalyticsWorkoutsResponse>(`/api/v1/analytics/workouts?${params}`);
+}
+
+export async function getAnalyticsNutrition(
+  fromDate?: string,
+  toDate?: string,
+  days = 30
+): Promise<AnalyticsNutritionResponse> {
+  const params = new URLSearchParams();
+  if (fromDate) params.set("from_date", fromDate);
+  if (toDate) params.set("to_date", toDate);
+  params.set("days", String(days));
+  return api<AnalyticsNutritionResponse>(`/api/v1/analytics/nutrition?${params}`);
+}
+
+export async function postAnalyticsInsight(
+  chartType: string,
+  data: Record<string, unknown>,
+  question?: string
+): Promise<{ insight: string }> {
+  return api<{ insight: string }>("/api/v1/analytics/insight", {
+    method: "POST",
+    body: { chart_type: chartType, data, question: question ?? undefined },
+  });
+}
+
 // Auth (no token required for login/register)
 export interface AuthUser {
   id: number;
