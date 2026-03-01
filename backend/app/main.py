@@ -60,6 +60,40 @@ async def scheduled_orchestrator_run():
     await asyncio.gather(*[run_for_user(uid) for uid in user_ids])
 
 
+async def scheduled_sleep_reminder():
+    """Send push reminder to users who have not entered sleep for today (runs at 9:00)."""
+    from datetime import date
+    from sqlalchemy import select
+    from app.db.session import async_session_maker
+    from app.models.user import User
+    from app.models.wellness_cache import WellnessCache
+    from app.services.push_notifications import send_push_to_user
+
+    today = date.today()
+    title = "Сон"
+    body = "Укажите данные сна за сегодня или загрузите скриншот."
+
+    async with async_session_maker() as session:
+        # Users who have wellness_cache for today with sleep_hours set
+        r_has_sleep = await session.execute(
+            select(WellnessCache.user_id).where(
+                WellnessCache.date == today,
+                WellnessCache.sleep_hours.isnot(None),
+            ).distinct()
+        )
+        users_with_sleep = {row[0] for row in r_has_sleep.all()}
+
+        # All user ids
+        r_all = await session.execute(select(User.id))
+        all_user_ids = [row[0] for row in r_all.all()]
+
+    for uid in all_user_ids:
+        if uid in users_with_sleep:
+            continue
+        async with async_session_maker() as session:
+            await send_push_to_user(session, uid, title, body)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # TODO(next push): tighten production detection fallback (e.g., app_env=="production" OR debug==False)
@@ -85,6 +119,8 @@ async def lifespan(app: FastAPI):
     for hour in hours:
         if 0 <= hour <= 23:
             scheduler.add_job(scheduled_orchestrator_run, "cron", hour=hour, minute=0)
+
+    scheduler.add_job(scheduled_sleep_reminder, "cron", hour=9, minute=0)
 
     scheduler.start()
     yield

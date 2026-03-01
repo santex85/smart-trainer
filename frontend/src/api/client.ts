@@ -594,6 +594,7 @@ export type WellnessUpsertPayload = {
   sleep_hours?: number;
   rhr?: number;
   hrv?: number;
+  weight_kg?: number;
 };
 
 export async function createOrUpdateWellness(payload: WellnessUpsertPayload): Promise<WellnessDay> {

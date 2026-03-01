@@ -81,6 +81,9 @@ export const ru = {
     history: "История",
     insufficientData: "Недостаточно данных",
     uploadSleepPhotoHint: "Загрузите фото сна",
+    sleepReminder: "Укажите данные сна за сегодня или загрузите скриншот.",
+    enterManually: "Ввести вручную",
+    uploadScreenshot: "Загрузить скриншот",
   },
   fitness: {
     title: "Фитнес (CTL / ATL / TSB)",

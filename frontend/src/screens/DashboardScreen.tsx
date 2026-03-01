@@ -441,7 +441,7 @@ const EditWellnessModal = React.memo(function EditWellnessModal({
     }
     setSaving(true);
     try {
-      await createOrUpdateWellness({ date, sleep_hours: sh, rhr: r, hrv: h });
+      await createOrUpdateWellness({ date, sleep_hours: sh, rhr: r, hrv: h, weight_kg: w });
       if (w !== undefined) await updateAthleteProfile({ weight_kg: w });
       onSaved();
       onClose();
@@ -1210,6 +1210,19 @@ export function DashboardScreen({
                 <Text style={styles.intervalsLinkText}>{t("wellness.edit")}</Text>
               </TouchableOpacity>
             </View>
+            {wellnessToday?.sleep_hours == null ? (
+              <View style={[styles.sleepReminderBanner, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
+                <Text style={styles.sleepReminderText}>{t("wellness.sleepReminder")}</Text>
+                <View style={styles.sleepReminderButtons}>
+                  <TouchableOpacity style={styles.sleepReminderBtn} onPress={() => setWellnessEditVisible(true)}>
+                    <Text style={styles.sleepReminderBtnText}>{t("wellness.enterManually")}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.sleepReminderBtn} onPress={onOpenCamera}>
+                    <Text style={styles.sleepReminderBtnText}>{t("wellness.uploadScreenshot")}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
             <View style={{ marginBottom: 12 }}>
               <Text style={styles.hint}>{t("wellness.todayLabel")}</Text>
               <Text style={[styles.hint, styles.disclaimer]}>{t("wellness.disclaimer")}</Text>
@@ -1598,6 +1611,22 @@ const styles = StyleSheet.create({
   calendarLink: { marginBottom: 8, paddingVertical: 4 },
   intervalsActionsRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   intervalsLinkText: { fontSize: 14, color: "#38bdf8" },
+  sleepReminderBanner: {
+    marginTop: 12,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  sleepReminderText: { fontSize: 14, color: "#94a3b8", marginBottom: 10 },
+  sleepReminderButtons: { flexDirection: "row", gap: 10 },
+  sleepReminderBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: "#334155",
+  },
+  sleepReminderBtnText: { fontSize: 14, color: "#38bdf8", fontWeight: "600" },
   fitnessHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   fitnessActionsRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 },
   fitnessActionLink: { paddingVertical: 4, paddingRight: 4 },
