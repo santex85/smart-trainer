@@ -864,15 +864,13 @@ export function DashboardScreen({
       const activitiesStart = addDays(today, -14);
       const [nResult, wellnessResult, profile, workoutsList, fitness, sleepList] = await Promise.all([
         getNutritionDay(nutritionDate).then((n) => ({ ok: true as const, data: n })).catch(() => ({ ok: false as const, data: null })),
-        getWellness(addDays(today, -6), addDays(today, 1)).then((res) => {
+        getWellness(addDays(today, -13), addDays(today, 1)).then((res) => {
           const w = res?.items ?? [];
           setWellnessWeek(w);
           if (!w.length) return { week: w, today: null };
           const todayNorm = today.slice(0, 10);
           const forToday = w.find((d) => String(d?.date ?? "").slice(0, 10) === todayNorm);
-          if (forToday) return { week: w, today: forToday };
-          const withSleep = w.filter((d) => (d?.sleep_hours ?? 0) > 0).sort((a, b) => String(b?.date ?? "").localeCompare(String(a?.date ?? "")));
-          return { week: w, today: withSleep[0] ?? null };
+          return { week: w, today: forToday ?? null };
         }).catch(() => {
           setWellnessWeek([]);
           return { week: [], today: null };
@@ -933,12 +931,33 @@ export function DashboardScreen({
   const { calorieGoal, proteinGoal, fatGoal, carbsGoal } = nutritionGoals;
 
   const WEEKLY_SLEEP_NORM_HOURS = 7 * 7;
+
+  type SleepHistoryEntry = { date: string; hours: number; source: "photo" | "manual"; extraction?: SleepExtractionSummary };
+
+  const combinedSleepHistory = useMemo(() => {
+    const byDate = new Map<string, SleepHistoryEntry>();
+    wellnessWeek.forEach((d) => {
+      const h = d?.sleep_hours ?? 0;
+      if (h <= 0) return;
+      const dateKey = String(d?.date ?? "").slice(0, 10);
+      if (!dateKey) return;
+      byDate.set(dateKey, { date: dateKey, hours: h, source: "manual" });
+    });
+    sleepExtractions.forEach((ext) => {
+      const dateKey = (ext.sleep_date ?? ext.created_at?.slice(0, 10) ?? "").slice(0, 10);
+      if (!dateKey) return;
+      const hours = ext.actual_sleep_hours ?? ext.sleep_hours ?? 0;
+      byDate.set(dateKey, { date: dateKey, hours, source: "photo", extraction: ext });
+    });
+    return Array.from(byDate.values()).sort((a, b) => b.date.localeCompare(a.date));
+  }, [wellnessWeek, sleepExtractions]);
+
   const { weeklySleepTotal, weeklySleepDeficit } = useMemo(() => {
-    const last7 = sleepExtractions.slice(0, 7);
-    const total = last7.reduce((sum, ext) => sum + (ext.actual_sleep_hours ?? ext.sleep_hours ?? 0), 0);
+    const last7 = combinedSleepHistory.slice(0, 7);
+    const total = last7.reduce((sum, e) => sum + e.hours, 0);
     const deficit = Math.max(0, WEEKLY_SLEEP_NORM_HOURS - total);
     return { weeklySleepTotal: total, weeklySleepDeficit: deficit };
-  }, [sleepExtractions]);
+  }, [combinedSleepHistory]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -1244,9 +1263,9 @@ export function DashboardScreen({
                 <Text style={[styles.placeholder, { marginTop: 8 }]}>{t("wellness.placeholder")}</Text>
               )}
             </View>
-            {sleepExtractions.length > 0 ? (
+            {combinedSleepHistory.length > 0 ? (
               <View style={{ marginTop: 4, marginBottom: 12 }}>
-                {sleepExtractions.length >= 7 ? (
+                {combinedSleepHistory.length >= 7 ? (
                   <Text style={styles.weeklySleepLine}>
                     {t("wellness.weeklySleep")}: {Math.round(weeklySleepTotal * 10) / 10} {t("wellness.sleepHours")}
                     {weeklySleepDeficit > 0 ? ` · ${t("wellness.deficit")} ${Math.round(weeklySleepDeficit * 10) / 10} ${t("wellness.sleepHours")}` : null}
@@ -1270,29 +1289,30 @@ export function DashboardScreen({
                   <Text style={styles.intervalsLinkText}>{t("wellness.addByPhoto")}</Text>
                 </TouchableOpacity>
               </View>
-              {sleepExtractions.length === 0 ? (
+              {combinedSleepHistory.length === 0 ? (
                 <Text style={[styles.hint, { marginTop: 4 }]}>{t("wellness.uploadSleepPhotoHint")}</Text>
               ) : null}
             </View>
-            {sleepExtractions.length > 0 ? (
+            {combinedSleepHistory.length > 0 ? (
               <View style={{ marginTop: 6 }}>
-                {sleepExtractions.slice(0, 7).map((ext) => (
-                  <View key={ext.id}>
+                {combinedSleepHistory.slice(0, 7).map((entry) => (
+                  <View key={entry.source === "photo" && entry.extraction ? `photo-${entry.extraction.id}` : `wellness-${entry.date}`}>
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
                       <Text style={styles.hint}>
-                        {ext.sleep_date ?? ext.created_at?.slice(0, 10)} · {(ext.actual_sleep_hours ?? ext.sleep_hours) ?? "—"} ч
+                        {entry.date.slice(8, 10)}/{entry.date.slice(5, 7)} · {entry.hours} ч
+                        {entry.source === "manual" ? ` (${t("wellness.historyManual")})` : ""}
                       </Text>
-                      {ext.can_reanalyze && sleepReanalyzeExtId !== ext.id ? (
+                      {entry.source === "photo" && entry.extraction?.can_reanalyze && sleepReanalyzeExtId !== entry.extraction.id ? (
                         <TouchableOpacity
                           style={[styles.modalBtnSave, { paddingHorizontal: 10, paddingVertical: 6 }]}
-                          onPress={() => { setSleepReanalyzeExtId(ext.id); setSleepReanalyzeCorrection(""); }}
+                          onPress={() => { setSleepReanalyzeExtId(entry.extraction!.id); setSleepReanalyzeCorrection(""); }}
                           disabled={sleepReanalyzingId != null}
                         >
                           <Text style={styles.modalBtnSaveText}>Повторный анализ</Text>
                         </TouchableOpacity>
                       ) : null}
                     </View>
-                    {sleepReanalyzeExtId === ext.id ? (
+                    {entry.source === "photo" && entry.extraction && sleepReanalyzeExtId === entry.extraction.id ? (
                       <View style={{ marginTop: 6, marginBottom: 8 }}>
                         <TextInput
                           style={styles.modalInput}
@@ -1314,10 +1334,10 @@ export function DashboardScreen({
                             style={[styles.modalBtnSave, (sleepReanalyzingId !== null || !sleepReanalyzeCorrection.trim()) && styles.modalBtnDisabled]}
                             onPress={async () => {
                               const correction = sleepReanalyzeCorrection.trim();
-                              if (!correction) return;
-                              setSleepReanalyzingId(ext.id);
+                              if (!correction || !entry.extraction) return;
+                              setSleepReanalyzingId(entry.extraction.id);
                               try {
-                                await reanalyzeSleepExtraction(ext.id, correction);
+                                await reanalyzeSleepExtraction(entry.extraction.id, correction);
                                 setSleepReanalyzeExtId(null);
                                 setSleepReanalyzeCorrection("");
                                 load();
@@ -1331,7 +1351,7 @@ export function DashboardScreen({
                             }}
                             disabled={sleepReanalyzingId !== null || !sleepReanalyzeCorrection.trim()}
                           >
-                            {sleepReanalyzingId === ext.id ? (
+                            {sleepReanalyzingId === entry.extraction.id ? (
                               <ActivityIndicator size="small" color="#0f172a" />
                             ) : (
                               <Text style={styles.modalBtnSaveText}>Отправить на анализ</Text>

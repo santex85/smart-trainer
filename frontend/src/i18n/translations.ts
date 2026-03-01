@@ -79,6 +79,7 @@ export const ru = {
     noData: "нет данных",
     sleepByPhoto: "Фото сна",
     history: "История",
+    historyManual: "ручной ввод",
     insufficientData: "Недостаточно данных",
     uploadSleepPhotoHint: "Загрузите фото сна",
     sleepReminder: "Укажите данные сна за сегодня или загрузите скриншот.",
