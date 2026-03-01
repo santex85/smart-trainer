@@ -46,6 +46,7 @@ import {
   type SleepExtractionSummary,
 } from "../api/client";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
 
@@ -115,8 +116,8 @@ const NutritionProgressBar = React.memo(function NutritionProgressBar({
 const progressBarStyles = StyleSheet.create({
   container: { marginTop: 8 },
   labelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
-  label: { fontSize: 12, color: "#b8c5d6" },
-  value: { fontSize: 12, color: "#e2e8f0" },
+  label: { fontSize: 12, color: "#FFFFFF" },
+  value: { fontSize: 12, color: "#b8c5d6" },
   track: { height: 7, backgroundColor: "rgba(255, 255, 255, 0.1)", borderRadius: 100, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 100 },
 });
@@ -846,6 +847,18 @@ export function DashboardScreen({
   const [menuVisible, setMenuVisible] = useState(false);
   const { colors, toggleTheme } = useTheme();
 
+  const glassCardStyle = useMemo(() => [
+    styles.cardBase,
+    {
+      backgroundColor: colors.glassBg,
+      borderColor: colors.glassBorder,
+      borderWidth: 1,
+      borderRadius: colors.borderRadiusLg,
+      padding: 20,
+    },
+    ...(Platform.OS === "web" ? [{ backdropFilter: "blur(20px)" }] : []),
+  ], [colors]);
+
   const today = getTodayLocal();
 
   const loadNutritionForDate = useCallback(async (dateStr: string) => {
@@ -1151,7 +1164,7 @@ export function DashboardScreen({
         </View>
       ) : (
         <>
-          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <View style={glassCardStyle}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>{t("nutrition.title")}</Text>
               <View style={styles.cardTitleActions}>
@@ -1228,6 +1241,7 @@ export function DashboardScreen({
                       style={styles.mealRow}
                       activeOpacity={0.7}
                     >
+                      <Ionicons name="restaurant-outline" size={18} color="#9ca3af" style={styles.mealRowIcon} />
                       <Text style={styles.mealLine}>
                         {entry.name}: {Math.round(entry.calories)} kcal
                       </Text>
@@ -1252,15 +1266,15 @@ export function DashboardScreen({
             ) : null}
           </View>
 
-          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <View style={glassCardStyle}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>{t("wellness.title")}</Text>
-              <TouchableOpacity onPress={() => setWellnessEditVisible(true)}>
-                <Text style={styles.intervalsLinkText}>{t("wellness.edit")}</Text>
+              <TouchableOpacity onPress={() => setWellnessEditVisible(true)} style={styles.outlineButton}>
+                <Text style={styles.outlineButtonText}>{t("wellness.edit")}</Text>
               </TouchableOpacity>
             </View>
             {wellnessToday?.sleep_hours == null ? (
-              <View style={[styles.sleepReminderBanner, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
+              <View style={[styles.sleepReminderBanner, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
                 <Text style={styles.sleepReminderText}>{t("wellness.sleepReminder")}</Text>
                 <View style={styles.sleepReminderButtons}>
                   <TouchableOpacity style={styles.sleepReminderBtn} onPress={() => setWellnessEditVisible(true)}>
@@ -1277,7 +1291,7 @@ export function DashboardScreen({
               <Text style={[styles.hint, styles.disclaimer]}>{t("wellness.disclaimer")}</Text>
               {(wellnessToday || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
                 <>
-                  <Text style={[styles.cardValue, { marginTop: 8 }]}>
+                  <Text style={[styles.wellnessMetricsLine, { marginTop: 8 }]}>
                     {wellnessToday?.sleep_hours != null ? `Сон ${wellnessToday.sleep_hours} ч` : "Сон —"}
                     {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
                     {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
@@ -1311,12 +1325,13 @@ export function DashboardScreen({
               <View style={styles.cardTitleRow}>
                 <Text style={[styles.modalLabel, { marginBottom: 0 }]}>{t("wellness.history")}</Text>
                 <TouchableOpacity
+                  style={styles.outlineButton}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
                     onOpenCamera();
                   }}
                 >
-                  <Text style={styles.intervalsLinkText}>{t("wellness.addByPhoto")}</Text>
+                  <Text style={styles.outlineButtonText}>{t("wellness.addByPhoto")}</Text>
                 </TouchableOpacity>
               </View>
               {combinedSleepHistory.length === 0 ? (
@@ -1396,7 +1411,7 @@ export function DashboardScreen({
             ) : null}
           </View>
 
-          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <View style={glassCardStyle}>
             <View style={styles.fitnessHeaderRow}>
               <Text style={[styles.cardTitle, { color: colors.textSecondary }]}>{t("fitness.title")}</Text>
               <View style={styles.fitnessActionsRow}>
@@ -1513,7 +1528,7 @@ export function DashboardScreen({
             />
           ) : null}
 
-          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <View style={glassCardStyle}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>{t("workouts.title")}</Text>
               <View style={styles.cardTitleActions}>
@@ -1568,7 +1583,7 @@ export function DashboardScreen({
           </View>
 
           {lastAnalysisResult ? (
-            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <View style={glassCardStyle}>
               <Text style={styles.cardTitle}>Результат анализа</Text>
               <Text style={styles.analysisDecision}>Решение: {lastAnalysisResult.decision}</Text>
               <Text style={styles.value}>{lastAnalysisResult.reason}</Text>
@@ -1594,10 +1609,13 @@ export function DashboardScreen({
       )}
       </View>
       </ScrollView>
-      <TouchableOpacity style={styles.fab} onPress={onOpenCamera} activeOpacity={0.8}>
-        <Text style={styles.fabLabel}>📷</Text>
-        <Text style={styles.fabText}>Фото</Text>
-      </TouchableOpacity>
+      <View style={styles.fabWrapper}>
+        <LinearGradient colors={["#3b82f6", "#8b5cf6"]} style={StyleSheet.absoluteFill} />
+        <TouchableOpacity style={styles.fabTouchable} onPress={onOpenCamera} activeOpacity={0.9}>
+          <Text style={styles.fabLabel}>📷</Text>
+          <Text style={styles.fabText}>Фото</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -1638,16 +1656,11 @@ const styles = StyleSheet.create({
   menuItemChevron: { marginLeft: 4 },
   loader: { marginTop: 40 },
   skeletonWrap: { gap: 12 },
-  skeletonCard: { backgroundColor: "#16213e", borderRadius: 12, padding: 16, marginBottom: 12 },
+  skeletonCard: { backgroundColor: "rgba(255, 255, 255, 0.08)", borderRadius: 24, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: "rgba(255, 255, 255, 0.1)" },
   skeletonTitle: { width: "60%", height: 14, backgroundColor: "#334155", borderRadius: 4, marginBottom: 12 },
   skeletonLine: { width: "100%", height: 12, backgroundColor: "#334155", borderRadius: 4, marginBottom: 8 },
   skeletonLineShort: { width: "80%", height: 12, backgroundColor: "#334155", borderRadius: 4 },
-  card: {
-    backgroundColor: "#16213e",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
+  cardBase: { marginBottom: 16 },
   cardTitle: { fontSize: 16, color: "#b8c5d6", marginBottom: 6 },
   cardTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 0 },
   cardTitleActions: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -1670,6 +1683,15 @@ const styles = StyleSheet.create({
   calendarLink: { marginBottom: 8, paddingVertical: 4 },
   intervalsActionsRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   intervalsLinkText: { fontSize: 14, color: "#38bdf8" },
+  outlineButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  outlineButtonText: { fontSize: 14, color: "#38bdf8", fontWeight: "600" },
+  wellnessMetricsLine: { fontSize: 22, fontWeight: "700", color: "#e2e8f0" },
   sleepReminderBanner: {
     marginTop: 12,
     marginBottom: 12,
@@ -1704,8 +1726,9 @@ const styles = StyleSheet.create({
   dateNavBtnActive: { backgroundColor: "#38bdf8" },
   dateNavText: { fontSize: 12, color: "#b8c5d6" },
   dateNavTextActive: { color: "#0f172a", fontWeight: "600" },
-  mealRow: { marginTop: 2 },
-  mealLine: { fontSize: 12, color: "#94a3b8" },
+  mealRow: { marginTop: 2, flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)" },
+  mealLine: { fontSize: 14, color: "#e2e8f0", flex: 1 },
+  mealRowIcon: { marginLeft: 0 },
   deleteAction: { backgroundColor: "#dc2626", justifyContent: "center", alignItems: "center", paddingHorizontal: 16, marginTop: 2, borderRadius: 8 },
   deleteActionText: { color: "#fff", fontWeight: "600" },
   modalBackdrop: {
@@ -1716,12 +1739,14 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalBox: {
-    backgroundColor: "#16213e",
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 24,
+    padding: 20,
     maxWidth: 400,
     width: "100%",
     maxHeight: "85%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   modalTitle: { fontSize: 18, fontWeight: "600", color: "#e2e8f0", marginBottom: 12 },
   modalScroll: { maxHeight: 320 },
@@ -1775,23 +1800,26 @@ const styles = StyleSheet.create({
   analysisBtnText: { fontSize: 16, color: "#0f172a", fontWeight: "600" },
   chatLink: { marginTop: 16, paddingVertical: 12 },
   chatLinkText: { fontSize: 16, color: "#38bdf8" },
-  fab: {
+  fabWrapper: {
     position: "absolute",
     bottom: 24,
     left: 20,
-    backgroundColor: "#38bdf8",
-    paddingVertical: 14,
-    paddingHorizontal: 20,
     borderRadius: 28,
+    overflow: "hidden",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+  },
+  fabTouchable: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 8,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
   },
   fabLabel: { fontSize: 22 },
-  fabText: { fontSize: 16, color: "#0f172a", fontWeight: "600" },
+  fabText: { fontSize: 16, color: "#fff", fontWeight: "600" },
 });

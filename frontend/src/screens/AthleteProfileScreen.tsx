@@ -388,7 +388,7 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1a1a2e" },
+  safe: { flex: 1, backgroundColor: "#0D0D0D" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -416,8 +416,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: "#16213e",
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
   },
   segmentBtnActive: { backgroundColor: "#38bdf8" },
@@ -426,8 +428,10 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", marginTop: 4 },
   premiumRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16, marginBottom: 8 },
   input: {
-    backgroundColor: "#16213e",
-    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    borderRadius: 12,
     padding: 12,
     fontSize: 16,
     color: "#e2e8f0",

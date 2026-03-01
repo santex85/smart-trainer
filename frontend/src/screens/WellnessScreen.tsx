@@ -225,7 +225,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1a1a2e" },
+  safe: { flex: 1, backgroundColor: "#0D0D0D" },
   container: { flex: 1 },
   header: {
     flexDirection: "row",
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   trendTitle: { fontSize: 14, fontWeight: "600", color: "#94a3b8", marginBottom: 10 },
   trendChart: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", height: 100, gap: 4 },
   trendBarWrap: { flex: 1, alignItems: "center" },
-  trendBarBg: { width: "100%", backgroundColor: "#1a1a2e", borderRadius: 4, justifyContent: "flex-end", overflow: "hidden" },
+  trendBarBg: { width: "100%", backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 4, justifyContent: "flex-end", overflow: "hidden" },
   trendBarFill: { backgroundColor: "#38bdf8", borderRadius: 4, minHeight: 2 },
   trendBarLabel: { fontSize: 10, color: "#64748b", marginTop: 4 },
   sectionTitle: { fontSize: 16, fontWeight: "600", color: "#e2e8f0", marginBottom: 16 },
@@ -254,14 +254,14 @@ const styles = StyleSheet.create({
   field: { marginBottom: 16 },
   label: { fontSize: 14, color: "#94a3b8", marginBottom: 6 },
   input: {
-    backgroundColor: "#0f172a",
-    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
     color: "#e2e8f0",
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: "rgba(255,255,255,0.1)",
   },
   readOnly: { marginBottom: 16 },
   hint: { fontSize: 14, color: "#94a3b8" },

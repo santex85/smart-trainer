@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   Linking,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getIntervalsStatus, linkIntervals, syncIntervals, unlinkIntervals } from "../api/client";
@@ -135,7 +136,7 @@ export function IntervalsLinkScreen({ onClose, onSynced }: { onClose: () => void
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {linked && !showForm ? (
-          <View style={styles.card}>
+          <View style={[styles.card, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
             <Text style={styles.cardTitle}>Подключено</Text>
             <Text style={styles.value}>ID атлета: {linkedAthleteId ?? "—"}</Text>
             <TouchableOpacity
@@ -185,7 +186,7 @@ export function IntervalsLinkScreen({ onClose, onSynced }: { onClose: () => void
         ) : null}
 
         {(showForm || !linked) && (
-          <View style={styles.card}>
+          <View style={[styles.card, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
             <Text style={styles.cardTitle}>{linked ? "Обновить API ключ" : "Подключить Intervals.icu"}</Text>
             <Text style={styles.label}>ID атлета</Text>
             <TextInput
@@ -229,7 +230,7 @@ export function IntervalsLinkScreen({ onClose, onSynced }: { onClose: () => void
           </View>
         )}
 
-        <View style={styles.hintCard}>
+        <View style={[styles.hintCard, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
           <Text style={styles.hintText}>
             ID атлета и API ключ находятся в Intervals.icu: откройте intervals.icu в браузере, зайдите в Настройки → API (или в профиль). Скопируйте оба значения сюда.
           </Text>
@@ -243,7 +244,7 @@ export function IntervalsLinkScreen({ onClose, onSynced }: { onClose: () => void
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1a1a2e", padding: 20 },
+  container: { flex: 1, backgroundColor: "#0D0D0D", padding: 20 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
   title: { fontSize: 22, fontWeight: "700", color: "#eee" },
   close: { fontSize: 16, color: "#38bdf8" },
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
   hint: { fontSize: 14, color: "#94a3b8" },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 24 },
-  card: { backgroundColor: "#16213e", borderRadius: 12, padding: 16, marginBottom: 12 },
+  card: { backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", borderRadius: 24, padding: 20, marginBottom: 16 },
   cardTitle: { fontSize: 14, color: "#94a3b8", marginBottom: 12 },
   value: { fontSize: 16, color: "#e2e8f0", marginBottom: 12 },
   label: { fontSize: 12, color: "#94a3b8", marginBottom: 4 },
@@ -281,7 +282,7 @@ const styles = StyleSheet.create({
   confirmBlock: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#334155" },
   confirmText: { fontSize: 14, color: "#94a3b8", marginBottom: 12 },
   confirmRow: { flexDirection: "row", gap: 12, justifyContent: "flex-end" },
-  hintCard: { backgroundColor: "#16213e", borderRadius: 12, padding: 16 },
+  hintCard: { backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", borderRadius: 24, padding: 20 },
   hintText: { fontSize: 13, color: "#94a3b8", marginBottom: 8 },
   link: { fontSize: 14, color: "#38bdf8" },
 });

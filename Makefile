@@ -1,7 +1,7 @@
 # IP компьютера в Wi‑Fi: авто (en0 на Mac, иначе .wifi_ip или 192.168.1.157). Переопределить: make use-wifi WIFI_IP=192.168.1.200
 WIFI_IP ?= $(shell (ipconfig getifaddr en0 2>/dev/null) || (hostname -I 2>/dev/null | awk '{print $$1}') || (cat .wifi_ip 2>/dev/null) || echo "192.168.1.157")
 
-.PHONY: build up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test
+.PHONY: build up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test build-prod up-prod migrate-prod
 
 build:
 	docker compose build
@@ -39,6 +39,15 @@ ps:
 
 migrate:
 	docker compose exec backend alembic upgrade head
+
+# Production (на сервере после git pull)
+COMPOSE_PROD = docker compose -f docker-compose.yml -f docker-compose.prod.yml
+build-prod:
+	$(COMPOSE_PROD) build
+up-prod:
+	$(COMPOSE_PROD) up -d
+migrate-prod:
+	$(COMPOSE_PROD) exec -T backend alembic upgrade head
 
 shell-backend:
 	docker compose exec backend sh

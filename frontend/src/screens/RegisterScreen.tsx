@@ -72,7 +72,7 @@ export function RegisterScreen({
         keyboardVerticalOffset={20}
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <View style={[styles.cardBase, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderWidth: 1, borderRadius: colors.borderRadiusLg, padding: 20 }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
             <Text style={[styles.title, { color: colors.text }]}>Регистрация</Text>
             <Text style={[styles.hint, { color: colors.textMuted }]}>Email</Text>
             <TextInput
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1a1a2e", padding: 20 },
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingTop: 40, paddingBottom: 24 },
-  card: { backgroundColor: "#16213e", borderRadius: 12, padding: 16 },
+  cardBase: { borderRadius: 24, marginBottom: 24 },
   title: { fontSize: 22, fontWeight: "700", color: "#eee", marginBottom: 20 },
   hint: { fontSize: 14, color: "#94a3b8", marginBottom: 6 },
   input: {

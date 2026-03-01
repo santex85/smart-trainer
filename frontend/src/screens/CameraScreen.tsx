@@ -340,7 +340,7 @@ export function CameraScreen({
         )}
 
         {photoResult?.type === "food" && !loading && (
-          <View style={styles.result}>
+          <View style={[styles.result, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
             {selectedPhotoUri ? (
               <Image source={{ uri: selectedPhotoUri }} style={styles.photoThumbnail} resizeMode="cover" />
             ) : null}
@@ -447,7 +447,7 @@ export function CameraScreen({
         )}
 
         {photoResult?.type === "sleep" && !loading && (
-          <View style={styles.result}>
+          <View style={[styles.result, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
             {selectedPhotoUri ? (
               <Image source={{ uri: selectedPhotoUri }} style={styles.photoThumbnail} resizeMode="cover" />
             ) : null}
@@ -478,7 +478,7 @@ export function CameraScreen({
         )}
 
         {photoResult?.type === "wellness" && !loading && (
-          <View style={styles.result}>
+          <View style={[styles.result, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
             {selectedPhotoUri ? (
               <Image source={{ uri: selectedPhotoUri }} style={styles.photoThumbnail} resizeMode="cover" />
             ) : null}
@@ -516,11 +516,11 @@ export function CameraScreen({
               Выберите фото — мы определим: еда, сон или пульс/HRV, и обработаем.
             </Text>
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.button} onPress={takePhoto}>
+              <TouchableOpacity style={[styles.button, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={takePhoto}>
                 <Text style={styles.buttonIcon}>📷</Text>
                 <Text style={styles.buttonText}>Сделать фото</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={pickImage}>
+              <TouchableOpacity style={[styles.button, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={pickImage}>
                 <Text style={styles.buttonIcon}>🖼️</Text>
                 <Text style={styles.buttonText}>Выбрать из галереи</Text>
               </TouchableOpacity>
@@ -533,7 +533,7 @@ export function CameraScreen({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1a1a2e", padding: 20 },
+  container: { flex: 1, backgroundColor: "#0D0D0D", padding: 20 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   title: { fontSize: 22, fontWeight: "700", color: "#eee" },
   close: { fontSize: 16, color: "#38bdf8" },
@@ -544,14 +544,16 @@ const styles = StyleSheet.create({
   flowHint: { fontSize: 13, color: "#64748b", marginBottom: 16 },
   actions: { gap: 16 },
   button: {
-    backgroundColor: "#16213e",
-    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    borderRadius: 24,
     padding: 24,
     alignItems: "center",
   },
   buttonIcon: { fontSize: 40, marginBottom: 8 },
   buttonText: { fontSize: 18, color: "#e2e8f0", fontWeight: "600" },
-  result: { backgroundColor: "#16213e", borderRadius: 12, padding: 20 },
+  result: { backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", borderRadius: 24, padding: 20 },
   photoThumbnail: { width: "100%", height: 180, borderRadius: 8, marginBottom: 12 },
   resultName: { fontSize: 20, color: "#e2e8f0", fontWeight: "600", marginBottom: 8 },
   resultMacros: { fontSize: 16, color: "#94a3b8", marginBottom: 4 },
@@ -574,11 +576,11 @@ const styles = StyleSheet.create({
   mealTypeBtnActive: { backgroundColor: "#38bdf8" },
   mealTypeBtnText: { fontSize: 12, color: "#94a3b8" },
   mealTypeBtnTextActive: { fontSize: 12, color: "#0f172a", fontWeight: "600" },
-  micronutrientsBlock: { marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: "#1e293b", borderRadius: 8 },
+  micronutrientsBlock: { marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   microRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
   microLabel: { fontSize: 12, color: "#94a3b8" },
   microValue: { fontSize: 12, color: "#e2e8f0" },
-  logPanel: { marginBottom: 12, backgroundColor: "#0f172a", borderRadius: 8, maxHeight: 180, borderWidth: 1, borderColor: "#334155" },
+  logPanel: { marginBottom: 12, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12, maxHeight: 180, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   logHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#334155" },
   logTitle: { fontSize: 12, fontWeight: "600", color: "#94a3b8" },
   logClear: { fontSize: 12, color: "#38bdf8" },

@@ -1,9 +1,12 @@
 /** Theme color tokens. Use via useTheme(). */
 
 export const darkColors = {
-  background: "#1a1a2e",
+  background: "#0D0D0D",
   surface: "#16213e",
   surfaceBorder: "#334155",
+  glassBg: "rgba(255, 255, 255, 0.08)",
+  glassBorder: "rgba(255, 255, 255, 0.1)",
+  borderRadiusLg: 24,
   text: "#e2e8f0",
   textMuted: "#94a3b8",
   textSecondary: "#b8c5d6",
@@ -27,6 +30,9 @@ export const lightColors = {
   background: "#f8fafc",
   surface: "#ffffff",
   surfaceBorder: "#e2e8f0",
+  glassBg: "rgba(255, 255, 255, 0.9)",
+  glassBorder: "rgba(0, 0, 0, 0.08)",
+  borderRadiusLg: 24,
   text: "#0f172a",
   textMuted: "#64748b",
   textSecondary: "#475569",
