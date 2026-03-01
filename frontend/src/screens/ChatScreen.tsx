@@ -264,17 +264,17 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={80}
     >
-      <View style={[styles.header, { borderBottomColor: colors.surfaceBorder }]}>
-        <Text style={styles.title}>AI-тренер</Text>
+      <View style={[styles.header, { backgroundColor: colors.glassBg, borderBottomColor: colors.glassBorder }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
+        <Text style={[styles.title, { color: colors.text }]}>AI-тренер</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={onNewChat} style={styles.headerBtn}>
-            <Text style={styles.headerBtnText}>Новый чат</Text>
+            <Text style={[styles.headerBtnText, { color: colors.textMuted }]}>Новый чат</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onClearChat} style={styles.headerBtn} disabled={currentThreadId == null}>
-            <Text style={styles.headerBtnText}>Очистить</Text>
+            <Text style={[styles.headerBtnText, { color: colors.textMuted }]}>Очистить</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onClose}>
-            <Text style={styles.close}>Закрыть</Text>
+            <Text style={[styles.close, { color: colors.primary }]}>Закрыть</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -283,7 +283,7 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={styles.tabsScroll}
+          style={[styles.tabsScroll, { backgroundColor: colors.glassBg, borderBottomColor: colors.glassBorder }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}
           contentContainerStyle={styles.tabsContent}
         >
           {threads.map((t) => (
@@ -338,7 +338,7 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
       />
       )}
       {attachedFit ? (
-        <View style={styles.attachedRow}>
+        <View style={[styles.attachedRow, { backgroundColor: colors.glassBg }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
           <Text style={styles.attachedText}>Прикреплён FIT</Text>
           <TouchableOpacity onPress={() => setAttachedFit(null)} style={styles.attachedRemove}>
             <Text style={styles.attachedRemoveText}>Убрать</Text>
@@ -351,12 +351,12 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
           </TouchableOpacity>
         </View>
       ) : null}
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, { backgroundColor: colors.glassBg, borderTopColor: colors.glassBorder }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
         <TouchableOpacity onPress={pickFitFile} style={styles.attachBtn} disabled={loading || loadingHistory}>
           <Text style={styles.attachBtnText}>FIT</Text>
         </TouchableOpacity>
         <TextInput
-          style={[styles.input, { backgroundColor: colors.surface, color: colors.text }]}
+          style={[styles.input, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, color: colors.text }]}
           placeholder="Сообщение или прикрепите FIT..."
           placeholderTextColor={colors.textMuted}
           value={input}

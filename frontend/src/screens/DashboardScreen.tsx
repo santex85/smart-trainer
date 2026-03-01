@@ -247,8 +247,8 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
 
   return (
     <Modal visible transparent animationType="fade">
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+      <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
+        <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.modalTitle}>Edit entry</Text>
           <ScrollView keyboardShouldPersistTaps="handled" style={styles.modalScroll}>
             <Text style={styles.modalLabel}>Name</Text>
@@ -456,8 +456,8 @@ const EditWellnessModal = React.memo(function EditWellnessModal({
 
   return (
     <Modal visible transparent animationType="fade">
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+      <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
+        <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.cardTitle}>Сон и здоровье ({date})</Text>
           <Text style={styles.hint}>Данные учитываются ИИ при анализе и в чате.</Text>
           <TextInput
@@ -554,8 +554,8 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
 
   return (
     <Modal visible transparent animationType="fade">
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+      <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
+        <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.cardTitle}>Добавить тренировку</Text>
           <TextInput
             style={styles.modalInput}
@@ -649,8 +649,8 @@ const WorkoutPreviewModal = React.memo(function WorkoutPreviewModal({
   };
   return (
     <Modal visible transparent animationType="fade">
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+      <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
+        <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.cardTitle}>Превью FIT-тренировки</Text>
           <Text style={styles.modalLabel}>Название / тип</Text>
           <Text style={styles.value}>{preview.name ?? preview.type ?? "—"}</Text>
@@ -739,8 +739,8 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
 
   return (
     <Modal visible transparent animationType="fade">
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.modalBox} onPress={(e) => e.stopPropagation()}>
+      <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
+        <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
           <Text style={styles.cardTitle}>Тренировка</Text>
           <Text style={styles.modalLabel}>Название / тип</Text>
           <Text style={styles.value}>{workout.name ?? workout.type ?? "—"}</Text>
@@ -1069,8 +1069,8 @@ export function DashboardScreen({
         animationType="fade"
         onRequestClose={() => setMenuVisible(false)}
       >
-        <Pressable style={styles.menuBackdrop} onPress={() => setMenuVisible(false)}>
-          <Pressable style={styles.menuBox} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={[styles.menuBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={() => setMenuVisible(false)}>
+          <Pressable style={[styles.menuBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
             <View style={styles.menuHeader}>
               {user?.email ? <Text style={styles.menuEmail} numberOfLines={1}>{user.email}</Text> : <View />}
               <TouchableOpacity

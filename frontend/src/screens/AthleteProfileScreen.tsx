@@ -342,40 +342,61 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
           </>
         ) : (
           <>
-            <View style={styles.row}>
-              <Text style={styles.label}>Вес</Text>
-              <Text style={styles.value}>{profile?.weight_kg != null ? `${profile.weight_kg} kg` : "—"}</Text>
-              {profile?.weight_source ? <Text style={styles.source}>({profile.weight_source})</Text> : null}
+            <Text style={styles.sectionTitle}>Данные атлета</Text>
+            <View style={styles.card}>
+              <View style={[styles.row, styles.rowFirst]}>
+                <Text style={styles.labelInRow}>Вес</Text>
+                <View style={styles.rowValue}>
+                  <Text style={styles.value}>{profile?.weight_kg != null ? `${profile.weight_kg} kg` : "—"}</Text>
+                  {profile?.weight_source ? <Text style={styles.source}>({profile.weight_source})</Text> : null}
+                </View>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.labelInRow}>FTP</Text>
+                <View style={styles.rowValue}>
+                  <Text style={styles.value}>{profile?.ftp != null ? `${profile.ftp} W` : "—"}</Text>
+                  {profile?.ftp_source ? <Text style={styles.source}>({profile.ftp_source})</Text> : null}
+                </View>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.labelInRow}>Рост</Text>
+                <View style={styles.rowValue}>
+                  <Text style={styles.value}>{profile?.height_cm != null ? `${profile.height_cm} cm` : "—"}</Text>
+                </View>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.labelInRow}>Birth year</Text>
+                <View style={styles.rowValue}>
+                  <Text style={styles.value}>{profile?.birth_year != null ? profile.birth_year : "—"}</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>FTP</Text>
-              <Text style={styles.value}>{profile?.ftp != null ? `${profile.ftp} W` : "—"}</Text>
-              {profile?.ftp_source ? <Text style={styles.source}>({profile.ftp_source})</Text> : null}
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Рост</Text>
-              <Text style={styles.value}>{profile?.height_cm != null ? `${profile.height_cm} cm` : "—"}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Birth year</Text>
-              <Text style={styles.value}>{profile?.birth_year != null ? profile.birth_year : "—"}</Text>
-            </View>
-            <Text style={styles.sectionTitle}>Цели по питанию</Text>
-            <View style={styles.row}>
-              <Text style={styles.label}>Калории</Text>
-              <Text style={styles.value}>{profile?.nutrition_goals?.calorie_goal ?? DEFAULT_CALORIE_GOAL} ккал</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Белки</Text>
-              <Text style={styles.value}>{profile?.nutrition_goals?.protein_goal ?? DEFAULT_PROTEIN_GOAL} г</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Жиры</Text>
-              <Text style={styles.value}>{profile?.nutrition_goals?.fat_goal ?? DEFAULT_FAT_GOAL} г</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Углеводы</Text>
-              <Text style={styles.value}>{profile?.nutrition_goals?.carbs_goal ?? DEFAULT_CARBS_GOAL} г</Text>
+            <View style={styles.card}>
+              <Text style={styles.sectionTitleInCard}>Цели по питанию</Text>
+              <View style={[styles.row, styles.rowFirst]}>
+                <Text style={styles.labelInRow}>Калории</Text>
+                <View style={styles.rowValue}>
+                  <Text style={styles.value}>{profile?.nutrition_goals?.calorie_goal ?? DEFAULT_CALORIE_GOAL} ккал</Text>
+                </View>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.labelInRow}>Белки</Text>
+                <View style={styles.rowValue}>
+                  <Text style={styles.value}>{profile?.nutrition_goals?.protein_goal ?? DEFAULT_PROTEIN_GOAL} г</Text>
+                </View>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.labelInRow}>Жиры</Text>
+                <View style={styles.rowValue}>
+                  <Text style={styles.value}>{profile?.nutrition_goals?.fat_goal ?? DEFAULT_FAT_GOAL} г</Text>
+                </View>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.labelInRow}>Углеводы</Text>
+                <View style={styles.rowValue}>
+                  <Text style={styles.value}>{profile?.nutrition_goals?.carbs_goal ?? DEFAULT_CARBS_GOAL} г</Text>
+                </View>
+              </View>
             </View>
             <TouchableOpacity style={styles.editBtn} onPress={() => setEditing(true)}>
               <Text style={styles.editBtnText}>Редактировать профиль</Text>
@@ -404,11 +425,12 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 20, paddingBottom: 40 },
   avatar: { width: 80, height: 80, borderRadius: 40, alignSelf: "center", marginBottom: 12 },
-  displayName: { fontSize: 20, fontWeight: "600", color: "#e2e8f0", textAlign: "center", marginBottom: 4 },
+  displayName: { fontSize: 20, fontWeight: "600", color: "#e2e8f0", textAlign: "center", marginBottom: 16 },
   hint: { fontSize: 12, color: "#64748b", marginTop: 4, marginBottom: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: "600", color: "#e2e8f0", marginTop: 20, marginBottom: 4 },
+  sectionTitle: { fontSize: 16, fontWeight: "600", color: "#e2e8f0", marginTop: 20, marginBottom: 12 },
+  sectionTitleInCard: { fontSize: 16, fontWeight: "600", color: "#e2e8f0", marginTop: 0, marginBottom: 12 },
   label: { fontSize: 14, color: "#94a3b8", marginTop: 12 },
-  value: { fontSize: 16, color: "#e2e8f0", fontWeight: "500" },
+  value: { fontSize: 17, color: "#e2e8f0", fontWeight: "600" },
   valueReadOnly: { fontSize: 16, color: "#94a3b8", marginTop: 6 },
   source: { fontSize: 12, color: "#64748b", marginLeft: 6 },
   segmentRow: { flexDirection: "row", gap: 8, marginTop: 8, marginBottom: 4 },
@@ -425,7 +447,18 @@ const styles = StyleSheet.create({
   segmentBtnActive: { backgroundColor: "#38bdf8" },
   segmentBtnText: { fontSize: 14, color: "#94a3b8" },
   segmentBtnTextActive: { color: "#0f172a", fontWeight: "600" },
-  row: { flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", marginTop: 4 },
+  card: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+  },
+  row: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginTop: 10 },
+  rowFirst: { marginTop: 0 },
+  labelInRow: { fontSize: 14, color: "#94a3b8", marginTop: 0 },
+  rowValue: { flexDirection: "row", alignItems: "baseline", gap: 6 },
   premiumRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16, marginBottom: 8 },
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -443,6 +476,15 @@ const styles = StyleSheet.create({
   btnSecondary: { paddingVertical: 12, paddingHorizontal: 16 },
   btnSecondaryText: { fontSize: 16, color: "#94a3b8" },
   btnDisabled: { opacity: 0.7 },
-  editBtn: { marginTop: 20, paddingVertical: 12, alignItems: "center" },
-  editBtnText: { fontSize: 16, color: "#38bdf8" },
+  editBtn: {
+    marginTop: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#38bdf8",
+    alignSelf: "center",
+    alignItems: "center",
+  },
+  editBtnText: { fontSize: 16, color: "#38bdf8", fontWeight: "600" },
 });

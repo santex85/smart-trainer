@@ -11,6 +11,7 @@ import {
   TextInput,
   Pressable,
   useWindowDimensions,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LineChart, BarChart, PieChart } from "react-native-gifted-charts";
@@ -245,8 +246,8 @@ export function AnalyticsScreen({ onClose }: { onClose: () => void }) {
         transparent
         onRequestClose={() => setInsightModalVisible(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setInsightModalVisible(false)}>
-          <Pressable style={[styles.modalContent, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={[styles.modalOverlay, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={() => setInsightModalVisible(false)}>
+          <Pressable style={[styles.modalContent, { backgroundColor: colors.glassBg, borderWidth: 1, borderColor: colors.glassBorder, borderRadius: colors.borderRadiusLg }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.text }]}>
                 {t("analytics.askAi")}
@@ -304,13 +305,13 @@ function OverviewSection({
   return (
     <View style={styles.section}>
       <View style={styles.cardRow}>
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
+        <View style={[styles.card, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderRadius: colors.borderRadiusLg }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
           <Text style={[styles.cardValue, { color: colors.text }]}>
             {overview.avg_sleep_hours != null ? `${overview.avg_sleep_hours} ч` : "—"}
           </Text>
           <Text style={[styles.cardLabel, { color: colors.textMuted }]}>{t("analytics.avgSleep")}</Text>
         </View>
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
+        <View style={[styles.card, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderRadius: colors.borderRadiusLg }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
           <Text style={[styles.cardValue, { color: colors.text }]}>{overview.workout_count}</Text>
           <Text style={[styles.cardLabel, { color: colors.textMuted }]}>
             {t("analytics.workoutsCount")}
@@ -318,11 +319,11 @@ function OverviewSection({
         </View>
       </View>
       <View style={styles.cardRow}>
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
+        <View style={[styles.card, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderRadius: colors.borderRadiusLg }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
           <Text style={[styles.cardValue, { color: colors.text }]}>{overview.total_tss}</Text>
           <Text style={[styles.cardLabel, { color: colors.textMuted }]}>{t("analytics.totalTss")}</Text>
         </View>
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
+        <View style={[styles.card, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderRadius: colors.borderRadiusLg }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
           <Text style={[styles.cardValue, { color: colors.text }]}>
             {overview.avg_calories_per_day != null ? Math.round(overview.avg_calories_per_day) : "—"}
           </Text>
@@ -332,7 +333,7 @@ function OverviewSection({
         </View>
       </View>
       {ctl_atl_tsb && (
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, marginTop: 8 }]}>
+        <View style={[styles.card, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderRadius: colors.borderRadiusLg, marginTop: 8 }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
           <Text style={[styles.cardLabel, { color: colors.textMuted, marginBottom: 4 }]}>
             {t("fitness.title")}
           </Text>
