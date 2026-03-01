@@ -3,8 +3,11 @@ Single-call Gemini: classify image as food, sleep, or wellness (RHR/HRV) and ret
 """
 from __future__ import annotations
 
+import logging
+
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from pydantic import ValidationError
 
 from app.config import settings
 from app.schemas.nutrition import NutritionAnalysisResult
@@ -122,4 +125,13 @@ async def classify_and_analyze_image(
     sleep_payload = data.get("sleep")
     if not sleep_payload or not isinstance(sleep_payload, dict):
         raise ValueError("Model returned type 'sleep' but sleep object is missing")
-    return "sleep", SleepExtractionResult(**sleep_payload)
+    try:
+        return "sleep", SleepExtractionResult(**sleep_payload)
+    except ValidationError as e:
+        logging.warning("SleepExtractionResult validation failed, using safe subset: %s", e.errors())
+        allowed = set(SleepExtractionResult.model_fields)
+        safe = {k: v for k, v in sleep_payload.items() if k in allowed}
+        try:
+            return "sleep", SleepExtractionResult(**safe)
+        except ValidationError:
+            raise ValueError("Could not parse sleep data from image. Please try another photo.") from e

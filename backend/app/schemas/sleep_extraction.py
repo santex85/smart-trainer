@@ -91,6 +91,26 @@ class SleepExtractionResult(BaseModel):
     rhr: int | float | None = Field(None, description="Resting heart rate from sleep/wellness screenshot")
     hrv: int | float | None = Field(None, description="Heart rate variability from sleep/wellness screenshot")
 
+    @field_validator("rhr", "hrv", mode="before")
+    @classmethod
+    def coerce_numeric(cls, v: object) -> int | float | None:
+        """Accept int, float, or numeric string from AI output."""
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return v
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return None
+            try:
+                if "." in s:
+                    return float(s)
+                return int(s)
+            except ValueError:
+                return None
+        return None
+
     source_app: str | None = Field(None, max_length=256)
     raw_notes: str | None = Field(None, max_length=2048)
 

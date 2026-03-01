@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile
+from pydantic import ValidationError as PydanticValidationError
 
 from app.api.deps import check_photo_usage, get_current_user
 from app.db.session import get_db
@@ -91,6 +92,8 @@ async def analyze_photo(
         kind, result = await classify_and_analyze_image(image_bytes)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+    except PydanticValidationError:
+        raise HTTPException(status_code=422, detail="Could not parse analysis result. Please try another photo.")
     except Exception:
         logging.exception("Photo classify+analyze failed")
         raise HTTPException(status_code=502, detail="AI analysis failed. Please try again.")
