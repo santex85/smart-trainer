@@ -6,7 +6,7 @@ import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -230,6 +230,11 @@ class SendMessageBody(BaseModel):
 
 class CreateThreadBody(BaseModel):
     title: str | None = None
+
+
+class RunOrchestratorBody(BaseModel):
+    locale: str = "ru"
+    for_date: date | None = None
 
 
 async def _get_or_create_default_thread(session: AsyncSession, user_id: int) -> ChatThread:
@@ -545,11 +550,13 @@ async def send_message_with_file(
 async def run_orchestrator(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
-    for_date: date | None = None,
+    body: RunOrchestratorBody | None = Body(default=None),
 ) -> dict:
     """Run daily decision (Go/Modify/Skip) for today and return result. May update Intervals and add chat message."""
     uid = user.id
-    result = await run_daily_decision(session, uid, for_date or date.today())
+    locale = body.locale if body else "ru"
+    for_date = body.for_date if body else None
+    result = await run_daily_decision(session, uid, for_date or date.today(), locale=locale)
     await session.commit()
     return {
         "decision": result.decision.value,

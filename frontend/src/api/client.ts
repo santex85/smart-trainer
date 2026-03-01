@@ -798,8 +798,13 @@ export async function sendChatMessageWithFit(
   return res.json() as Promise<{ reply: string }>;
 }
 
-export async function runOrchestrator(): Promise<{ decision: string; reason: string; modified_plan?: unknown; suggestions_next_days?: string }> {
-  return api("/api/v1/chat/orchestrator/run", { method: "POST" });
+export async function runOrchestrator(
+  locale?: string
+): Promise<{ decision: string; reason: string; modified_plan?: unknown; suggestions_next_days?: string }> {
+  return api("/api/v1/chat/orchestrator/run", {
+    method: "POST",
+    body: { locale: locale ?? "ru" },
+  });
 }
 
 // Auth (no token required for login/register)

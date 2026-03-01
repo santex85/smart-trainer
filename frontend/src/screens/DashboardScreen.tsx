@@ -1035,7 +1035,7 @@ export function DashboardScreen({
     setAnalysisLoading(true);
     setLastAnalysisResult(null);
     try {
-      const result = await runOrchestrator();
+      const result = await runOrchestrator("ru");
       setLastAnalysisResult(result);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       load();

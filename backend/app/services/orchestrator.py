@@ -66,6 +66,29 @@ Example (Skip):
 
 No metaphors, no long text. Output only a single JSON object, no markdown code fences."""
 
+LOCALE_LANGUAGE = {"ru": "Russian", "en": "English"}
+
+
+def _language_for_locale(locale: str) -> str:
+    return LOCALE_LANGUAGE.get((locale or "ru").lower(), "Russian")
+
+
+def _build_system_prompt(locale: str, had_workout_today: bool) -> str:
+    lang = _language_for_locale(locale)
+    lang_rule = f"You must respond only in {lang}. All fields 'reason' and 'suggestions_next_days' must be in this language."
+    if had_workout_today:
+        scenario = (
+            "The athlete already had a workout today. In 'reason' give a brief assessment of the day and readiness. "
+            "In 'suggestions_next_days' give recovery/rest recommendations and concrete recommendations for tomorrow."
+        )
+    else:
+        scenario = (
+            "The athlete has not trained today. In 'reason' keep the Go/Modify/Skip explanation. "
+            "In 'suggestions_next_days' give recommendations for today and for tomorrow."
+        )
+    return f"{SYSTEM_PROMPT}\n\n{lang_rule}\n\n{scenario}"
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -117,6 +140,7 @@ def _build_context(
     food_entries: list[dict] | None = None,
     wellness_history: list[dict] | None = None,
     recent_workouts: list[dict] | None = None,
+    had_workout_today: bool | None = None,
 ) -> str:
     parts = [
         "## Athlete profile (weight, height, age, FTP, name, sex)",
@@ -136,6 +160,9 @@ def _build_context(
         "## Recent workouts (manual/FIT, if any)",
         json.dumps(recent_workouts or [], default=str),
     ]
+    if had_workout_today is not None:
+        parts.append("## Workout already done today (yes/no)")
+        parts.append("yes" if had_workout_today else "no")
     return "\n".join(parts)
 
 
@@ -143,6 +170,7 @@ async def run_daily_decision(
     session: AsyncSession,
     user_id: int,
     today: date | None = None,
+    locale: str = "ru",
 ) -> OrchestratorResponse:
     """
     Aggregate context from food_log, wellness_cache, and Intervals events;
@@ -274,6 +302,11 @@ async def run_daily_decision(
             "source": w.source,
         })
 
+    had_workout_today = any(
+        (w.get("date") or "").startswith(str(today)) or (w.get("date") == today.isoformat())
+        for w in recent_workouts
+    )
+
     events_today: list[dict] = []
     creds = r_creds.scalar_one_or_none()
     if creds:
@@ -298,14 +331,16 @@ async def run_daily_decision(
         food_entries=food_entries,
         wellness_history=wellness_history,
         recent_workouts=recent_workouts,
+        had_workout_today=had_workout_today,
     )
 
+    system_prompt = _build_system_prompt(locale, had_workout_today)
     model = genai.GenerativeModel(
         settings.gemini_model,
         generation_config=GENERATION_CONFIG,
         safety_settings=SAFETY_SETTINGS,
     )
-    response = await run_generate_content(model, [SYSTEM_PROMPT, "\n\nContext:\n" + context])
+    response = await run_generate_content(model, [system_prompt, "\n\nContext:\n" + context])
     if not response or not response.text:
         return OrchestratorResponse(decision=Decision.SKIP, reason="No AI response; defaulting to Skip.")
     try:
