@@ -932,6 +932,19 @@ export function DashboardScreen({
 
   const WEEKLY_SLEEP_NORM_HOURS = 7 * 7;
 
+  const normalizeSleepDateKey = (raw: string | null | undefined): string => {
+    const s = String(raw ?? "").trim();
+    if (s.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    if (s.length >= 7 && /^\d{4}-\d{2}/.test(s)) return `${s.slice(0, 7)}-01`;
+    return "";
+  };
+
+  const formatSleepHistoryDate = (dateKey: string): string => {
+    if (dateKey.length >= 10 && /^\d{4}-\d{2}-\d{2}$/.test(dateKey.slice(0, 10)))
+      return `${dateKey.slice(8, 10)}/${dateKey.slice(5, 7)}`;
+    return "—/—";
+  };
+
   type SleepHistoryEntry = { date: string; hours: number; source: "photo" | "manual"; extraction?: SleepExtractionSummary };
 
   const combinedSleepHistory = useMemo(() => {
@@ -939,12 +952,13 @@ export function DashboardScreen({
     wellnessWeek.forEach((d) => {
       const h = d?.sleep_hours ?? 0;
       if (h <= 0) return;
-      const dateKey = String(d?.date ?? "").slice(0, 10);
+      const dateKey = normalizeSleepDateKey(d?.date);
       if (!dateKey) return;
       byDate.set(dateKey, { date: dateKey, hours: h, source: "manual" });
     });
     sleepExtractions.forEach((ext) => {
-      const dateKey = (ext.sleep_date ?? ext.created_at?.slice(0, 10) ?? "").slice(0, 10);
+      const raw = ext.sleep_date ?? ext.created_at?.slice(0, 10) ?? "";
+      const dateKey = normalizeSleepDateKey(raw);
       if (!dateKey) return;
       const hours = ext.actual_sleep_hours ?? ext.sleep_hours ?? 0;
       byDate.set(dateKey, { date: dateKey, hours, source: "photo", extraction: ext });
@@ -1299,7 +1313,7 @@ export function DashboardScreen({
                   <View key={entry.source === "photo" && entry.extraction ? `photo-${entry.extraction.id}` : `wellness-${entry.date}`}>
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
                       <Text style={styles.hint}>
-                        {entry.date.slice(8, 10)}/{entry.date.slice(5, 7)} · {entry.hours} ч
+                        {formatSleepHistoryDate(entry.date)} · {entry.hours} ч
                         {entry.source === "manual" ? ` (${t("wellness.historyManual")})` : ""}
                       </Text>
                       {entry.source === "photo" && entry.extraction?.can_reanalyze && sleepReanalyzeExtId !== entry.extraction.id ? (
