@@ -9,5 +9,5 @@ appId: com.smarttrainer.app
     id: "password-input"
     text: "password123"
 - tapOn: "Зарегистрироваться"
-- assertVisible: "Smart Trainer"
+- assertVisible: "tss.ai"
 - tapOn: "Фото"

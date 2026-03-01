@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
-import { createCheckoutSession, type BillingPlan } from "../api/client";
+import { createCheckoutSession, getSubscription, type BillingPlan } from "../api/client";
 
 function getBaseUrl(): string {
   if (typeof window !== "undefined" && window.location?.origin) {
@@ -31,6 +31,16 @@ export function PricingScreen({
   const { colors } = useTheme();
   const [loading, setLoading] = useState<BillingPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState<boolean>(props.isPremium ?? false);
+  useEffect(() => {
+    if (props.isPremium !== undefined) {
+      setIsPremium(props.isPremium);
+      return;
+    }
+    getSubscription()
+      .then((s) => setIsPremium(s.is_premium))
+      .catch(() => {});
+  }, [props.isPremium]);
 
   const handleCheckout = async (plan: BillingPlan) => {
     setError(null);

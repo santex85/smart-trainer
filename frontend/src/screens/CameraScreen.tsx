@@ -26,6 +26,7 @@ import {
 } from "../api/client";
 import { t } from "../i18n";
 import { devLog, getLogs, clearLogs, subscribe, isDevLogEnabled, type LogEntry } from "../utils/devLog";
+import { PremiumGateModal } from "../components/PremiumGateModal";
 
 function getErrorMessage(e: unknown): string {
   if (!(e instanceof Error)) return "Failed to analyze photo.";
@@ -97,11 +98,13 @@ export function CameraScreen({
   onSaved,
   onSleepSaved,
   onWellnessSaved,
+  onOpenPricing,
 }: {
   onClose: () => void;
   onSaved?: (result: NutritionResult) => void;
   onSleepSaved?: (result: SleepExtractionResponse) => void;
   onWellnessSaved?: () => void;
+  onOpenPricing?: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -122,6 +125,7 @@ export function CameraScreen({
     carbs_g: number;
   } | null>(null);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
+  const [premiumGateVisible, setPremiumGateVisible] = useState(false);
 
   const isPreview = (): boolean => {
     if (!photoResult) return false;
@@ -185,7 +189,12 @@ export function CameraScreen({
       }
     } catch (e) {
       devLog(`pickImage: error ${e instanceof Error ? e.message : String(e)}`, "error");
-      Alert.alert("Ошибка", getErrorMessage(e));
+      const msg = e instanceof Error ? e.message : "";
+      if ((msg.includes("429") || msg.includes("limit") || msg.includes("Daily limit")) && onOpenPricing) {
+        setPremiumGateVisible(true);
+      } else {
+        Alert.alert("Ошибка", getErrorMessage(e));
+      }
     } finally {
       setLoading(false);
     }
@@ -237,7 +246,12 @@ export function CameraScreen({
       }
     } catch (e) {
       devLog(`takePhoto: error ${e instanceof Error ? e.message : String(e)}`, "error");
-      Alert.alert("Ошибка", getErrorMessage(e));
+      const msg = e instanceof Error ? e.message : "";
+      if ((msg.includes("429") || msg.includes("limit") || msg.includes("Daily limit")) && onOpenPricing) {
+        setPremiumGateVisible(true);
+      } else {
+        Alert.alert("Ошибка", getErrorMessage(e));
+      }
     } finally {
       setLoading(false);
     }
@@ -528,6 +542,13 @@ export function CameraScreen({
           </>
         )}
       </ScrollView>
+
+      <PremiumGateModal
+        visible={premiumGateVisible}
+        onClose={() => setPremiumGateVisible(false)}
+        onUpgrade={() => { setPremiumGateVisible(false); onOpenPricing?.(); }}
+        limitReached
+      />
     </SafeAreaView>
   );
 }

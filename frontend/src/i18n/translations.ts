@@ -5,7 +5,7 @@
 export const ru = {
   app: {
     loading: "Загрузка…",
-    brandTitle: "Smart Trainer",
+    brandTitle: "tss.ai",
     brandSubtitle: "Питание, сон и тренировки в одном месте",
     logout: "Выйти",
   },

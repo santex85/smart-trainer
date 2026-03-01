@@ -31,6 +31,7 @@ import {
 } from "../api/client";
 import { useTheme } from "../theme";
 import { Ionicons } from "@expo/vector-icons";
+import { PremiumGateModal } from "../components/PremiumGateModal";
 
 function formatChatTime(isoOrTimestamp: string): string {
   try {
@@ -47,9 +48,10 @@ function formatChatTime(isoOrTimestamp: string): string {
   }
 }
 
-export function ChatScreen({ onClose }: { onClose: () => void }) {
+export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; onOpenPricing?: () => void }) {
   const { colors } = useTheme();
   const [threads, setThreads] = useState<ChatThreadItem[]>([]);
+  const [premiumGateVisible, setPremiumGateVisible] = useState(false);
   const [currentThreadId, setCurrentThreadId] = useState<number | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -278,10 +280,15 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (e) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Ошибка: " + (e instanceof Error ? e.message : "Запрос не удался") },
-      ]);
+      const msg = e instanceof Error ? e.message : "Запрос не удался";
+      if ((msg.includes("429") || msg.includes("limit") || msg.includes("Daily limit")) && onOpenPricing) {
+        setPremiumGateVisible(true);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: "Ошибка: " + msg },
+        ]);
+      }
     } finally {
       setLoading(false);
     }
@@ -459,6 +466,13 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <PremiumGateModal
+        visible={premiumGateVisible}
+        onClose={() => setPremiumGateVisible(false)}
+        onUpgrade={() => { setPremiumGateVisible(false); onOpenPricing?.(); }}
+        limitReached
+      />
     </SafeAreaView>
   );
 }

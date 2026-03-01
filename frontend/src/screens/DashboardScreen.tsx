@@ -51,6 +51,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import { PremiumGateModal } from "../components/PremiumGateModal";
 
 const CALORIE_GOAL = 2200;
 const CARBS_GOAL = 250;
@@ -878,6 +879,7 @@ export function DashboardScreen({
   onOpenAthleteProfile,
   onOpenIntervals,
   onSyncIntervals,
+  onOpenPricing,
   refreshNutritionTrigger = 0,
   refreshSleepTrigger = 0,
   refreshWellnessTrigger = 0,
@@ -888,6 +890,7 @@ export function DashboardScreen({
   onOpenChat: () => void;
   onOpenAthleteProfile?: () => void;
   onOpenIntervals?: () => void;
+  onOpenPricing?: () => void;
   onSyncIntervals?: () => Promise<{ activities_synced?: number; wellness_days_synced?: number } | void>;
   refreshNutritionTrigger?: number;
   refreshSleepTrigger?: number;
@@ -921,6 +924,7 @@ export function DashboardScreen({
   const [sleepReanalyzeExtId, setSleepReanalyzeExtId] = useState<number | null>(null);
   const [sleepReanalyzeCorrection, setSleepReanalyzeCorrection] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
+  const [premiumGateVisible, setPremiumGateVisible] = useState(false);
   const { colors, toggleTheme } = useTheme();
 
   const glassCardStyle = useMemo(() => [
@@ -1131,7 +1135,11 @@ export function DashboardScreen({
       load();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Request failed";
-      Alert.alert("Ошибка", msg);
+      if (msg.includes("Premium") || msg.includes("403")) {
+        setPremiumGateVisible(true);
+      } else {
+        Alert.alert("Ошибка", msg);
+      }
     } finally {
       setAnalysisLoading(false);
     }
@@ -1148,7 +1156,14 @@ export function DashboardScreen({
         <Pressable style={[styles.menuBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={() => setMenuVisible(false)}>
           <Pressable style={[styles.menuBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
             <View style={styles.menuHeader}>
-              {user?.email ? <Text style={styles.menuEmail} numberOfLines={1}>{user.email}</Text> : <View />}
+              <View style={styles.menuHeaderLeft}>
+                {user?.email ? <Text style={styles.menuEmail} numberOfLines={1}>{user.email}</Text> : null}
+                {athleteProfile?.is_premium ? (
+                  <View style={[styles.proBadge, { backgroundColor: colors.primary + "33" }]}>
+                    <Text style={[styles.proBadgeText, { color: colors.primary }]}>Pro</Text>
+                  </View>
+                ) : null}
+              </View>
               <TouchableOpacity
                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setMenuVisible(false); }}
                 style={styles.menuCloseBtn}
@@ -1192,9 +1207,24 @@ export function DashboardScreen({
               <Text style={styles.menuItemText}>Открыть чат AI-тренера</Text>
               <Ionicons name="chevron-forward" size={20} color="#9ca3af" style={styles.menuItemChevron} />
             </Pressable>
+            {onOpenPricing ? (
+              <Pressable
+                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                onPress={() => { onOpenPricing(); setMenuVisible(false); }}
+              >
+                <Ionicons name="card-outline" size={22} color="#9ca3af" style={styles.menuItemIcon} />
+                <Text style={styles.menuItemText}>{t("pricing.title")}</Text>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" style={styles.menuItemChevron} />
+              </Pressable>
+            ) : null}
           </Pressable>
         </Pressable>
       </Modal>
+      <PremiumGateModal
+        visible={premiumGateVisible}
+        onClose={() => setPremiumGateVisible(false)}
+        onUpgrade={() => { setPremiumGateVisible(false); onOpenPricing?.(); }}
+      />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
@@ -1202,7 +1232,7 @@ export function DashboardScreen({
       >
       <View style={styles.contentWrap}>
       <View style={styles.topBar}>
-        <Text style={styles.brandTitle}>Smart Trainer</Text>
+        <Text style={styles.brandTitle}>{t("app.brandTitle")}</Text>
         <TouchableOpacity
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -1723,7 +1753,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
   menuHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  menuHeaderLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
   menuEmail: { fontSize: 12, color: "#888888", flex: 1 },
+  proBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  proBadgeText: { fontSize: 12, fontWeight: "700" },
   menuCloseBtn: { padding: 4 },
   menuCloseIcon: { fontSize: 20, color: "#94a3b8", fontWeight: "600" },
   menuItem: { flexDirection: "row", alignItems: "center", paddingVertical: 8, borderRadius: 8 },

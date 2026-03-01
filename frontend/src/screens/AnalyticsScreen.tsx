@@ -28,6 +28,7 @@ import {
 } from "../api/client";
 import { useTheme } from "../theme";
 import { t } from "../i18n";
+import { PremiumGateModal } from "../components/PremiumGateModal";
 
 const TAB_KEYS = ["overview", "sleep", "training", "nutrition"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
@@ -40,8 +41,9 @@ function formatShortDate(iso: string): string {
   return `${d.getDate()}/${d.getMonth() + 1}`;
 }
 
-export function AnalyticsScreen({ onClose }: { onClose: () => void }) {
+export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => void; onOpenPricing?: () => void }) {
   const { colors } = useTheme();
+  const [premiumGateVisible, setPremiumGateVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [days, setDays] = useState(DAYS_DEFAULT);
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
@@ -120,7 +122,12 @@ export function AnalyticsScreen({ onClose }: { onClose: () => void }) {
         const res = await postAnalyticsInsight(chartType, data, insightQuestion || undefined);
         setInsightText(res.insight);
       } catch (e) {
-        setInsightText(e instanceof Error ? e.message : "Ошибка запроса");
+        const msg = e instanceof Error ? e.message : "Ошибка запроса";
+        if ((msg.includes("403") || msg.includes("Premium")) && onOpenPricing) {
+          setPremiumGateVisible(true);
+        } else {
+          setInsightText(msg);
+        }
       } finally {
         setInsightLoading(false);
       }
@@ -283,6 +290,12 @@ export function AnalyticsScreen({ onClose }: { onClose: () => void }) {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <PremiumGateModal
+        visible={premiumGateVisible}
+        onClose={() => setPremiumGateVisible(false)}
+        onUpgrade={() => { setPremiumGateVisible(false); onOpenPricing?.(); }}
+      />
     </SafeAreaView>
   );
 }

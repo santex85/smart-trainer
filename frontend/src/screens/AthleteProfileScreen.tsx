@@ -15,6 +15,8 @@ import {
   getAthleteProfile,
   updateAthleteProfile,
   updateMyPremium,
+  getSubscription,
+  createPortalSession,
   type AthleteProfileResponse,
 } from "../api/client";
 
@@ -48,7 +50,7 @@ function getErrorMessage(e: unknown): string {
   return e.message || "Request failed.";
 }
 
-export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
+export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () => void; onOpenPricing?: () => void }) {
   const [profile, setProfile] = useState<AthleteProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -63,12 +65,18 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
   const [carbsGoal, setCarbsGoal] = useState("");
   const [nutritionInputMode, setNutritionInputMode] = useState<"calories" | "bju">("calories");
   const [premiumToggling, setPremiumToggling] = useState(false);
+  const [subscription, setSubscription] = useState<Awaited<ReturnType<typeof getSubscription>> | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const p = await getAthleteProfile();
+      const [p, sub] = await Promise.all([
+        getAthleteProfile(),
+        getSubscription().catch(() => null),
+      ]);
       setProfile(p);
+      setSubscription(sub ?? null);
       setWeight(p.weight_kg != null ? String(p.weight_kg) : "");
       setHeight(p.height_cm != null ? String(p.height_cm) : "");
       setBirthYear(p.birth_year != null ? String(p.birth_year) : "");
@@ -196,6 +204,36 @@ export function AthleteProfileScreen({ onClose }: { onClose: () => void }) {
               trackColor={{ false: "#334155", true: "#38bdf8" }}
               thumbColor="#e2e8f0"
             />
+          </View>
+        ) : null}
+
+        {onOpenPricing ? (
+          <View style={styles.subscriptionSection}>
+            <Text style={styles.sectionTitle}>{subscription?.is_premium ? "Подписка Pro" : "Подписка"}</Text>
+            {subscription?.has_subscription ? (
+              <TouchableOpacity
+                style={styles.subscriptionBtn}
+                onPress={async () => {
+                  setPortalLoading(true);
+                  try {
+                    const base = typeof window !== "undefined" && window.location?.origin ? window.location.origin : "https://example.com";
+                    const { url } = await createPortalSession(`${base}/?portal=return`);
+                    if (url && typeof window !== "undefined") window.location.href = url;
+                  } catch (e) {
+                    Alert.alert("Ошибка", getErrorMessage(e));
+                  } finally {
+                    setPortalLoading(false);
+                  }
+                }}
+                disabled={portalLoading}
+              >
+                {portalLoading ? <ActivityIndicator size="small" color="#38bdf8" /> : <Text style={styles.subscriptionBtnText}>Управление подпиской</Text>}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.subscriptionBtn} onPress={onOpenPricing}>
+                <Text style={styles.subscriptionBtnText}>Перейти на Pro</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : null}
 
@@ -460,6 +498,16 @@ const styles = StyleSheet.create({
   labelInRow: { fontSize: 14, color: "#94a3b8", marginTop: 0 },
   rowValue: { flexDirection: "row", alignItems: "baseline", gap: 6 },
   premiumRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16, marginBottom: 8 },
+  subscriptionSection: { marginTop: 20, marginBottom: 8 },
+  subscriptionBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(56, 189, 248, 0.2)",
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  subscriptionBtnText: { fontSize: 16, fontWeight: "600", color: "#38bdf8" },
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
     borderWidth: 1,

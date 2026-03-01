@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Smart Trainer",
-    "slug": "smart-trainer",
+    "name": "tss.ai",
+    "slug": "tss-ai",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

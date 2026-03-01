@@ -18,6 +18,7 @@ import { ChatScreen } from "./src/screens/ChatScreen";
 import { AthleteProfileScreen } from "./src/screens/AthleteProfileScreen";
 import { AnalyticsScreen } from "./src/screens/AnalyticsScreen";
 import { IntervalsLinkScreen } from "./src/screens/IntervalsLinkScreen";
+import { PricingScreen } from "./src/screens/PricingScreen";
 import type { AuthUser } from "./src/api/client";
 import { t } from "./src/i18n";
 import { Ionicons } from "@expo/vector-icons";
@@ -32,6 +33,7 @@ function AppContent() {
   const [isReady, setIsReady] = useState(false);
   const [cameraVisible, setCameraVisible] = useState(false);
   const [intervalsVisible, setIntervalsVisible] = useState(false);
+  const [pricingVisible, setPricingVisible] = useState(false);
   const [refreshNutritionTrigger, setRefreshNutritionTrigger] = useState(0);
   const [refreshSleepTrigger, setRefreshSleepTrigger] = useState(0);
   const [refreshWellnessTrigger, setRefreshWellnessTrigger] = useState(0);
@@ -177,6 +179,7 @@ function AppContent() {
                   onOpenChat={() => navigation.navigate("Chat")}
                   onOpenAthleteProfile={() => navigation.navigate("Profile")}
                   onOpenIntervals={() => setIntervalsVisible(true)}
+                  onOpenPricing={() => setPricingVisible(true)}
                   onSyncIntervals={async () => {
                     const result = await syncIntervals();
                     setRefreshWellnessTrigger((t) => t + 1);
@@ -193,7 +196,7 @@ function AppContent() {
               options={{ tabBarLabel: t("tabs.chat") }}
             >
               {({ navigation }) => (
-                <ChatScreen onClose={() => navigation.navigate("Home")} />
+                <ChatScreen onClose={() => navigation.navigate("Home")} onOpenPricing={() => setPricingVisible(true)} />
               )}
             </Tab.Screen>
             <Tab.Screen
@@ -201,7 +204,7 @@ function AppContent() {
               options={{ tabBarLabel: t("tabs.analytics") }}
             >
               {({ navigation }) => (
-                <AnalyticsScreen onClose={() => navigation.navigate("Home")} />
+                <AnalyticsScreen onClose={() => navigation.navigate("Home")} onOpenPricing={() => setPricingVisible(true)} />
               )}
             </Tab.Screen>
             <Tab.Screen
@@ -209,7 +212,7 @@ function AppContent() {
               options={{ tabBarLabel: t("tabs.profile") }}
             >
               {({ navigation }) => (
-                <AthleteProfileScreen onClose={() => navigation.navigate("Home")} />
+                <AthleteProfileScreen onClose={() => navigation.navigate("Home")} onOpenPricing={() => setPricingVisible(true)} />
               )}
             </Tab.Screen>
           </Tab.Navigator>
@@ -219,6 +222,7 @@ function AppContent() {
           <View style={[styles.modal, { backgroundColor: colors.background }]}>
             <CameraScreen
               onClose={closeCamera}
+              onOpenPricing={() => setPricingVisible(true)}
               onSaved={() => {
                 setRefreshNutritionTrigger((t) => t + 1);
                 setCameraVisible(false);
@@ -241,6 +245,12 @@ function AppContent() {
               onClose={() => setIntervalsVisible(false)}
               onSynced={() => setRefreshWellnessTrigger((t) => t + 1)}
             />
+          </View>
+        )}
+
+        {pricingVisible && (
+          <View style={[styles.modal, { backgroundColor: colors.background }]}>
+            <PricingScreen onClose={() => setPricingVisible(false)} />
           </View>
         )}
 

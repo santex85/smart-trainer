@@ -23,7 +23,7 @@ async def send_expo_push(token: str, title: str, body: str) -> None:
             EXPO_PUSH_URL,
             json={
                 "to": token,
-                "title": title[:100] if title else "Smart Trainer",
+                "title": title[:100] if title else "tss.ai",
                 "body": (body or "")[:200],
             },
         )
