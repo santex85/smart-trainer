@@ -46,17 +46,6 @@ def _validate_image(file: UploadFile, image_bytes: bytes) -> None:
         raise HTTPException(status_code=400, detail="File must be a valid image (JPEG, PNG, GIF or WebP).")
 
 
-@router.post(
-    "/analyze",
-    response_model=PhotoAnalyzeResponse,
-    summary="Analyze photo (food or sleep)",
-    responses={
-        400: {"description": "Invalid image"},
-        401: {"description": "Not authenticated"},
-        422: {"description": "AI could not analyze"},
-        502: {"description": "AI service unavailable"},
-    },
-)
 def _parse_optional_date(value: str | None) -> date | None:
     """Parse YYYY-MM-DD from client; return None if invalid or missing."""
     if not value or not isinstance(value, str):
@@ -70,6 +59,17 @@ def _parse_optional_date(value: str | None) -> date | None:
     return None
 
 
+@router.post(
+    "/analyze",
+    response_model=PhotoAnalyzeResponse,
+    summary="Analyze photo (food or sleep)",
+    responses={
+        400: {"description": "Invalid image"},
+        401: {"description": "Not authenticated"},
+        422: {"description": "AI could not analyze"},
+        502: {"description": "AI service unavailable"},
+    },
+)
 async def analyze_photo(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
