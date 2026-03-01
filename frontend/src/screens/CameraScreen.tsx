@@ -169,11 +169,17 @@ export function CameraScreen({
       const res = await uploadPhotoForAnalysis(
         { uri: asset.uri, name: "meal.jpg", type: "image/jpeg" },
         undefined,
-        false
+        true
       );
       devLog("pickImage: upload success");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setPhotoResult(res);
+      if (res?.type === "sleep" && res.sleep?.id != null && res.sleep.id > 0) {
+        onSleepSaved?.(res.sleep);
+      }
+      if (res?.type === "wellness") {
+        onWellnessSaved?.();
+      }
       if (res?.type === "food") {
         setSelectedMealType("other");
         setEditedFood({
@@ -227,10 +233,16 @@ export function CameraScreen({
       const res = await uploadPhotoForAnalysis(
         { uri: asset.uri, name: "meal.jpg", type: "image/jpeg" },
         undefined,
-        false
+        true
       );
       devLog("takePhoto: upload success");
       setPhotoResult(res);
+      if (res?.type === "sleep" && res.sleep?.id != null && res.sleep.id > 0) {
+        onSleepSaved?.(res.sleep);
+      }
+      if (res?.type === "wellness") {
+        onWellnessSaved?.();
+      }
       if (res?.type === "food") {
         setSelectedMealType("other");
         setEditedFood({
@@ -262,21 +274,25 @@ export function CameraScreen({
     setSaving(true);
     try {
       if (photoResult.type === "food") {
-        const today = new Date().toISOString().slice(0, 10);
-        const payload = editedFood ?? {
-          name: photoResult.food.name,
-          portion_grams: photoResult.food.portion_grams,
-          calories: photoResult.food.calories,
-          protein_g: photoResult.food.protein_g,
-          fat_g: photoResult.food.fat_g,
-          carbs_g: photoResult.food.carbs_g,
-        };
-        await createNutritionEntry({
-          ...payload,
-          meal_type: selectedMealType,
-          date: today,
-        });
-        onSaved?.({ ...photoResult.food, ...payload });
+        if (photoResult.food.id != null && photoResult.food.id > 0) {
+          onSaved?.(photoResult.food);
+        } else {
+          const today = new Date().toISOString().slice(0, 10);
+          const payload = editedFood ?? {
+            name: photoResult.food.name,
+            portion_grams: photoResult.food.portion_grams,
+            calories: photoResult.food.calories,
+            protein_g: photoResult.food.protein_g,
+            fat_g: photoResult.food.fat_g,
+            carbs_g: photoResult.food.carbs_g,
+          };
+          await createNutritionEntry({
+            ...payload,
+            meal_type: selectedMealType,
+            date: today,
+          });
+          onSaved?.({ ...photoResult.food, ...payload });
+        }
       } else if (photoResult.type === "wellness") {
         const today = new Date().toISOString().slice(0, 10);
         await createOrUpdateWellness({
@@ -285,16 +301,28 @@ export function CameraScreen({
           hrv: photoResult.wellness.hrv ?? undefined,
         });
         onWellnessSaved?.();
-      } else {
-        const saved = await saveSleepFromPreview(photoResult.sleep.extracted_data);
-        onSleepSaved?.(saved);
+        Alert.alert("Сохранено", "Данные пульса (RHR/HRV) сохранены.");
+      } else if (photoResult.type === "sleep") {
+        if (photoResult.sleep.id != null && photoResult.sleep.id > 0) {
+          onSleepSaved?.(photoResult.sleep);
+        } else {
+          const saved = await saveSleepFromPreview(photoResult.sleep.extracted_data);
+          onSleepSaved?.(saved);
+        }
+        Alert.alert("Сохранено", "Данные сна сохранены.");
       }
       setPhotoResult(null);
       setSelectedPhotoUri(null);
       onClose();
     } catch (e) {
       devLog(`handleSave: error ${e instanceof Error ? e.message : String(e)}`, "error");
-      Alert.alert("Ошибка", getErrorMessage(e));
+      const isSleepSave =
+        photoResult?.type === "sleep" &&
+        (photoResult.sleep.id == null || photoResult.sleep.id === 0);
+      const message = isSleepSave
+        ? `Не удалось сохранить данные сна: ${getErrorMessage(e)}`
+        : getErrorMessage(e);
+      Alert.alert("Ошибка", message);
     } finally {
       setSaving(false);
     }

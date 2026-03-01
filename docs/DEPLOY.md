@@ -88,6 +88,27 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend ale
 
 Открыть `https://<ваш-домен>`, проверить логин и API.
 
+### Если 502 Bad Gateway на /api/v1/...
+
+Caddy отдаёт трафик во frontend (nginx), nginx проксирует `/api/` на `backend:8000`. 502 значит, что backend не отвечает.
+
+На сервере выполнить:
+
+```bash
+cd /root/smart_trainer  # или ваш путь к репозиторию
+docker compose -f docker-compose.yml -f docker-compose.prod.yml ps -a
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs backend --tail 100
+```
+
+- Если контейнер **backend** в состоянии **Exited** — смотреть логи выше, типично: ошибка БД (DATABASE_URL), отсутствие переменной в `.env`, краш при старте.
+- Если **backend** в состоянии **Up** — проверить изнутри frontend, доступен ли backend:  
+  `docker compose -f docker-compose.yml -f docker-compose.prod.yml exec frontend wget -qO- http://backend:8000/health`  
+  Должен вернуть ответ от backend. Если нет — сеть или backend не слушает порт 8000.
+- Перезапуск backend:  
+  `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d backend`  
+  После изменений в `.env`:  
+  `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate backend`
+
 ## 5. Prometheus и Grafana (мониторинг)
 
 В production compose поднимаются Prometheus и Grafana. Метрики backend доступны по `GET /metrics`.

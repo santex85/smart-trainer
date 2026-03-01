@@ -186,6 +186,7 @@ async def analyze_photo(
     if save:
         try:
             record, data = await save_sleep_result(session, user.id, result)
+            await session.commit()
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except Exception:

@@ -55,6 +55,21 @@ def _logical_key(row: Workout) -> str:
     return f"{start_iso}|{row.name or ''}|{row.duration_sec or ''}|{row.tss or ''}"
 
 
+def _date_logical_key(row: Workout) -> str:
+    """Key by date only (no time), name, duration_sec, tss — for list dedupe."""
+    date_str = row.start_date.date().isoformat() if row.start_date else ""
+    return f"{date_str}|{row.name or ''}|{row.duration_sec or ''}|{row.tss or ''}"
+
+
+def _row_priority(row: Workout) -> int:
+    """Higher = prefer when deduping: Intervals (external_id) > FIT (fit_checksum/series) > manual."""
+    if row.external_id:
+        return 2
+    if row.fit_checksum or (row.raw or {}).get("series"):
+        return 1
+    return 0
+
+
 # Matching tolerances for "same workout" (merge)
 DURATION_TOLERANCE = 0.02   # ±2%
 TSS_TOLERANCE = 0.05       # ±5%
@@ -183,19 +198,22 @@ async def list_workouts(
     ).order_by(Workout.start_date.desc())
     count_q = select(func.count()).select_from(base.subquery())
     total = (await session.execute(count_q)).scalar() or 0
-    # Fetch a slice; we may get fewer than limit after deduplication
+    # Fetch a slice; dedupe by date-only key, keep best row per key (Intervals > FIT > manual)
     r = await session.execute(base.offset(offset).limit(limit * 2))
     rows = r.scalars().all()
-    seen: set[str] = set()
-    out: list[dict] = []
+    best_by_key: dict[str, Workout] = {}
     for row in rows:
-        key = _logical_key(row)
-        if key in seen:
-            continue
-        seen.add(key)
-        if len(out) >= limit:
-            break
-        out.append(_row_to_response(row))
+        key = _date_logical_key(row)
+        if key not in best_by_key:
+            best_by_key[key] = row
+        elif _row_priority(row) > _row_priority(best_by_key[key]):
+            best_by_key[key] = row
+    best_list = sorted(
+        best_by_key.values(),
+        key=lambda r: r.start_date or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )[:limit]
+    out = [_row_to_response(r) for r in best_list]
     return PaginatedResponse(
         items=out,
         total=total,
