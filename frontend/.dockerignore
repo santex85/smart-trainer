@@ -8,3 +8,11 @@ web-build
 .env.*
 !.env.example
 npm-debug.log*
+# Tests and specs (not needed for expo export -p web)
+**/__tests__
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+**/__mocks__
+**/coverage

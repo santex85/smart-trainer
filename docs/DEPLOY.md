@@ -72,6 +72,8 @@ fail2ban-client status caddy-auth   # если включён
 
 ## 3. Деплой на сервере (по git)
 
+Для ускорения сборки используется кэш Docker (слои) и кэш Metro/Expo (BuildKit cache mount в frontend). Сборку выполняйте **без** `--no-cache`, если не менялись зависимости — тогда пересоберутся только изменённые слои.
+
 ```bash
 git clone <url> smart_trainer
 cd smart_trainer
@@ -83,6 +85,8 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml build
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend alembic upgrade head
 ```
+
+Использование **`build --no-cache`**: только при смене `package.json`/`package-lock.json` или для принудительной полной пересборки (отладка, подозрение на испорченный кэш). Сборка займёт заметно больше времени.
 
 ## 4. Проверка
 
@@ -120,7 +124,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml logs backend --t
 
 ## 6. Обновления
 
-Вручную:
+Вручную (обычное обновление кода — **без** `--no-cache`, чтобы использовать кэш слоёв и кэш Metro/Expo):
 
 ```bash
 cd smart_trainer
@@ -129,6 +133,9 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml build
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend alembic upgrade head  # при необходимости
 ```
+
+- Для **рутинного деплоя** используйте `build` без флагов. Кэш npm (слой установки зависимостей) и кэш Metro/Expo (BuildKit cache mount в frontend Dockerfile) ускорят повторные сборки. BuildKit включён по умолчанию в актуальных версиях Docker.
+- **`build --no-cache`** — только если менялись `package.json`/`package-lock.json` или нужна полная пересборка.
 
 Автоматически (при push в `main`): GitHub Actions workflow `.github/workflows/deploy.yml` подключается по SSH и выполняет те же команды. Нужны секреты в Settings → Secrets and variables → Actions: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`. На сервере репозиторий должен быть в `/root/smart_trainer` (или изменить путь в workflow).
 

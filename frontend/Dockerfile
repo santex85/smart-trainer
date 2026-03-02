@@ -10,7 +10,9 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY . .
 ENV EXPO_PUBLIC_API_URL=
 ENV EXPO_PUBLIC_DEV_LOG=1
-RUN npx expo export -p web
+RUN --mount=type=cache,target=/app/node_modules/.cache \
+    --mount=type=cache,target=/app/.expo \
+    npx expo export -p web
 
 # Stage 2: serve with nginx
 FROM nginx:alpine

@@ -7,7 +7,7 @@ export const ru = {
     loading: "Загрузка…",
     errorBoundary: "Что-то пошло не так",
     errorBoundaryBack: "Назад",
-    brandTitle: "tss.ai",
+    brandTitle: "tssAI",
     brandSubtitle: "Питание, сон и тренировки в одном месте",
     logout: "Выйти",
   },
