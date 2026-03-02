@@ -413,7 +413,8 @@ async def get_fitness(
                 "tsb": round(tsb, 1),
                 "date": row.date.isoformat(),
             }
-        return None
+        # Intervals linked but no wellness row with ctl/atl (e.g. Intervals didn't send load for that day) — use our workouts
+        return await compute_fitness_from_workouts(session, uid)
     return await compute_fitness_from_workouts(session, uid)
 
 

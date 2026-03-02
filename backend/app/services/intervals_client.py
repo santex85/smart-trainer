@@ -98,12 +98,35 @@ async def get_wellness(
             if sleep_val is None and isinstance(item.get("sleepSecs"), (int, float)):
                 sleep_val = item["sleepSecs"] / 3600.0
             rhr_val = item.get("restingHeartRate") or item.get("rhr") or item.get("restingHR")
-            # Intervals.icu may return ctl/atl/tsb, icu_ctl/icu_atl, ctlLoad/atlLoad, or fitness/form/fatigue
-            ctl_val = item.get("ctl") or item.get("icu_ctl") or item.get("ctlLoad") or item.get("fitness")
-            atl_val = item.get("atl") or item.get("icu_atl") or item.get("atlLoad") or item.get("fatigue")
-            tsb_val = item.get("tsb") or item.get("trainingStressBalance") or item.get("form")
+            # Intervals.icu may return ctl/atl/tsb at top level or inside nested load/fitness object
+            def _get_load(key: str) -> Any:
+                for nest in ("load", "fitness", "trainingLoad", "icuLoad"):
+                    obj = item.get(nest)
+                    if isinstance(obj, dict):
+                        v = obj.get(key)
+                        if v is not None:
+                            return v
+                return None
+            ctl_val = (
+                item.get("ctl") or item.get("icu_ctl") or item.get("ctlLoad") or item.get("fitness")
+                or _get_load("ctl")
+            )
+            atl_val = (
+                item.get("atl") or item.get("icu_atl") or item.get("atlLoad") or item.get("fatigue")
+                or _get_load("atl")
+            )
+            tsb_val = (
+                item.get("tsb") or item.get("trainingStressBalance") or item.get("form")
+                or _get_load("tsb")
+            )
             if tsb_val is None and ctl_val is not None and atl_val is not None:
                 tsb_val = float(ctl_val) - float(atl_val)
+            if (ctl_val is None or atl_val is None) and (sleep_val is not None or rhr_val is not None):
+                logger.debug(
+                    "Intervals wellness day %s: sleep/rhr present but ctl/atl missing; keys=%s",
+                    day,
+                    list(item.keys()) if isinstance(item, dict) else [],
+                )
             weight_val = item.get("weight")
             sport_info_raw = item.get("sportInfo")
             sport_info = sport_info_raw if isinstance(sport_info_raw, list) else None
