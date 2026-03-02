@@ -37,6 +37,7 @@ const Tab = createBottomTabNavigator();
 const navigationRef = createNavigationContainerRef();
 
 function AppContent() {
+  const { t } = useTranslation();
   const { colors, mode } = useTheme();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -282,6 +283,11 @@ function ErrorFallback({
   return (
     <View style={[styles.root, styles.centered, { backgroundColor: colors.background }]}>
       <Text style={[styles.loadingText, { color: colors.text }]}>{t("app.errorBoundary")}</Text>
+      {__DEV__ || process.env.NODE_ENV !== "production" ? (
+        <Text style={[styles.loadingText, { color: colors.textMuted, fontSize: 12, marginTop: 8 }]} numberOfLines={5}>
+          {error?.message}
+        </Text>
+      ) : null}
       <Pressable
         onPress={resetError}
         style={({ pressed }) => [
