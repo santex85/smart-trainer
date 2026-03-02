@@ -28,6 +28,7 @@ import {
   runOrchestrator,
   getWellness,
   createOrUpdateWellness,
+  deleteSleepExtraction,
   getSleepExtractions,
   reanalyzeSleepExtraction,
   getAthleteProfile,
@@ -1176,7 +1177,15 @@ export function DashboardScreen({
       const hours = ext.actual_sleep_hours ?? ext.sleep_hours ?? 0;
       byDate.set(dateKey, { date: dateKey, hours, source: "photo", extraction: ext });
     });
-    return Array.from(byDate.values()).sort((a, b) => b.date.localeCompare(a.date));
+    const arr = Array.from(byDate.values()).sort((a, b) => b.date.localeCompare(a.date));
+    const byDisplayDate = new Map<string, SleepHistoryEntry>();
+    arr.forEach((entry) => {
+      const displayKey = formatSleepHistoryDate(entry.date);
+      if (!byDisplayDate.has(displayKey)) byDisplayDate.set(displayKey, entry);
+      else if (entry.source === "photo" && byDisplayDate.get(displayKey)?.source === "manual")
+        byDisplayDate.set(displayKey, entry);
+    });
+    return Array.from(byDisplayDate.values()).sort((a, b) => b.date.localeCompare(a.date));
   }, [wellnessWeek, sleepExtractions]);
 
   const { weeklySleepTotal, weeklySleepDeficit } = useMemo(() => {
@@ -1512,12 +1521,12 @@ export function DashboardScreen({
               <Text style={[styles.hint, styles.disclaimer]}>{t("wellness.disclaimer")}</Text>
               {(wellnessToday || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
                 <>
-                  <Text style={[styles.wellnessMetricsLine, { marginTop: 8 }]}>
-                    {wellnessToday?.sleep_hours != null ? `Сон ${wellnessToday.sleep_hours} ч` : "Сон —"}
-                    {wellnessToday?.rhr != null ? ` · RHR ${wellnessToday.rhr}` : " · RHR —"}
-                    {wellnessToday?.hrv != null ? ` · HRV ${wellnessToday.hrv}` : " · HRV —"}
+                  <Text style={[styles.wellnessMetricsLine, { marginTop: 8 }]} numberOfLines={2}>
+                    {wellnessToday?.sleep_hours != null ? `Сон\u00A0${wellnessToday.sleep_hours}\u00A0ч` : "Сон —"}
+                    {wellnessToday?.rhr != null ? ` · RHR\u00A0${wellnessToday.rhr}` : " · RHR —"}
+                    {wellnessToday?.hrv != null ? ` · HRV\u00A0${wellnessToday.hrv}` : " · HRV —"}
                     {(wellnessToday?.weight_kg ?? athleteProfile?.weight_kg) != null
-                      ? ` · Вес ${wellnessToday?.weight_kg ?? athleteProfile?.weight_kg} кг`
+                      ? ` · Вес\u00A0${wellnessToday?.weight_kg ?? athleteProfile?.weight_kg}\u00A0кг`
                       : " · Вес —"}
                   </Text>
                   {wellnessToday?.sleep_hours == null && (
@@ -1563,20 +1572,54 @@ export function DashboardScreen({
               <View style={{ marginTop: 6 }}>
                 {combinedSleepHistory.slice(0, 7).map((entry) => (
                   <View key={entry.source === "photo" && entry.extraction ? `photo-${entry.extraction.id}` : `wellness-${entry.date}`}>
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-                      <Text style={styles.hint}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 6 }}>
+                      <Text style={styles.sleepHistoryRowText}>
                         {formatSleepHistoryDate(entry.date)} · {entry.hours} ч
                         {entry.source === "manual" ? ` (${t("wellness.historyManual")})` : ""}
                       </Text>
-                      {entry.source === "photo" && entry.extraction?.can_reanalyze && sleepReanalyzeExtId !== entry.extraction.id ? (
-                        <TouchableOpacity
-                          style={[styles.modalBtnSave, { paddingHorizontal: 10, paddingVertical: 6 }]}
-                          onPress={() => { setSleepReanalyzeExtId(entry.extraction!.id); setSleepReanalyzeCorrection(""); }}
-                          disabled={sleepReanalyzingId != null}
-                        >
-                          <Text style={styles.modalBtnSaveText}>Повторный анализ</Text>
-                        </TouchableOpacity>
-                      ) : null}
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        {entry.source === "photo" && entry.extraction?.can_reanalyze && sleepReanalyzeExtId !== entry.extraction.id ? (
+                          <TouchableOpacity
+                            style={[styles.modalBtnSave, { paddingHorizontal: 10, paddingVertical: 6 }]}
+                            onPress={() => { setSleepReanalyzeExtId(entry.extraction!.id); setSleepReanalyzeCorrection(""); }}
+                            disabled={sleepReanalyzingId != null}
+                          >
+                            <Text style={styles.modalBtnSaveText}>Повторный анализ</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                        {entry.source === "photo" && entry.extraction ? (
+                          <TouchableOpacity
+                            style={[styles.deleteAction, { paddingHorizontal: 10, paddingVertical: 6 }]}
+                            onPress={() => {
+                              Alert.alert(
+                                t("wellness.deleteSleepEntryTitle"),
+                                t("wellness.deleteSleepEntryMessage"),
+                                [
+                                  { text: t("common.cancel"), style: "cancel" },
+                                  {
+                                    text: t("wellness.deleteSleepEntryConfirm"),
+                                    style: "destructive",
+                                    onPress: async () => {
+                                      if (!entry.extraction) return;
+                                      try {
+                                        await deleteSleepExtraction(entry.extraction.id);
+                                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                                        load();
+                                        const fresh = await getSleepExtractions(addDays(today, -14), today).catch(() => []);
+                                        setSleepExtractions(fresh ?? []);
+                                      } catch (e) {
+                                        Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить");
+                                      }
+                                    },
+                                  },
+                                ]
+                              );
+                            }}
+                          >
+                            <Text style={styles.deleteActionText}>{t("wellness.deleteEntry")}</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
                     </View>
                     {entry.source === "photo" && entry.extraction && sleepReanalyzeExtId === entry.extraction.id ? (
                       <View style={{ marginTop: 6, marginBottom: 8 }}>
@@ -1905,6 +1948,7 @@ const styles = StyleSheet.create({
   disclaimer: { fontSize: 11, color: "#64748b", marginTop: 2 },
   hintRemaining: { fontSize: 12, color: "#94a3b8", marginTop: 8 },
   weeklySleepLine: { fontSize: 14, color: "#e2e8f0", marginTop: 8 },
+  sleepHistoryRowText: { fontSize: 14, color: "#e2e8f0", marginTop: 0 },
   calendarLink: { marginBottom: 8, paddingVertical: 4 },
   intervalsActionsRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   intervalsLinkText: { fontSize: 14, color: "#38bdf8" },

@@ -369,6 +369,34 @@ async def reanalyze_sleep_extraction(
     )
 
 
+@router.delete(
+    "/sleep-extractions/{extraction_id}",
+    status_code=204,
+    summary="Delete a sleep extraction",
+    responses={
+        401: {"description": "Not authenticated"},
+        404: {"description": "Extraction not found"},
+    },
+)
+async def delete_sleep_extraction(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    extraction_id: Annotated[int, Path(description="Sleep extraction ID")],
+) -> None:
+    """Delete a sleep extraction (from photo). Own records only."""
+    result = await session.execute(
+        select(SleepExtraction).where(
+            SleepExtraction.id == extraction_id,
+            SleepExtraction.user_id == user.id,
+        )
+    )
+    record = result.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="Extraction not found.")
+    await session.delete(record)
+    await session.commit()
+
+
 @router.get(
     "/sleep-extractions",
     response_model=list[dict],

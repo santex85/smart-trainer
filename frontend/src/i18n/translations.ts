@@ -13,6 +13,7 @@ export const ru = {
   },
   common: {
     close: "Закрыть",
+    cancel: "Отмена",
   },
   tabs: {
     home: "Главная",
@@ -108,6 +109,10 @@ export const ru = {
     sleepReminder: "Укажите данные сна за сегодня или загрузите скриншот.",
     enterManually: "Ввести вручную",
     uploadScreenshot: "Загрузить скриншот",
+    deleteEntry: "Удалить",
+    deleteSleepEntryTitle: "Удалить запись сна?",
+    deleteSleepEntryMessage: "Запись, добавленная по фото, будет удалена из истории.",
+    deleteSleepEntryConfirm: "Удалить",
   },
   fitness: {
     title: "Фитнес (CTL / ATL / TSB)",

@@ -643,6 +643,10 @@ export async function reanalyzeSleepExtraction(
   });
 }
 
+export async function deleteSleepExtraction(extractionId: number): Promise<void> {
+  return api<void>(`/api/v1/photo/sleep-extractions/${extractionId}`, { method: "DELETE" });
+}
+
 export async function getEvents(fromDate?: string, toDate?: string): Promise<EventItem[]> {
   const params = new URLSearchParams();
   if (fromDate) params.set("from_date", fromDate);
