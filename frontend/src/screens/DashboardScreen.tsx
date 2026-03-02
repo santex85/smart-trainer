@@ -1418,10 +1418,6 @@ export function DashboardScreen({
             )}
             {!nutritionLoadError && nutritionDay && nutritionDay.entries.length > 0 ? (
               <>
-                <Text style={styles.cardValue}>
-                  {t("nutrition.eaten")}: {Math.round(nutritionDay.totals.calories)} {t("nutrition.kcal")} · {t("nutrition.proteinShort")} {Math.round(nutritionDay.totals.protein_g)}{t("nutrition.grams")} · {t("nutrition.fatShort")}{" "}
-                  {Math.round(nutritionDay.totals.fat_g)}{t("nutrition.grams")} · {t("nutrition.carbsShort")} {Math.round(nutritionDay.totals.carbs_g)}{t("nutrition.grams")}
-                </Text>
                 <Text style={styles.hintRemaining}>
                   {t("nutrition.left")}: {Math.round(Math.max(0, calorieGoal - nutritionDay.totals.calories))} {t("nutrition.kcal")} · {t("nutrition.proteinShort")}{" "}
                   {Math.round(Math.max(0, proteinGoal - nutritionDay.totals.protein_g))}{t("nutrition.grams")} · {t("nutrition.fatShort")}{" "}
