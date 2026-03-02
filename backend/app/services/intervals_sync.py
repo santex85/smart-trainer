@@ -1,5 +1,6 @@
 """Sync Intervals.icu data into our DB: activities -> workouts, wellness -> wellness_cache (sleep, RHR, HRV, CTL/ATL/TSB)."""
 
+import asyncio
 import logging
 import re
 from datetime import date, datetime, timedelta, timezone
@@ -11,7 +12,7 @@ from sqlalchemy.sql import func
 
 from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
-from app.services.intervals_client import get_activities, get_wellness
+from app.services.intervals_client import get_activities, get_activity_single, get_wellness
 from app.services.workout_merge import merge_raw
 
 
@@ -184,6 +185,49 @@ async def sync_intervals_to_db(
         name = a.name or raw.get("title") or raw.get("name")
         tss = a.icu_training_load if a.icu_training_load is not None else raw.get("icu_training_load") or raw.get("training_load") or raw.get("tss")
         workout_rows.append(_activity_to_workout_row(user_id, raw, a.id, start_dt, name, tss))
+
+    # For truncated rows (missing duration/distance/tss/name), fetch full activity detail and fill in
+    DETAIL_FETCH_LIMIT = 30
+    need_detail = [
+        row for row in workout_rows
+        if row.get("external_id")
+        and (
+            row.get("duration_sec") is None
+            or row.get("distance_m") is None
+            or row.get("tss") is None
+            or not (row.get("name") or "").strip()
+        )
+    ][:DETAIL_FETCH_LIMIT]
+    if need_detail:
+        detail_tasks = [get_activity_single(api_key, row["external_id"]) for row in need_detail]
+        detail_results = await asyncio.gather(*detail_tasks, return_exceptions=True)
+        for row, result in zip(need_detail, detail_results):
+            if not isinstance(result, dict):
+                logging.warning(
+                    "Intervals get_activity_single failed for activity_id=%s user_id=%s: %s",
+                    row.get("external_id"),
+                    user_id,
+                    result if isinstance(result, Exception) else type(result).__name__,
+                )
+                continue
+            detail = result
+            row["raw"] = {**(row.get("raw") or {}), **detail}
+            start_raw = detail.get("start_date") or detail.get("startDate") or detail.get("start_date_local")
+            start_dt = row.get("start_date")
+            if isinstance(start_raw, str):
+                try:
+                    start_dt = datetime.fromisoformat(start_raw.replace("Z", "+00:00"))
+                except Exception:
+                    pass
+            if start_dt and start_dt.tzinfo is None:
+                start_dt = start_dt.replace(tzinfo=timezone.utc)
+            name = detail.get("name") or detail.get("title") or row.get("name")
+            tss = detail.get("icu_training_load") or detail.get("training_load") or detail.get("tss") or row.get("tss")
+            filled = _activity_to_workout_row(user_id, row["raw"], row["external_id"], start_dt, name, tss)
+            for key in ("start_date", "name", "type", "duration_sec", "distance_m", "tss"):
+                if filled.get(key) is not None:
+                    row[key] = filled[key]
+
     if workout_rows:
         external_ids = [r["external_id"] for r in workout_rows]
         r = await session.execute(
