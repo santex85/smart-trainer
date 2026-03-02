@@ -1,6 +1,7 @@
 """Sync Intervals.icu data into our DB: activities -> workouts, wellness -> wellness_cache (sleep, RHR, HRV, CTL/ATL/TSB)."""
 
 import logging
+import re
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -17,11 +18,104 @@ from app.services.workout_merge import merge_raw
 SYNC_DAYS = 90
 
 
+def _parse_float(v: object) -> float | None:
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        s = v.strip().replace(",", ".")
+        if not s:
+            return None
+        m = re.search(r"-?\d+(\.\d+)?", s)
+        if not m:
+            return None
+        try:
+            return float(m.group(0))
+        except ValueError:
+            return None
+    return None
+
+
+def _parse_duration_sec(v: object) -> int | None:
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        try:
+            return int(float(v))
+        except (ValueError, OverflowError):
+            return None
+    if not isinstance(v, str):
+        return None
+    s = v.strip().lower()
+    if not s:
+        return None
+    # HH:MM:SS or H:MM
+    if ":" in s:
+        parts = s.split(":")
+        try:
+            nums = [int(p) for p in parts]
+        except ValueError:
+            nums = []
+        if len(nums) == 3:
+            h, m, sec = nums
+            return h * 3600 + m * 60 + sec
+        if len(nums) == 2:
+            h, m = nums
+            return h * 3600 + m * 60
+    # "2h 20m", "140m", "2 h", "1h37m"
+    h = 0
+    m = 0
+    sec = 0
+    mh = re.search(r"(\d+)\s*h", s)
+    mm = re.search(r"(\d+)\s*m", s)
+    ms = re.search(r"(\d+)\s*s", s)
+    if mh:
+        h = int(mh.group(1))
+    if mm:
+        m = int(mm.group(1))
+    if ms:
+        sec = int(ms.group(1))
+    if mh or mm or ms:
+        return h * 3600 + m * 60 + sec
+    # digits only: assume seconds
+    mf = _parse_float(s)
+    if mf is not None:
+        return int(mf)
+    return None
+
+
+def _parse_distance_m(v: object) -> float | None:
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    if not isinstance(v, str):
+        return None
+    s = v.strip().lower()
+    if not s:
+        return None
+    f = _parse_float(s)
+    if f is None:
+        return None
+    # Heuristic units: if explicitly contains km -> convert; if contains m -> meters
+    if "km" in s:
+        return f * 1000.0
+    return f
+
+
 def _activity_to_workout_row(user_id: int, raw: dict, ext_id: str, start_dt: datetime | None, name: str | None, tss: float | None) -> dict:
-    duration_sec = raw.get("moving_time") or raw.get("movingTime") or raw.get("duration")
-    if duration_sec is None and isinstance(raw.get("length"), (int, float)):
-        duration_sec = raw.get("length")
-    distance_m = raw.get("distance") or raw.get("length")
+    duration_raw = raw.get("moving_time") or raw.get("movingTime") or raw.get("duration")
+    if duration_raw is None:
+        duration_raw = raw.get("length")
+    duration_sec = _parse_duration_sec(duration_raw)
+
+    distance_raw = raw.get("distance")
+    if distance_raw is None:
+        distance_raw = raw.get("length")
+    distance_m = _parse_distance_m(distance_raw)
+
+    tss_f = _parse_float(tss) if tss is not None else _parse_float(raw.get("icu_training_load") or raw.get("training_load") or raw.get("tss"))
     if start_dt and start_dt.tzinfo is None:
         start_dt = start_dt.replace(tzinfo=timezone.utc)
     return {
@@ -31,9 +125,9 @@ def _activity_to_workout_row(user_id: int, raw: dict, ext_id: str, start_dt: dat
         "start_date": start_dt,
         "name": name or raw.get("title") or raw.get("name"),
         "type": raw.get("type"),
-        "duration_sec": int(duration_sec) if isinstance(duration_sec, (int, float)) else None,
-        "distance_m": float(distance_m) if isinstance(distance_m, (int, float)) else None,
-        "tss": float(tss) if isinstance(tss, (int, float)) else None,
+        "duration_sec": duration_sec,
+        "distance_m": distance_m,
+        "tss": tss_f,
         "raw": raw,
     }
 
@@ -106,12 +200,12 @@ async def sync_intervals_to_db(
         stmt_workouts = stmt_workouts.on_conflict_do_update(
             index_elements=["user_id", "external_id"],
             set_={
-                "start_date": stmt_workouts.excluded.start_date,
-                "name": stmt_workouts.excluded.name,
-                "type": stmt_workouts.excluded.type,
-                "duration_sec": stmt_workouts.excluded.duration_sec,
-                "distance_m": stmt_workouts.excluded.distance_m,
-                "tss": stmt_workouts.excluded.tss,
+                "start_date": func.coalesce(stmt_workouts.excluded.start_date, Workout.start_date),
+                "name": func.coalesce(stmt_workouts.excluded.name, Workout.name),
+                "type": func.coalesce(stmt_workouts.excluded.type, Workout.type),
+                "duration_sec": func.coalesce(stmt_workouts.excluded.duration_sec, Workout.duration_sec),
+                "distance_m": func.coalesce(stmt_workouts.excluded.distance_m, Workout.distance_m),
+                "tss": func.coalesce(stmt_workouts.excluded.tss, Workout.tss),
                 "raw": stmt_workouts.excluded.raw,
             },
         )
