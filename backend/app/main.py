@@ -23,6 +23,7 @@ logging.basicConfig(
 logging.getLogger("app").setLevel(logging.DEBUG)
 from app.config import settings
 from app.db.session import init_db
+from app.core.rate_limit import close_redis
 from app.services.http_client import close_http_client, init_http_client
 from prometheus_client import make_asgi_app
 
@@ -126,6 +127,7 @@ async def lifespan(app: FastAPI):
     yield
     scheduler.shutdown()
     await close_http_client()
+    await close_redis()
 
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])

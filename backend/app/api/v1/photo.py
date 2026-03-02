@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, Query, UploadFile
 
 from app.api.deps import get_current_user
+from app.core.rate_limit import check_and_consume_photo_ai_limit
 from app.db.session import get_db
 from app.models.food_log import FoodLog, MealType
 from app.models.user import User
@@ -53,6 +54,7 @@ def _validate_image(file: UploadFile, image_bytes: bytes) -> None:
         400: {"description": "Invalid image"},
         401: {"description": "Not authenticated"},
         422: {"description": "AI could not analyze"},
+        429: {"description": "Daily photo analysis limit exceeded"},
         502: {"description": "AI service unavailable"},
     },
 )
@@ -68,6 +70,7 @@ async def analyze_photo(
     If save=False, returns preview data without writing to DB.
     Returns either { type: "food", food: {...} } or { type: "sleep", sleep: {...} }.
     """
+    await check_and_consume_photo_ai_limit(user.id, user.is_premium)
     image_bytes = await file.read()
     _validate_image(file, image_bytes)
     image_bytes = await resize_image_for_ai_async(image_bytes)
@@ -217,6 +220,7 @@ async def analyze_photo(
         400: {"description": "Invalid image"},
         401: {"description": "Not authenticated"},
         422: {"description": "Could not extract sleep data"},
+        429: {"description": "Daily photo analysis limit exceeded"},
         502: {"description": "Sleep extraction failed"},
     },
 )
@@ -227,6 +231,7 @@ async def analyze_sleep_photo(
     mode: Annotated[str, Query(description="Extraction mode: lite (default) or full")] = "lite",
 ) -> SleepExtractionResponse:
     """Extract sleep data from a screenshot using the sleep parser. mode=lite (fewer tokens) or full."""
+    await check_and_consume_photo_ai_limit(user.id, user.is_premium)
     if mode not in ("lite", "full"):
         mode = "lite"
     image_bytes = await file.read()
@@ -291,6 +296,7 @@ async def save_sleep_from_preview(
         403: {"description": "Premium required"},
         404: {"description": "Extraction not found"},
         422: {"description": "Could not extract sleep data"},
+        429: {"description": "Daily photo analysis limit exceeded"},
         502: {"description": "Sleep extraction failed"},
     },
 )
@@ -301,6 +307,7 @@ async def reanalyze_sleep_extraction(
     body: SleepReanalyzeRequest,
 ) -> SleepExtractionResponse:
     """Re-analyze stored sleep image with user correction; update extraction. Premium only."""
+    await check_and_consume_photo_ai_limit(user.id, user.is_premium)
     if not user.is_premium:
         raise HTTPException(status_code=403, detail="Premium required for re-analysis.")
     result = await session.execute(

@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import HTTPException
 from httpx import AsyncClient
 
 
@@ -86,3 +87,30 @@ async def test_nutrition_analyze_success_mock(client: AsyncClient, auth_headers:
     assert data["name"] == "Salad"
     assert "id" in data
     assert data["calories"] == 150
+
+
+@pytest.mark.asyncio
+async def test_photo_analyze_rate_limit_429(client: AsyncClient, auth_headers: dict):
+    """When photo AI rate limit is exceeded, POST /photo/analyze returns 429 with Retry-After."""
+    def raise_429(*args, **kwargs):
+        raise HTTPException(
+            status_code=429,
+            detail="Дневной лимит анализа фото исчерпан. Перейдите на Premium для безлимита.",
+            headers={"Retry-After": "3600"},
+        )
+
+    with patch(
+        "app.api.v1.photo.check_and_consume_photo_ai_limit",
+        new_callable=AsyncMock,
+        side_effect=raise_429,
+    ):
+        resp = await client.post(
+            "/api/v1/photo/analyze",
+            files={"file": ("plate.jpg", JPEG_BYTES, "image/jpeg")},
+            data={},
+            headers=auth_headers,
+        )
+    assert resp.status_code == 429
+    assert "Retry-After" in resp.headers
+    detail = resp.json().get("detail", "")
+    assert "limit" in detail.lower() or "исчерпан" in detail
