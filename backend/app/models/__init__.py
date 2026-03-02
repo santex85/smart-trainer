@@ -11,6 +11,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.audit_log import AuditLog
 from app.models.subscription import Subscription
 from app.models.daily_usage import DailyUsage
+from app.models.retention_reminder_sent import RetentionReminderSent
 
 __all__ = [
     "User",
@@ -26,4 +27,5 @@ __all__ = [
     "AuditLog",
     "Subscription",
     "DailyUsage",
+    "RetentionReminderSent",
 ]

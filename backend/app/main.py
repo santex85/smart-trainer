@@ -13,6 +13,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
 from app.api.v1 import analytics, auth, athlete_profile, billing, chat, intervals, nutrition, photo, users, wellness, workouts
+from app.services.retention import run_recovery_reminder_job
 
 # Ensure app loggers (Intervals, sync, etc.) print to stdout so you see them in the terminal
 logging.basicConfig(
@@ -129,6 +130,11 @@ async def lifespan(app: FastAPI):
             scheduler.add_job(scheduled_orchestrator_run, "cron", hour=hour, minute=0)
 
     scheduler.add_job(scheduled_sleep_reminder, "cron", hour=9, minute=0)
+
+    # Retention: recovery reminder for users with heavy workout yesterday who didn't open chat today
+    retention_hour = getattr(settings, "retention_recovery_reminder_hour", 18)
+    if 0 <= retention_hour <= 23:
+        scheduler.add_job(run_recovery_reminder_job, "cron", hour=retention_hour, minute=0)
 
     scheduler.start()
     yield

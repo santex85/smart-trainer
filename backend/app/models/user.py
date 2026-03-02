@@ -45,3 +45,6 @@ class User(Base):
     daily_usage: Mapped[list["DailyUsage"]] = relationship(
         "DailyUsage", back_populates="user", cascade="all, delete-orphan"
     )
+    retention_reminders_sent: Mapped[list["RetentionReminderSent"]] = relationship(
+        "RetentionReminderSent", back_populates="user", cascade="all, delete-orphan"
+    )

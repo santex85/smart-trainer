@@ -17,14 +17,16 @@ async def send_expo_push(token: str, title: str, body: str) -> None:
     if not token or not token.strip():
         return
     token = token.strip()
+    title = (title or "Smart Trainer").strip() or "Smart Trainer"
+    body = (body or "").strip()[:200]
     try:
         client = get_http_client()
         await client.post(
             EXPO_PUSH_URL,
             json={
                 "to": token,
-                "title": title[:100] if title else "tss.ai",
-                "body": (body or "")[:200],
+                "title": title[:100],
+                "body": body,
             },
         )
     except Exception as e:
@@ -38,7 +40,13 @@ async def send_push_to_user(
     body: str,
 ) -> None:
     """Load user's push token and send notification if present."""
+    if not (title or "").strip():
+        logger.debug("send_push_to_user: skipping empty title for user_id=%s", user_id)
+        return
     r = await session.execute(select(User.push_token).where(User.id == user_id))
     row = r.one_or_none()
     if row and row[0]:
         await send_expo_push(row[0], title, body)
+        logger.debug("Push sent to user_id=%s", user_id)
+    else:
+        logger.debug("Push skipped for user_id=%s (no token)", user_id)

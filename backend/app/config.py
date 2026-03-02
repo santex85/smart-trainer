@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
     sentry_environment: str = "production"
 
+    # Retention: recovery reminder after heavy workout (TSS > threshold yesterday, no chat today)
+    retention_recovery_reminder_hour: int = 18  # run at 18:00
+    retention_tss_threshold: float = 100.0  # sum TSS yesterday above this triggers reminder
+
     # Stripe billing
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""
