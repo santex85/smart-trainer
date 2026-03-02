@@ -6,7 +6,7 @@ services:
     ports: []
 
   redis:
-    ports: []
+    ports: ["127.0.0.1:6380:6379"]  # avoid conflict with host redis on 6379
 
   backup:
     build:
