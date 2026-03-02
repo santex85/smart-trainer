@@ -16,6 +16,7 @@ class User(Base):
     push_token: Mapped[str | None] = mapped_column(String(512), nullable=True)
     push_platform: Mapped[str | None] = mapped_column(String(32), nullable=True)
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
 
     food_logs: Mapped[list["FoodLog"]] = relationship("FoodLog", back_populates="user")
     wellness_cache: Mapped[list["WellnessCache"]] = relationship("WellnessCache", back_populates="user")
@@ -37,4 +38,13 @@ class User(Base):
     )
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         "RefreshToken", back_populates="user", cascade="all, delete-orphan"
+    )
+    subscription: Mapped["Subscription | None"] = relationship(
+        "Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    daily_usage: Mapped[list["DailyUsage"]] = relationship(
+        "DailyUsage", back_populates="user", cascade="all, delete-orphan"
+    )
+    retention_reminders_sent: Mapped[list["RetentionReminderSent"]] = relationship(
+        "RetentionReminderSent", back_populates="user", cascade="all, delete-orphan"
     )

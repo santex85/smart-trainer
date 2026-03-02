@@ -305,6 +305,35 @@ async def create_thread(
     return {"id": thread.id, "title": thread.title, "created_at": thread.created_at.isoformat() if thread.created_at else None}
 
 
+class UpdateThreadBody(BaseModel):
+    title: str
+
+
+@router.patch(
+    "/threads/{thread_id}",
+    response_model=dict,
+    summary="Update chat thread (rename)",
+    responses={401: {"description": "Not authenticated"}, 404: {"description": "Thread not found"}},
+)
+async def update_thread(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    thread_id: int,
+    body: UpdateThreadBody,
+) -> dict:
+    """Rename a chat thread."""
+    uid = user.id
+    r = await session.execute(select(ChatThread).where(ChatThread.id == thread_id, ChatThread.user_id == uid))
+    thread = r.scalar_one_or_none()
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    title = (body.title or "").strip() or "Чат"
+    thread.title = title[:128]
+    await session.commit()
+    await session.refresh(thread)
+    return {"id": thread.id, "title": thread.title, "created_at": thread.created_at.isoformat() if thread.created_at else None}
+
+
 @router.delete(
     "/threads/{thread_id}",
     summary="Delete chat thread",

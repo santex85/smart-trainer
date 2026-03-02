@@ -746,6 +746,10 @@ export async function createChatThread(title?: string): Promise<ChatThreadItem> 
   });
 }
 
+export async function updateChatThread(threadId: number, body: { title: string }): Promise<ChatThreadItem> {
+  return api<ChatThreadItem>(`/api/v1/chat/threads/${threadId}`, { method: "PATCH", body });
+}
+
 export async function deleteChatThread(threadId: number): Promise<void> {
   return api<void>(`/api/v1/chat/threads/${threadId}`, { method: "DELETE" });
 }

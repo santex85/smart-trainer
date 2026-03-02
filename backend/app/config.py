@@ -29,6 +29,19 @@ class Settings(BaseSettings):
     # Orchestrator run schedule: comma-separated hours (0-23), e.g. "7,16" for 07:00 and 16:00
     orchestrator_cron_hours: str = "7,16"
 
+    # Retention: recovery reminder after heavy workout (TSS > threshold yesterday, no chat today)
+    retention_recovery_reminder_hour: int = 18  # run at 18:00
+    retention_tss_threshold: float = 100.0  # sum TSS yesterday above this triggers reminder
+
+    # Stripe billing
+    stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_monthly: str = ""  # Stripe Price ID for monthly plan
+    stripe_price_annual: str = ""   # Stripe Price ID for annual plan
+    free_daily_photo_limit: int = 3
+    free_daily_chat_limit: int = 10
+
     @property
     def sync_database_url(self) -> str:
         """PostgreSQL URL for sync drivers (Alembic)."""
