@@ -165,6 +165,60 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
     }
   }, [currentThreadId]);
 
+  const performDeleteThread = useCallback(
+    async (threadId: number) => {
+      try {
+        await deleteChatThread(threadId);
+        setThreads((prev) => {
+          const next = prev.filter((t) => t.id !== threadId);
+          if (currentThreadId === threadId) {
+            if (next.length > 0) {
+              setCurrentThreadId(next[0].id);
+              setLoadingHistory(true);
+              loadHistoryForThread(next[0].id);
+            } else {
+              setCurrentThreadId(null);
+              setMessages([]);
+              createChatThread("Основной").then((created) => {
+                setThreads([created]);
+                setCurrentThreadId(created.id);
+                loadHistoryForThread(created.id);
+              });
+            }
+          }
+          return next;
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Не удалось удалить чат";
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          window.alert(msg);
+        } else {
+          Alert.alert("Ошибка", msg);
+        }
+      }
+    },
+    [currentThreadId, loadHistoryForThread]
+  );
+
+  const onDeleteThread = useCallback(
+    (threadId: number, title: string) => {
+      const confirmTitle = "Удалить чат?";
+      const confirmMessage = `Чат «${title}» будет удалён безвозвратно.`;
+      const runDelete = () => performDeleteThread(threadId);
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        if (window.confirm(`${confirmTitle}\n${confirmMessage}`)) {
+          runDelete();
+        }
+      } else {
+        Alert.alert(confirmTitle, confirmMessage, [
+          { text: "Отмена", style: "cancel" },
+          { text: "Удалить", style: "destructive", onPress: runDelete },
+        ]);
+      }
+    },
+    [performDeleteThread]
+  );
+
   const openThreadMenu = useCallback(
     (t: ChatThreadItem) => {
       Alert.alert("Чат", `«${t.title}»`, [
@@ -184,50 +238,7 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
         },
       ]);
     },
-    []
-  );
-
-  const onDeleteThread = useCallback(
-    (threadId: number, title: string) => {
-      Alert.alert(
-        "Удалить чат?",
-        `Чат «${title}» будет удалён безвозвратно.`,
-        [
-          { text: "Отмена", style: "cancel" },
-          {
-            text: "Удалить",
-            style: "destructive",
-            onPress: async () => {
-              try {
-                await deleteChatThread(threadId);
-                setThreads((prev) => {
-                  const next = prev.filter((t) => t.id !== threadId);
-                  if (currentThreadId === threadId) {
-                    if (next.length > 0) {
-                      setCurrentThreadId(next[0].id);
-                      setLoadingHistory(true);
-                      loadHistoryForThread(next[0].id);
-                    } else {
-                      setCurrentThreadId(null);
-                      setMessages([]);
-                      createChatThread("Основной").then((created) => {
-                        setThreads([created]);
-                        setCurrentThreadId(created.id);
-                        loadHistoryForThread(created.id);
-                      });
-                    }
-                  }
-                  return next;
-                });
-              } catch {
-                // ignore
-              }
-            },
-          },
-        ]
-      );
-    },
-    [currentThreadId, loadHistoryForThread]
+    [onDeleteThread]
   );
 
   const onRenameSubmit = useCallback(async () => {

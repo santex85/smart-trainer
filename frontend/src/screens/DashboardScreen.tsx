@@ -74,6 +74,11 @@ function addDays(isoDate: string, days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function formatNavDate(isoDate: string): string {
+  const d = new Date(isoDate + "T12:00:00");
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+}
+
 function formatEventDate(isoDate: string | undefined): string {
   if (!isoDate) return "";
   const d = new Date(isoDate);
@@ -1406,19 +1411,19 @@ export function DashboardScreen({
                   onPress={() => setNutritionDateAndLoad(addDays(nutritionDate, -1))}
                   style={styles.dateNavBtn}
                 >
-                  <Text style={styles.dateNavText}>{t("yesterday")}</Text>
+                  <Text style={styles.dateNavText}>{formatNavDate(addDays(nutritionDate, -1))}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(today)}
                   style={[styles.dateNavBtn, nutritionDate === today && styles.dateNavBtnActive]}
                 >
-                  <Text style={[styles.dateNavText, nutritionDate === today && styles.dateNavTextActive]}>{t("today")}</Text>
+                  <Text style={[styles.dateNavText, nutritionDate === today && styles.dateNavTextActive]}>{formatNavDate(nutritionDate)}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(addDays(nutritionDate, 1))}
                   style={styles.dateNavBtn}
                 >
-                  <Text style={styles.dateNavText}>{t("tomorrow")}</Text>
+                  <Text style={styles.dateNavText}>{formatNavDate(addDays(nutritionDate, 1))}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1590,30 +1595,37 @@ export function DashboardScreen({
                         {entry.source === "photo" && entry.extraction ? (
                           <TouchableOpacity
                             style={[styles.deleteAction, { paddingHorizontal: 10, paddingVertical: 6 }]}
-                            onPress={() => {
-                              Alert.alert(
-                                t("wellness.deleteSleepEntryTitle"),
-                                t("wellness.deleteSleepEntryMessage"),
-                                [
-                                  { text: t("common.cancel"), style: "cancel" },
-                                  {
-                                    text: t("wellness.deleteSleepEntryConfirm"),
-                                    style: "destructive",
-                                    onPress: async () => {
-                                      if (!entry.extraction) return;
-                                      try {
-                                        await deleteSleepExtraction(entry.extraction.id);
-                                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-                                        load();
-                                        const fresh = await getSleepExtractions(addDays(today, -14), today).catch(() => []);
-                                        setSleepExtractions(fresh ?? []);
-                                      } catch (e) {
-                                        Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить");
-                                      }
-                                    },
-                                  },
-                                ]
-                              );
+                            onPress={async () => {
+                              const doDelete = async () => {
+                                if (!entry.extraction) return;
+                                try {
+                                  await deleteSleepExtraction(entry.extraction.id);
+                                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                                  load();
+                                  const fresh = await getSleepExtractions(addDays(today, -14), today).catch(() => []);
+                                  setSleepExtractions(fresh ?? []);
+                                } catch (e) {
+                                  if (Platform.OS === "web" && typeof window !== "undefined") {
+                                    window.alert(e instanceof Error ? e.message : "Не удалось удалить");
+                                  } else {
+                                    Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить");
+                                  }
+                                }
+                              };
+                              if (Platform.OS === "web" && typeof window !== "undefined") {
+                                if (window.confirm(`${t("wellness.deleteSleepEntryTitle")}\n${t("wellness.deleteSleepEntryMessage")}`)) {
+                                  await doDelete();
+                                }
+                              } else {
+                                Alert.alert(
+                                  t("wellness.deleteSleepEntryTitle"),
+                                  t("wellness.deleteSleepEntryMessage"),
+                                  [
+                                    { text: t("common.cancel"), style: "cancel" },
+                                    { text: t("wellness.deleteSleepEntryConfirm"), style: "destructive", onPress: doDelete },
+                                  ]
+                                );
+                              }
                             }}
                           >
                             <Text style={styles.deleteActionText}>{t("wellness.deleteEntry")}</Text>
@@ -1676,8 +1688,25 @@ export function DashboardScreen({
           </View>
 
           <View style={glassCardStyle}>
+            {workoutFitness ? (
+              <>
+                <Text style={[styles.fitnessMetricsLine, { color: colors.text, marginBottom: 4 }]}>
+                  CTL {workoutFitness.ctl.toFixed(0)} · ATL {workoutFitness.atl.toFixed(0)} · TSB {workoutFitness.tsb.toFixed(0)}
+                </Text>
+                <Text style={[styles.fitnessCaption, { color: colors.textMuted, marginBottom: 12 }]}>{t("fitness.dateLabel")} {workoutFitness.date}</Text>
+              </>
+            ) : (wellnessToday?.ctl != null || wellnessToday?.atl != null || wellnessToday?.tsb != null) ? (
+              <>
+                <Text style={[styles.fitnessMetricsLine, { color: colors.text, marginBottom: 4 }]}>
+                  CTL {wellnessToday?.ctl?.toFixed(0) ?? "—"} · ATL {wellnessToday?.atl?.toFixed(0) ?? "—"} · TSB {wellnessToday?.tsb?.toFixed(0) ?? "—"}
+                </Text>
+                <Text style={[styles.fitnessCaption, styles.fitnessCaptionMuted, { color: colors.textMuted, marginBottom: 12 }]}>{t("fitness.fromWellness")}</Text>
+              </>
+            ) : (
+              <Text style={[styles.placeholder, styles.fitnessPlaceholder, { color: colors.textMuted, marginBottom: 12 }]}>{t("fitness.placeholder")}</Text>
+            )}
             <View style={styles.fitnessHeaderRow}>
-              <Text style={[styles.cardTitle, { color: colors.textSecondary }]}>{t("fitness.title")}</Text>
+              <Text style={[styles.fitnessHint, { color: colors.textMuted, marginBottom: 0 }]}>{t("fitness.hint")}</Text>
               <View style={styles.fitnessActionsRow}>
                 {onOpenIntervals ? (
                   <TouchableOpacity onPress={onOpenIntervals} style={styles.fitnessActionLink}>
@@ -1715,24 +1744,6 @@ export function DashboardScreen({
                 ) : null}
               </View>
             </View>
-            <Text style={[styles.fitnessHint, { color: colors.textMuted }]}>{t("fitness.hint")}</Text>
-            {workoutFitness ? (
-              <View style={styles.fitnessMetricsBlock}>
-                <Text style={[styles.fitnessMetricsLine, { color: colors.text }]}>
-                  CTL {workoutFitness.ctl.toFixed(0)} · ATL {workoutFitness.atl.toFixed(0)} · TSB {workoutFitness.tsb.toFixed(0)}
-                </Text>
-                <Text style={[styles.fitnessCaption, { color: colors.textMuted }]}>{t("fitness.dateLabel")} {workoutFitness.date}</Text>
-              </View>
-            ) : (wellnessToday?.ctl != null || wellnessToday?.atl != null || wellnessToday?.tsb != null) ? (
-              <View style={styles.fitnessMetricsBlock}>
-                <Text style={[styles.fitnessMetricsLine, { color: colors.text }]}>
-                  CTL {wellnessToday?.ctl?.toFixed(0) ?? "—"} · ATL {wellnessToday?.atl?.toFixed(0) ?? "—"} · TSB {wellnessToday?.tsb?.toFixed(0) ?? "—"}
-                </Text>
-                <Text style={[styles.fitnessCaption, styles.fitnessCaptionMuted, { color: colors.textMuted }]}>{t("fitness.fromWellness")}</Text>
-              </View>
-            ) : (
-              <Text style={[styles.placeholder, styles.fitnessPlaceholder, { color: colors.textMuted }]}>{t("fitness.placeholder")}</Text>
-            )}
           </View>
 
           {entryToEdit ? (
