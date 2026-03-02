@@ -186,9 +186,13 @@ async def sync_intervals_to_db(
         tss = a.icu_training_load if a.icu_training_load is not None else raw.get("icu_training_load") or raw.get("training_load") or raw.get("tss")
         workout_rows.append(_activity_to_workout_row(user_id, raw, a.id, start_dt, name, tss))
 
-    # For truncated rows (missing duration/distance/tss/name), fetch full activity detail and fill in
+    # For truncated rows (missing duration/distance/tss/name), fetch full activity detail and fill in.
+    # Also always fetch detail for activities in the last 2 days so "today" gets full data after processing.
     DETAIL_FETCH_LIMIT = 30
-    need_detail = [
+    RECENT_DAYS_FOR_DETAIL = 2
+    cutoff_recent = newest - timedelta(days=RECENT_DAYS_FOR_DETAIL)
+
+    truncated = [
         row for row in workout_rows
         if row.get("external_id")
         and (
@@ -197,10 +201,41 @@ async def sync_intervals_to_db(
             or row.get("tss") is None
             or not (row.get("name") or "").strip()
         )
-    ][:DETAIL_FETCH_LIMIT]
+    ]
+    recent_ids: set[str] = set()
+    for row in workout_rows:
+        if not row.get("external_id"):
+            continue
+        sd = row.get("start_date")
+        if sd is None:
+            d = None
+        elif isinstance(sd, datetime):
+            d = sd.date()
+        elif isinstance(sd, date):
+            d = sd
+        else:
+            d = None
+        if d is not None and d >= cutoff_recent:
+            recent_ids.add(row["external_id"])
+
+    need_detail_ids = {r["external_id"] for r in truncated} | recent_ids
+    need_detail = [r for r in workout_rows if r.get("external_id") in need_detail_ids]
+    need_detail.sort(key=lambda r: (r.get("start_date") or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+    need_detail = need_detail[:DETAIL_FETCH_LIMIT]
+
     if need_detail:
+        logging.info(
+            "Intervals sync user_id=%s: fetching detail for %s activities (truncated + last %s days), sample id=%s start=%s",
+            user_id,
+            len(need_detail),
+            RECENT_DAYS_FOR_DETAIL,
+            need_detail[0].get("external_id"),
+            need_detail[0].get("start_date"),
+        )
         detail_tasks = [get_activity_single(api_key, row["external_id"]) for row in need_detail]
         detail_results = await asyncio.gather(*detail_tasks, return_exceptions=True)
+        detail_ok = 0
+        still_empty = 0
         for row, result in zip(need_detail, detail_results):
             if not isinstance(result, dict):
                 logging.warning(
@@ -211,8 +246,18 @@ async def sync_intervals_to_db(
                 )
                 continue
             detail = result
-            row["raw"] = {**(row.get("raw") or {}), **detail}
-            start_raw = detail.get("start_date") or detail.get("startDate") or detail.get("start_date_local")
+            # Flatten nested response: GET /activity/{id} may return { "activity": { moving_time, ... } }
+            base_raw = row.get("raw") or {}
+            inner = detail.get("activity") if isinstance(detail.get("activity"), dict) else {}
+            top = {k: v for k, v in detail.items() if k != "activity"}
+            row["raw"] = {**base_raw, **inner, **top}
+
+            start_raw = (
+                detail.get("start_date")
+                or detail.get("startDate")
+                or detail.get("start_date_local")
+                or detail.get("startDateLocal")
+            )
             start_dt = row.get("start_date")
             if isinstance(start_raw, str):
                 try:
@@ -227,6 +272,20 @@ async def sync_intervals_to_db(
             for key in ("start_date", "name", "type", "duration_sec", "distance_m", "tss"):
                 if filled.get(key) is not None:
                     row[key] = filled[key]
+            detail_ok += 1
+            if filled.get("duration_sec") is None and filled.get("distance_m") is None:
+                still_empty += 1
+                logging.debug(
+                    "Intervals detail still missing duration/distance for activity_id=%s user_id=%s",
+                    row.get("external_id"),
+                    user_id,
+                )
+        logging.info(
+            "Intervals sync user_id=%s: detail fetch done, ok=%s, still_empty=%s",
+            user_id,
+            detail_ok,
+            still_empty,
+        )
 
     if workout_rows:
         external_ids = [r["external_id"] for r in workout_rows]

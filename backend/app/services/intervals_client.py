@@ -149,7 +149,12 @@ async def get_activities(
     for item in data:
         if isinstance(item, dict):
             sid = _normalize_activity_id(item.get("id"))
-            start_raw = item.get("start_date") or item.get("startDate") or item.get("start_date_local")
+            start_raw = (
+                item.get("start_date")
+                or item.get("startDate")
+                or item.get("start_date_local")
+                or item.get("startDateLocal")
+            )
             start = None
             if isinstance(start_raw, str):
                 try:
