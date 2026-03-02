@@ -1389,9 +1389,9 @@ export function DashboardScreen({
         </View>
       ) : (
         <>
+          <Text style={styles.sectionTitle}>{t("nutrition.title")}</Text>
           <View style={glassCardStyle}>
-            <View style={styles.cardTitleRow}>
-              <Text style={styles.cardTitle}>{t("nutrition.title")}</Text>
+            <View style={[styles.cardTitleRow, { justifyContent: "flex-end" }]}>
               <View style={styles.cardTitleActions}>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(addDays(nutritionDate, -1))}
@@ -1858,6 +1858,7 @@ const styles = StyleSheet.create({
   brandTitle: { fontSize: 18, fontWeight: "700", color: "#eee", marginBottom: 2 },
   brandSubtitle: { fontSize: 13, color: "#94a3b8" },
   title: { fontSize: 24, fontWeight: "700", color: "#eee", marginBottom: 20 },
+  sectionTitle: { fontSize: 20, fontWeight: "700", color: "#eee", marginTop: 8, marginBottom: 12 },
   menuBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 50, paddingRight: 16, paddingHorizontal: 20 },
   menuBox: {
     minWidth: 260,
