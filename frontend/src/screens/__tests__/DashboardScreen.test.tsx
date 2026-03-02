@@ -2,6 +2,9 @@ import React from "react";
 import { render, waitFor } from "@testing-library/react-native";
 import { DashboardScreen } from "../DashboardScreen";
 import { ThemeProvider } from "../../theme";
+import { I18nProvider } from "../../i18n";
+
+jest.mock("react-native-gifted-charts", () => ({ LineChart: () => null }));
 
 jest.mock("../../api/client", () => ({
   getNutritionDay: jest.fn().mockResolvedValue({
@@ -30,12 +33,14 @@ describe("DashboardScreen", () => {
   it("renders dashboard title and main sections", async () => {
     const { getByText } = render(
       <ThemeProvider>
-        <DashboardScreen
-          user={{ id: 1, email: "test@test.com" }}
-          onLogout={jest.fn()}
-          onOpenCamera={jest.fn()}
-          onOpenChat={jest.fn()}
-        />
+        <I18nProvider>
+          <DashboardScreen
+            user={{ id: 1, email: "test@test.com" }}
+            onLogout={jest.fn()}
+            onOpenCamera={jest.fn()}
+            onOpenChat={jest.fn()}
+          />
+        </I18nProvider>
       </ThemeProvider>
     );
     await waitFor(() => {

@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme";
-import { t } from "../i18n";
+import { useTranslation } from "../i18n";
 
 type PremiumGateModalProps = {
   visible: boolean;
@@ -25,6 +25,7 @@ export function PremiumGateModal({
   onUpgrade,
   limitReached = false,
 }: PremiumGateModalProps) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const message = limitReached ? t("pricing.limitReached") : t("pricing.upgradeRequired");
 

@@ -53,7 +53,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../theme";
-import { t } from "../i18n";
+import { useTranslation } from "../i18n";
 import { PremiumGateModal } from "../components/PremiumGateModal";
 
 const CALORIE_GOAL = 2200;
@@ -1049,7 +1049,9 @@ export function DashboardScreen({
   const [sleepReanalyzeExtId, setSleepReanalyzeExtId] = useState<number | null>(null);
   const [sleepReanalyzeCorrection, setSleepReanalyzeCorrection] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
+  const [menuView, setMenuView] = useState<"main" | "settings">("main");
   const [premiumGateVisible, setPremiumGateVisible] = useState(false);
+  const { t, locale, setLocale } = useTranslation();
   const { colors, toggleTheme } = useTheme();
 
   const glassCardStyle = useMemo(() => [
@@ -1284,36 +1286,39 @@ export function DashboardScreen({
         visible={menuVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
+        onRequestClose={() => { setMenuVisible(false); setMenuView("main"); }}
       >
-        <Pressable style={[styles.menuBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={() => setMenuVisible(false)}>
+        <Pressable style={[styles.menuBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={() => { setMenuVisible(false); setMenuView("main"); }}>
           <Pressable style={[styles.menuBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.menuHeader}>
-              <View style={styles.menuHeaderLeft}>
-                {user?.email ? <Text style={styles.menuEmail} numberOfLines={1}>{user.email}</Text> : null}
-                {athleteProfile?.is_premium ? (
-                  <View style={[styles.proBadge, { backgroundColor: colors.primary + "33" }]}>
-                    <Text style={[styles.proBadgeText, { color: colors.primary }]}>Pro</Text>
+            {menuView === "main" ? (
+              <>
+                <View style={styles.menuHeader}>
+                  <View style={styles.menuHeaderLeft}>
+                    {user?.email ? <Text style={styles.menuEmail} numberOfLines={1}>{user.email}</Text> : null}
+                    {athleteProfile?.is_premium ? (
+                      <View style={[styles.proBadge, { backgroundColor: colors.primary + "33" }]}>
+                        <Text style={[styles.proBadgeText, { color: colors.primary }]}>Pro</Text>
+                      </View>
+                    ) : null}
                   </View>
-                ) : null}
-              </View>
-              <TouchableOpacity
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setMenuVisible(false); }}
-                style={styles.menuCloseBtn}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                accessibilityLabel={t("common.close")}
-              >
-                <Text style={styles.menuCloseIcon}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <Pressable
-              style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); toggleTheme(); setMenuVisible(false); }}
-            >
-              <Ionicons name="settings-outline" size={22} color="#9ca3af" style={styles.menuItemIcon} />
-              <Text style={styles.menuItemText}>Тема</Text>
-            </Pressable>
-            {onLogout ? (
+                  <TouchableOpacity
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setMenuVisible(false); setMenuView("main"); }}
+                    style={styles.menuCloseBtn}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    accessibilityLabel={t("common.close")}
+                  >
+                    <Text style={styles.menuCloseIcon}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+                <Pressable
+                  style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setMenuView("settings"); }}
+                >
+                  <Ionicons name="settings-outline" size={22} color="#9ca3af" style={styles.menuItemIcon} />
+                  <Text style={styles.menuItemText}>{t("settings.title")}</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#9ca3af" style={styles.menuItemChevron} />
+                </Pressable>
+                {onLogout ? (
               <Pressable
                 style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
                 onPress={() => { onLogout(); setMenuVisible(false); }}
@@ -1350,6 +1355,41 @@ export function DashboardScreen({
                 <Ionicons name="chevron-forward" size={20} color="#9ca3af" style={styles.menuItemChevron} />
               </Pressable>
             ) : null}
+              </>
+            ) : (
+              <>
+                <View style={styles.menuHeader}>
+                  <TouchableOpacity
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setMenuView("main"); }}
+                    style={styles.menuBackBtn}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <Ionicons name="arrow-back" size={22} color="#9ca3af" style={styles.menuItemIcon} />
+                    <Text style={styles.menuItemText}>{t("settings.back")}</Text>
+                  </TouchableOpacity>
+                </View>
+                <Pressable
+                  style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); toggleTheme(); }}
+                >
+                  <Ionicons name="color-palette-outline" size={22} color="#9ca3af" style={styles.menuItemIcon} />
+                  <Text style={styles.menuItemText}>{t("settings.theme")}</Text>
+                </Pressable>
+                <Pressable
+                  style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                    setLocale(locale === "ru" ? "en" : "ru");
+                  }}
+                >
+                  <Ionicons name="language-outline" size={22} color="#9ca3af" style={styles.menuItemIcon} />
+                  <Text style={styles.menuItemText}>{t("settings.language")}</Text>
+                  <Text style={[styles.menuItemText, { flex: 0, color: "#94a3b8", fontSize: 14 }]}>
+                    {locale === "ru" ? t("settings.langRu") : t("settings.langEn")}
+                  </Text>
+                </Pressable>
+              </>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
@@ -1365,7 +1405,10 @@ export function DashboardScreen({
       >
       <View style={styles.contentWrap}>
       <View style={styles.topBar}>
-        <Text style={styles.brandTitle}>{t("app.brandTitle")}</Text>
+        <View>
+          <Text style={styles.brandTitle}>{t("app.brandTitle")}</Text>
+          <Text style={styles.brandAlpha}>{t("app.brandAlpha")}</Text>
+        </View>
         <TouchableOpacity
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -1918,7 +1961,8 @@ const styles = StyleSheet.create({
   menuIconBtn: { padding: 8 },
   menuIcon: { fontSize: 24, color: "#38bdf8", fontWeight: "700" },
   brandHeader: { marginBottom: 8 },
-  brandTitle: { fontSize: 18, fontWeight: "700", color: "#eee", marginBottom: 2 },
+  brandTitle: { fontSize: 18, fontWeight: "700", color: "#eee", marginBottom: 0 },
+  brandAlpha: { fontSize: 10, color: "#94a3b8", marginTop: 2 },
   brandSubtitle: { fontSize: 13, color: "#94a3b8" },
   title: { fontSize: 24, fontWeight: "700", color: "#eee", marginBottom: 20 },
   sectionTitle: { fontSize: 20, fontWeight: "700", color: "#eee", marginTop: 8, marginBottom: 12 },
@@ -1938,6 +1982,7 @@ const styles = StyleSheet.create({
   proBadgeText: { fontSize: 12, fontWeight: "700" },
   menuCloseBtn: { padding: 4 },
   menuCloseIcon: { fontSize: 20, color: "#94a3b8", fontWeight: "600" },
+  menuBackBtn: { flexDirection: "row", alignItems: "center", paddingVertical: 8, marginBottom: 8 },
   menuItem: { flexDirection: "row", alignItems: "center", paddingVertical: 8, borderRadius: 8 },
   menuItemIcon: { marginRight: 12 },
   menuItemText: { fontSize: 16, color: "#E0E0E0", flex: 1 },

@@ -24,7 +24,7 @@ import {
   type SleepExtractedData,
   type WellnessPhotoResult,
 } from "../api/client";
-import { t } from "../i18n";
+import { useTranslation } from "../i18n";
 import { devLog, getLogs, clearLogs, subscribe, isDevLogEnabled, type LogEntry } from "../utils/devLog";
 import { PremiumGateModal } from "../components/PremiumGateModal";
 
@@ -106,6 +106,7 @@ export function CameraScreen({
   onWellnessSaved?: () => void;
   onOpenPricing?: () => void;
 }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedPhotoUri, setSelectedPhotoUri] = useState<string | null>(null);

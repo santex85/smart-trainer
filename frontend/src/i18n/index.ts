@@ -1,6 +1,8 @@
-import { ru } from "./translations";
+import { messages } from "./translations";
 
-const messages: Record<string, unknown> = { ru };
+export { I18nProvider, useTranslation } from "./context";
+export { messages, ru, en } from "./translations";
+export type { TranslationKey, Locale } from "./translations";
 
 function get(obj: Record<string, unknown>, path: string): string | undefined {
   const parts = path.split(".");
@@ -13,7 +15,8 @@ function get(obj: Record<string, unknown>, path: string): string | undefined {
 }
 
 /**
- * Translate by key. Uses Russian locale. Example: t("app.loading") => "Загрузка…"
+ * Translate by key. Uses Russian as fallback when used outside I18nProvider.
+ * Prefer useTranslation() in components so locale changes re-render.
  */
 export function t(key: string): string {
   return get(messages.ru as Record<string, unknown>, key) ?? key;

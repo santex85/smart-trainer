@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme";
-import { t } from "../i18n";
+import { useTranslation } from "../i18n";
 import { createCheckoutSession, getSubscription, type BillingPlan } from "../api/client";
 
 function getBaseUrl(): string {
@@ -28,6 +28,7 @@ export function PricingScreen({
   onClose: () => void;
   isPremium?: boolean;
 }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const [loading, setLoading] = useState<BillingPlan | null>(null);
   const [error, setError] = useState<string | null>(null);

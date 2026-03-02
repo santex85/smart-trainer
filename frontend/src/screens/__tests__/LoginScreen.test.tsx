@@ -2,6 +2,7 @@ import React from "react";
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import { LoginScreen } from "../LoginScreen";
 import { ThemeProvider } from "../../theme";
+import { I18nProvider } from "../../i18n";
 
 jest.mock("../../api/client", () => ({
   login: jest.fn().mockResolvedValue({
@@ -16,7 +17,8 @@ jest.mock("../../storage/authStorage", () => ({
 }));
 
 describe("LoginScreen", () => {
-  const renderWithTheme = (ui: React.ReactElement) => render(<ThemeProvider>{ui}</ThemeProvider>);
+  const renderWithTheme = (ui: React.ReactElement) =>
+    render(<ThemeProvider><I18nProvider>{ui}</I18nProvider></ThemeProvider>);
 
   it("renders email and password fields", () => {
     const { getByPlaceholderText, getByText } = renderWithTheme(

@@ -27,7 +27,7 @@ import {
   type AnalyticsNutritionResponse,
 } from "../api/client";
 import { useTheme } from "../theme";
-import { t } from "../i18n";
+import { useTranslation } from "../i18n";
 import { PremiumGateModal } from "../components/PremiumGateModal";
 
 const TAB_KEYS = ["overview", "sleep", "training", "nutrition"] as const;
@@ -42,6 +42,7 @@ function formatShortDate(iso: string): string {
 }
 
 export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => void; onOpenPricing?: () => void }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const [premiumGateVisible, setPremiumGateVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");

@@ -3,13 +3,22 @@ import { render, waitFor } from "@testing-library/react-native";
 import { ChatScreen } from "../ChatScreen";
 import { ThemeProvider } from "../../theme";
 
+jest.mock("@expo/vector-icons", () => {
+  const { View } = require("react-native");
+  return { Ionicons: View };
+});
+
 jest.mock("../../api/client", () => ({
   getChatHistory: jest.fn().mockResolvedValue([]),
   sendChatMessage: jest.fn().mockResolvedValue({}),
   sendChatMessageWithFit: jest.fn().mockResolvedValue({}),
   runOrchestrator: jest.fn().mockResolvedValue({}),
-  getChatThreads: jest.fn().mockResolvedValue({ items: [], total: 0 }),
-  createChatThread: jest.fn().mockResolvedValue({ id: 1 }),
+  getChatThreads: jest.fn().mockResolvedValue({
+    items: [{ id: 1, title: "Test", created_at: "2026-01-01T00:00:00Z" }],
+    total: 1,
+  }),
+  createChatThread: jest.fn().mockResolvedValue({ id: 1, title: "Test", created_at: "2026-01-01T00:00:00Z" }),
+  updateChatThread: jest.fn().mockResolvedValue({}),
   clearChatThread: jest.fn().mockResolvedValue(undefined),
   deleteChatThread: jest.fn().mockResolvedValue(undefined),
 }));

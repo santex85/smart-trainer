@@ -29,7 +29,7 @@ import { AnalyticsScreen } from "./src/screens/AnalyticsScreen";
 import { IntervalsLinkScreen } from "./src/screens/IntervalsLinkScreen";
 import { PricingScreen } from "./src/screens/PricingScreen";
 import type { AuthUser } from "./src/api/client";
-import { t } from "./src/i18n";
+import { useTranslation, I18nProvider } from "./src/i18n";
 import { Ionicons } from "@expo/vector-icons";
 
 const Stack = createNativeStackNavigator();
@@ -277,6 +277,7 @@ function ErrorFallback({
   error: Error;
   resetError: () => void;
 }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   return (
     <View style={[styles.root, styles.centered, { backgroundColor: colors.background }]}>
@@ -297,9 +298,11 @@ function App() {
   return (
     <QueryProvider>
       <ThemeProvider>
-        <Sentry.ErrorBoundary fallback={({ error, resetError }) => <ErrorFallback error={error} resetError={resetError} />}>
-          <AppContent />
-        </Sentry.ErrorBoundary>
+        <I18nProvider>
+          <Sentry.ErrorBoundary fallback={({ error, resetError }) => <ErrorFallback error={error} resetError={resetError} />}>
+            <AppContent />
+          </Sentry.ErrorBoundary>
+        </I18nProvider>
       </ThemeProvider>
     </QueryProvider>
   );

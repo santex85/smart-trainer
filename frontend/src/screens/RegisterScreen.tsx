@@ -12,11 +12,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { register, type AuthUser } from "../api/client";
-import { t } from "../i18n";
+import { useTranslation } from "../i18n";
 import { setAccessToken, setRefreshToken } from "../storage/authStorage";
 import { useTheme } from "../theme";
 
-function getErrorMessage(e: unknown): string {
+function getErrorMessage(e: unknown, t: (key: string) => string): string {
   if (!(e instanceof Error)) return t("auth.requestError");
   try {
     const parsed = JSON.parse(e.message) as { detail?: string };
@@ -34,6 +34,7 @@ export function RegisterScreen({
   onSuccess: (user: AuthUser) => void;
   onGoToLogin: () => void;
 }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,7 +59,7 @@ export function RegisterScreen({
       await setRefreshToken(res.refresh_token);
       onSuccess(res.user);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getErrorMessage(err, t));
     } finally {
       setLoading(false);
     }
