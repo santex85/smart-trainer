@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-from app.api.v1 import analytics, auth, athlete_profile, chat, intervals, nutrition, photo, users, wellness, workouts
+from app.api.v1 import analytics, auth, athlete_profile, billing, chat, intervals, nutrition, photo, users, wellness, workouts
 
 # Ensure app loggers (Intervals, sync, etc.) print to stdout so you see them in the terminal
 logging.basicConfig(
@@ -173,6 +173,7 @@ app.include_router(users.router, prefix="/api/v1")
 app.include_router(wellness.router, prefix="/api/v1")
 app.include_router(workouts.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
+app.include_router(billing.router, prefix="/api/v1")
 
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)

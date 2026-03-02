@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  Modal,
+  Pressable,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,10 +25,12 @@ import {
   createChatThread,
   clearChatThread,
   deleteChatThread,
+  updateChatThread,
   type ChatMessage,
   type ChatThreadItem,
 } from "../api/client";
 import { useTheme } from "../theme";
+import { Ionicons } from "@expo/vector-icons";
 
 function formatChatTime(isoOrTimestamp: string): string {
   try {
@@ -53,6 +57,9 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
   const [saveWorkout, setSaveWorkout] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [renameThreadId, setRenameThreadId] = useState<number | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
   const flatRef = useRef<FlatList>(null);
 
   const pickFitFile = useCallback(() => {
@@ -156,6 +163,28 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
     }
   }, [currentThreadId]);
 
+  const openThreadMenu = useCallback(
+    (t: ChatThreadItem) => {
+      Alert.alert("Чат", `«${t.title}»`, [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: "Переименовать",
+          onPress: () => {
+            setRenameThreadId(t.id);
+            setRenameTitle(t.title);
+            setRenameModalOpen(true);
+          },
+        },
+        {
+          text: "Удалить",
+          style: "destructive",
+          onPress: () => onDeleteThread(t.id, t.title),
+        },
+      ]);
+    },
+    []
+  );
+
   const onDeleteThread = useCallback(
     (threadId: number, title: string) => {
       Alert.alert(
@@ -198,6 +227,21 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
     },
     [currentThreadId, loadHistoryForThread]
   );
+
+  const onRenameSubmit = useCallback(async () => {
+    const id = renameThreadId;
+    const title = renameTitle.trim();
+    if (id == null || !title) return;
+    try {
+      await updateChatThread(id, { title });
+      setThreads((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
+      setRenameModalOpen(false);
+      setRenameThreadId(null);
+      setRenameTitle("");
+    } catch {
+      Alert.alert("Ошибка", "Не удалось переименовать чат");
+    }
+  }, [renameThreadId, renameTitle]);
 
   const send = async (runOrch = false) => {
     if (runOrch) {
@@ -287,16 +331,26 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
           contentContainerStyle={styles.tabsContent}
         >
           {threads.map((t) => (
-            <TouchableOpacity
-              key={t.id}
-              style={[styles.tab, t.id === currentThreadId && styles.tabActive]}
-              onPress={() => selectThread(t.id)}
-              onLongPress={() => onDeleteThread(t.id, t.title)}
-            >
-              <Text style={[styles.tabText, t.id === currentThreadId && styles.tabTextActive]} numberOfLines={1}>
-                {t.title}
-              </Text>
-            </TouchableOpacity>
+            <View key={t.id} style={styles.tabWrap}>
+              <TouchableOpacity
+                style={[styles.tab, t.id === currentThreadId && styles.tabActive]}
+                onPress={() => selectThread(t.id)}
+                onLongPress={() => openThreadMenu(t)}
+              >
+                <Text style={[styles.tabText, t.id === currentThreadId && styles.tabTextActive]} numberOfLines={1}>
+                  {t.title}
+                </Text>
+                {t.id === currentThreadId ? (
+                  <TouchableOpacity
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    onPress={() => openThreadMenu(t)}
+                    style={styles.tabMenuBtn}
+                  >
+                    <Ionicons name="ellipsis-horizontal" size={16} color={t.id === currentThreadId ? "#0f172a" : colors.textMuted} />
+                  </TouchableOpacity>
+                ) : null}
+              </TouchableOpacity>
+            </View>
           ))}
         </ScrollView>
       ) : null}
@@ -381,6 +435,30 @@ export function ChatScreen({ onClose }: { onClose: () => void }) {
         <Text style={styles.orchBtnText}>Решение на сегодня</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
+
+      <Modal visible={renameModalOpen} transparent animationType="fade">
+        <Pressable style={styles.renameBackdrop} onPress={() => setRenameModalOpen(false)}>
+          <Pressable style={[styles.renameBox, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]} onPress={(e) => e.stopPropagation()}>
+            <Text style={[styles.renameTitle, { color: colors.text }]}>Переименовать чат</Text>
+            <TextInput
+              style={[styles.renameInput, { backgroundColor: colors.surface, borderColor: colors.glassBorder, color: colors.text }]}
+              placeholder="Название"
+              placeholderTextColor={colors.textMuted}
+              value={renameTitle}
+              onChangeText={setRenameTitle}
+              autoFocus
+            />
+            <View style={styles.renameActions}>
+              <TouchableOpacity style={styles.renameCancel} onPress={() => setRenameModalOpen(false)}>
+                <Text style={[styles.renameCancelText, { color: colors.text }]}>Отмена</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.renameSave, { backgroundColor: colors.primary }]} onPress={onRenameSubmit}>
+                <Text style={styles.renameSaveText}>Сохранить</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -396,10 +474,21 @@ const styles = StyleSheet.create({
   close: { fontSize: 16, color: "#38bdf8" },
   tabsScroll: { maxHeight: 44, borderBottomWidth: 1, borderBottomColor: "#334155" },
   tabsContent: { paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexDirection: "row", alignItems: "center" },
-  tab: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, marginRight: 8, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  tabWrap: { marginRight: 8 },
+  tab: { flexDirection: "row", alignItems: "center", paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   tabActive: { backgroundColor: "#38bdf8" },
-  tabText: { fontSize: 14, color: "#94a3b8" },
+  tabText: { fontSize: 14, color: "#94a3b8", maxWidth: 120 },
   tabTextActive: { color: "#0f172a", fontWeight: "600" },
+  tabMenuBtn: { marginLeft: 4, padding: 2 },
+  renameBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 24 },
+  renameBox: { width: "100%", maxWidth: 340, borderRadius: 24, borderWidth: 1, padding: 20 },
+  renameTitle: { fontSize: 18, fontWeight: "600", marginBottom: 12 },
+  renameInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, marginBottom: 16 },
+  renameActions: { flexDirection: "row", justifyContent: "flex-end", gap: 12 },
+  renameCancel: { paddingVertical: 10, paddingHorizontal: 16 },
+  renameCancelText: { fontSize: 16 },
+  renameSave: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 },
+  renameSaveText: { fontSize: 16, fontWeight: "600", color: "#0f172a" },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   listContent: { padding: 16, paddingBottom: 24 },
   bubble: { maxWidth: "85%", padding: 12, borderRadius: 16, marginBottom: 8 },

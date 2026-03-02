@@ -1,0 +1,2 @@
+# Default: 03:00 UTC daily. Override at runtime via BACKUP_CRON_SCHEDULE in entrypoint.
+0 3 * * * /opt/backup.sh >> /var/log/backup.log 2>&1

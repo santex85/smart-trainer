@@ -159,3 +159,43 @@ openssl rsa -in private.pem -pubout -out public.pem
    ```
    Если Caddy один на сервере, добавляют в `Caddyfile` второй виртуальный хост для `staging.yourdomain.com`, проксирующий на staging-frontend.
 5. Различия с production: `APP_ENV=staging`, `DEBUG=true` по умолчанию, отдельная БД и секреты.
+
+## 9. Бэкапы PostgreSQL
+
+Сервис `backup` в `docker-compose.prod.yml` раз в сутки делает `pg_dump`, сжимает дамп и загружает его в S3-совместимое хранилище (Selectel, AWS или другой S3 API). Потеря базы без бэкапов недопустима — в ней хранятся логи питания и тренировок.
+
+### Настройка
+
+В `.env` на сервере задайте переменные (см. `.env.production.example`):
+
+- **Обязательно:** `S3_BACKUP_BUCKET`, `S3_BACKUP_ACCESS_KEY`, `S3_BACKUP_SECRET_KEY`.
+- **Selectel:** укажите `S3_BACKUP_ENDPOINT=https://s3.selcdn.ru` (или ваш endpoint).
+- **AWS:** переменную `S3_BACKUP_ENDPOINT` не задавайте или оставьте пустой.
+- По желанию: `S3_BACKUP_PREFIX=backups/postgres/`, `BACKUP_CRON_SCHEDULE=0 3 * * *` (по умолчанию 03:00 UTC), `BACKUP_RETENTION_DAYS=30` (удаление старых дампов в S3; 0 = не удалять).
+
+После этого при деплое поднимается контейнер `backup`; он подключается к `postgres` по внутренней сети и по расписанию выполняет дамп и загрузку в S3.
+
+### Проверка, что бэкапы идут
+
+1. Логи контейнера: `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs backup` — должны быть строки вида «Starting backup…», «Backup completed».
+2. В бакете S3 должны появляться объекты с именами вида `backups/postgres/smart_trainer_YYYYMMDD_HHMM.dump.gz`.
+
+### Восстановление из бэкапа
+
+Скрипт `deploy/restore-from-s3.sh` скачивает выбранный дамп из S3 и восстанавливает его в работающий контейнер PostgreSQL.
+
+**Внимание:** восстановление перезаписывает текущую БД (`--clean --if-exists`). Остановите backend или предупредите пользователей о краткой недоступности.
+
+1. На сервере в каталоге проекта: `cd /root/smart_trainer` (или ваш путь).
+2. Запуск:
+   ```bash
+   chmod +x deploy/restore-from-s3.sh
+   ./deploy/restore-from-s3.sh latest
+   ```
+   Вместо `latest` можно указать полный ключ объекта в S3, например `backups/postgres/smart_trainer_20250301_0300.dump.gz`.
+3. Скрипт загружает `.env`, скачивает дамп, запрашивает подтверждение и выполняет `pg_restore`. Для проверки без восстановления: `./deploy/restore-from-s3.sh latest --dry-run`.
+4. После восстановления проверьте данные и при необходимости перезапустите backend: `docker compose -f docker-compose.yml -f docker-compose.prod.yml restart backend`.
+
+### Рекомендация
+
+Раз в квартал проверяйте восстановление: выполните `restore-from-s3.sh latest --dry-run`, затем при необходимости — полное восстановление в тестовую БД или на staging, чтобы убедиться, что дампы не битые и процедура отрабатывает.
