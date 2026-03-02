@@ -9,6 +9,7 @@
     "web": "expo start --web",
     "build:web": "expo export -p web",
     "generate-pwa-icons": "node scripts/generate-pwa-icons.js",
+    "generate-app-icons": "node scripts/generate-app-icons.js",
     "test": "jest --ci",
     "test:watch": "jest --watch"
   },
