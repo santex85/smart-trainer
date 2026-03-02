@@ -5,6 +5,9 @@ services:
   postgres:
     ports: []
 
+  redis:
+    ports: []
+
   backup:
     build:
       context: ./deploy/backup
