@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     free_daily_photo_limit: int = 3
     free_daily_chat_limit: int = 10
 
+    # Rate limit (AI photo): Redis-backed per-user daily limit
+    redis_url: str = "redis://localhost:6379/0"
+    rate_limit_photo_ai_enabled: bool = True
+    premium_photo_analyses_per_day: int = 0  # 0 = unlimited for premium
+
     @property
     def sync_database_url(self) -> str:
         """PostgreSQL URL for sync drivers (Alembic)."""

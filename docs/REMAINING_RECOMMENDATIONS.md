@@ -752,7 +752,7 @@ async def intervals_webhook(
     return {"ok": True}
 ```
 
-**Регистрация webhook:** при link добавить вызов API Intervals для подписки на webhook `https://alexhosting.ru/api/v1/intervals/webhook`.
+**Регистрация webhook:** при link добавить вызов API Intervals для подписки на webhook `https://tsspro.tech/api/v1/intervals/webhook`.
 
 **Трудоёмкость:** 2–3 часа (зависит от API Intervals.icu)
 
@@ -875,7 +875,7 @@ services:
   backend:
     environment:
       APP_ENV: staging
-      DOMAIN: staging.alexhosting.ru
+      DOMAIN: staging.tsspro.tech
 ```
 
 **Трудоёмкость:** 2–3 часа (настройка DNS + compose + отдельный .env)
