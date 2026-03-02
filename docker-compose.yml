@@ -23,8 +23,7 @@ services:
     image: redis:7-alpine
     networks:
       - backend-db
-    ports:
-      - "6379:6379"
+    # no host ports — services use redis:6379 internally; host 6379 often used by system redis
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

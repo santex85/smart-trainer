@@ -5,9 +5,6 @@ services:
   postgres:
     ports: []
 
-  redis:
-    ports: []  # no host ports in prod (host redis uses 6379)
-
   backup:
     build:
       context: ./deploy/backup
