@@ -189,7 +189,15 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
           return next;
         });
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Не удалось удалить чат";
+        const raw = e instanceof Error ? e.message : "Не удалось удалить чат";
+        let msg = raw;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed?.detail === "Not Found" || parsed?.detail === "Thread not found")
+            msg = "Чат не найден или сервер не обновлён. Обновите страницу и попробуйте снова.";
+        } catch {
+          if (raw.startsWith("{")) msg = "Ошибка сервера. Обновите страницу.";
+        }
         if (Platform.OS === "web" && typeof window !== "undefined") {
           window.alert(msg);
         } else {

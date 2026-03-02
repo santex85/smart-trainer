@@ -1605,10 +1605,19 @@ export function DashboardScreen({
                                   const fresh = await getSleepExtractions(addDays(today, -14), today).catch(() => []);
                                   setSleepExtractions(fresh ?? []);
                                 } catch (e) {
+                                  const raw = e instanceof Error ? e.message : "Не удалось удалить";
+                                  let msg = raw;
+                                  try {
+                                    const parsed = JSON.parse(raw);
+                                    if (parsed?.detail === "Not Found" || parsed?.detail === "Extraction not found")
+                                      msg = "Запись не найдена или сервер не обновлён. Обновите страницу и попробуйте снова.";
+                                  } catch {
+                                    if (raw.startsWith("{")) msg = "Ошибка сервера. Обновите страницу.";
+                                  }
                                   if (Platform.OS === "web" && typeof window !== "undefined") {
-                                    window.alert(e instanceof Error ? e.message : "Не удалось удалить");
+                                    window.alert(msg);
                                   } else {
-                                    Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить");
+                                    Alert.alert("Ошибка", msg);
                                   }
                                 }
                               };
