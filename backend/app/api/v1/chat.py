@@ -23,20 +23,81 @@ from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
 from app.schemas.pagination import PaginatedResponse
 from app.services.fit_parser import parse_fit_session
+from app.services.gemini_photo_analyzer import classify_and_analyze_image
+from app.services.image_resize import resize_image_for_ai_async
 from app.services.orchestrator import run_daily_decision
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-CHAT_SYSTEM_BASE = """You are a sports coach. You have the following context about the athlete. Use it to give brief, practical advice.
-- Reply in 3–6 short bullets. If a section has no data, say "No data" for that topic; never invent numbers.
-- Only use numbers that appear in the context; if context is empty for a section, say you don't have that data."""
+
+def _validate_chat_image(file: UploadFile | None, image_bytes: bytes) -> None:
+    """Validate image file for chat upload. Raises HTTPException if invalid."""
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="No image file")
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    if len(image_bytes) == 0:
+        raise HTTPException(status_code=400, detail="File is empty or invalid.")
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image too large (max 10MB)")
+    magic = image_bytes[:12] if len(image_bytes) >= 12 else image_bytes
+    if not (
+        magic.startswith(b"\xff\xd8\xff")
+        or magic.startswith(b"\x89PNG\r\n\x1a\n")
+        or magic.startswith(b"GIF87a")
+        or magic.startswith(b"GIF89a")
+        or (magic[:4] == b"RIFF" and magic[8:12] == b"WEBP")
+    ):
+        raise HTTPException(status_code=400, detail="File must be a valid image (JPEG, PNG, GIF or WebP).")
+
+
+async def _describe_image_for_chat(image_bytes: bytes, locale: str) -> str:
+    """Get a short text description of the image for coach context. Uses classify_and_analyze_image."""
+    try:
+        kind, result = await classify_and_analyze_image(image_bytes, locale=locale)
+        parts = [f"Photo type: {kind}."]
+        if hasattr(result, "model_dump"):
+            d = result.model_dump()
+        elif isinstance(result, dict):
+            d = result
+        else:
+            d = {}
+        # Brief summary: key fields only
+        if kind == "food" and d.get("name"):
+            parts.append(f"Content: {d.get('name')}; calories {d.get('calories')}, protein {d.get('protein_g')}g.")
+        elif kind == "sleep":
+            if d.get("sleep_hours") is not None or d.get("actual_sleep_hours") is not None:
+                parts.append(f"Sleep: {d.get('sleep_hours') or d.get('actual_sleep_hours')} h, quality {d.get('quality_score')}.")
+            else:
+                parts.append("Sleep data from screenshot.")
+        elif kind == "wellness":
+            parts.append(f"RHR: {d.get('rhr')}, HRV: {d.get('hrv')}.")
+        elif kind == "workout":
+            parts.append(
+                f"Workout: {d.get('name') or 'Activity'}; "
+                f"duration {d.get('duration_sec')}s, distance {d.get('distance_m')}m, TSS {d.get('tss')}."
+            )
+        return " ".join(parts)
+    except (ValueError, Exception):
+        return "User attached a photo (content could not be automatically classified)."
+
+CHAT_SYSTEM_REGULAR = """You are a sports coach. You have the following context about the athlete.
+- Consider what the user is asking about (sleep, nutrition, load, workouts, etc.) and focus your answer on that. Use the metrics from context to give concrete, practical advice — not just listing numbers. Tie your advice to the user's question.
+- If a section has no data, say "No data" for that topic; never invent numbers. Only use numbers that appear in the context.
+- Reply briefly and to the point; 3–6 short bullets when listing data is fine, but keep the tone helpful and human, not mechanical."""
+
+CHAT_SYSTEM_PREMIUM = """You are the athlete's personal coach in a live, conversational mode. You can discuss any of their metrics and any topic that the context supports (training load, sleep, nutrition, wellness, goals).
+- Be warm and human: respond like a real coach who knows the athlete's data. Avoid robotic or template phrases. It's fine to be more detailed or to ask a follow-up when it helps.
+- Use only numbers and facts from the context; never invent data. If something is missing, say so naturally.
+- You may give longer, more conversational answers when the user asks for deeper discussion or when explaining trends and recommendations."""
 
 CHAT_LOCALE_LANGUAGE = {"ru": "Russian", "en": "English"}
 
 
-def _chat_system_with_locale(locale: str) -> str:
+def _chat_system_with_locale(locale: str, is_premium: bool = False) -> str:
     lang = CHAT_LOCALE_LANGUAGE.get((locale or "ru").lower(), "Russian")
-    return f"You must respond only in {lang}. All your reply must be in this language.\n\n{CHAT_SYSTEM_BASE}"
+    base = CHAT_SYSTEM_PREMIUM if is_premium else CHAT_SYSTEM_REGULAR
+    return f"You must respond only in {lang}. All your reply must be in this language.\n\n{base}"
 
 
 # Context limits: last N days, last M workouts, max chars per section to keep prompts smaller
@@ -242,6 +303,7 @@ class CreateThreadBody(BaseModel):
 class RunOrchestratorBody(BaseModel):
     locale: str = "ru"
     for_date: date | None = None
+    client_local_hour: int | None = None  # 0-23, local hour when user tapped "analysis"
 
 
 async def _get_or_create_default_thread(session: AsyncSession, user_id: int) -> ChatThread:
@@ -456,7 +518,7 @@ async def send_message(
         from app.services.gemini_common import run_generate_content
         context = await _build_athlete_context(session, uid, user.is_premium)
         model = genai.GenerativeModel(settings.gemini_model)
-        chat_system = _chat_system_with_locale(locale)
+        chat_system = _chat_system_with_locale(locale, user.is_premium)
         prompt = f"{chat_system}\n\nContext:\n{context}\n\nUser message: {body.message}"
         response = await run_generate_content(model, prompt)
         reply = response.text if response and response.text else "No response."
@@ -471,12 +533,16 @@ async def send_message(
 @router.post(
     "/send-with-file",
     response_model=dict,
-    summary="Send message with FIT file",
-    responses={401: {"description": "Not authenticated"}, 502: {"description": "AI service unavailable"}},
+    summary="Send message with FIT file (Premium)",
+    responses={
+        401: {"description": "Not authenticated"},
+        403: {"description": "Premium required"},
+        502: {"description": "AI service unavailable"},
+    },
 )
 async def send_message_with_file(
     session: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(get_current_user)],
+    user: Annotated[User, Depends(require_premium)],
     locale: Annotated[str, Depends(get_request_locale)],
     _usage: Annotated[None, Depends(check_chat_usage)],
     message: Annotated[str, Form()] = "",
@@ -571,10 +637,73 @@ async def send_message_with_file(
         if fit_summary:
             context += "\n\n## Uploaded workout (this message)\n" + fit_summary
         model = genai.GenerativeModel(settings.gemini_model)
-        chat_system = _chat_system_with_locale(locale)
+        chat_system = _chat_system_with_locale(locale, user.is_premium)
         prompt = f"{chat_system}\n\nContext:\n{context}\n\nUser message: {user_content or 'Разбери приложенную тренировку.'}"
         response = await run_generate_content(model, prompt)
         reply = response.text if response and response.text else "No response."
+
+    session.add(
+        ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.assistant.value, content=reply)
+    )
+    await session.commit()
+    return {"reply": reply}
+
+
+@router.post(
+    "/send-with-image",
+    response_model=dict,
+    summary="Send message with image (Premium)",
+    responses={
+        400: {"description": "Invalid image"},
+        401: {"description": "Not authenticated"},
+        403: {"description": "Premium required"},
+        502: {"description": "AI service unavailable"},
+    },
+)
+async def send_message_with_image(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_premium)],
+    locale: Annotated[str, Depends(get_request_locale)],
+    _usage: Annotated[None, Depends(check_chat_usage)],
+    message: Annotated[str, Form()] = "",
+    thread_id: Annotated[str | None, Form()] = None,
+    file: Annotated[UploadFile | None, File()] = None,
+) -> dict:
+    """Send a chat message with an attached image. Premium only. Image is analyzed and description is added to context."""
+    uid = user.id
+    tid = int(thread_id) if (thread_id and str(thread_id).strip()) else None
+    if tid is None:
+        thread = await _get_or_create_default_thread(session, uid)
+        tid = thread.id
+    else:
+        r = await session.execute(select(ChatThread).where(ChatThread.id == tid, ChatThread.user_id == uid))
+        if r.scalar_one_or_none() is None:
+            raise HTTPException(status_code=404, detail="Thread not found")
+
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="No image file")
+    image_bytes = await file.read()
+    _validate_chat_image(file, image_bytes)
+    image_bytes = await resize_image_for_ai_async(image_bytes)
+    image_description = await _describe_image_for_chat(image_bytes, locale)
+
+    user_content = (message or "").strip() or "Что на фото? Прокомментируй."
+    session.add(
+        ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.user.value, content=user_content)
+    )
+    await session.flush()
+
+    import google.generativeai as genai
+    from app.config import settings
+    from app.services.gemini_common import run_generate_content
+
+    context = await _build_athlete_context(session, uid, user.is_premium)
+    context += "\n\n## Photo in this message\n" + image_description
+    model = genai.GenerativeModel(settings.gemini_model)
+    chat_system = _chat_system_with_locale(locale, is_premium=True)
+    prompt = f"{chat_system}\n\nContext:\n{context}\n\nUser message: {user_content}"
+    response = await run_generate_content(model, prompt)
+    reply = response.text if response and response.text else "No response."
 
     session.add(
         ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.assistant.value, content=reply)
@@ -596,15 +725,21 @@ async def run_orchestrator(
 ) -> dict:
     """Run daily decision (Go/Modify/Skip) for today and return result. Pro only. May update Intervals and add chat message."""
     uid = user.id
-    locale = body.locale if body else "ru"
-    for_date = body.for_date if body else None
-    result = await run_daily_decision(session, uid, for_date or date.today(), locale=locale)
+    body = body or RunOrchestratorBody()
+    locale = body.locale
+    for_date = body.for_date or date.today()
+    client_local_hour = body.client_local_hour
+    result = await run_daily_decision(
+        session, uid, today=for_date, locale=locale, client_local_hour=client_local_hour
+    )
     await session.commit()
     return {
         "decision": result.decision.value,
         "reason": result.reason,
         "modified_plan": result.modified_plan.model_dump() if result.modified_plan else None,
         "suggestions_next_days": result.suggestions_next_days,
+        "evening_tips": result.evening_tips,
+        "plan_tomorrow": result.plan_tomorrow,
     }
 
 

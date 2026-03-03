@@ -206,7 +206,11 @@ function AppContent() {
               options={{ tabBarLabel: t("tabs.chat") }}
             >
               {({ navigation }) => (
-                <ChatScreen onClose={() => navigation.navigate("Home")} onOpenPricing={() => setPricingVisible(true)} />
+                <ChatScreen
+                  user={user}
+                  onClose={() => navigation.navigate("Home")}
+                  onOpenPricing={() => setPricingVisible(true)}
+                />
               )}
             </Tab.Screen>
             <Tab.Screen

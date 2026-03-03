@@ -60,6 +60,7 @@ class LoginBody(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: str
+    is_premium: bool = False
 
 
 class TokenResponse(BaseModel):
@@ -129,7 +130,7 @@ async def register(
         access_token=access_str,
         refresh_token=refresh_str,
         expires_in=expires_in,
-        user=UserOut(id=user.id, email=user.email),
+        user=UserOut(id=user.id, email=user.email, is_premium=user.is_premium),
     )
 
 
@@ -170,7 +171,7 @@ async def login(
         access_token=access_str,
         refresh_token=refresh_str,
         expires_in=expires_in,
-        user=UserOut(id=user.id, email=user.email),
+        user=UserOut(id=user.id, email=user.email, is_premium=user.is_premium),
     )
 
 
@@ -221,7 +222,7 @@ async def refresh_tokens(
         access_token=access_str,
         refresh_token=refresh_str,
         expires_in=expires_in,
-        user=UserOut(id=user.id, email=user.email),
+        user=UserOut(id=user.id, email=user.email, is_premium=user.is_premium),
     )
 
 
@@ -234,4 +235,4 @@ async def refresh_tokens(
     },
 )
 async def me(user: Annotated[User, Depends(get_current_user)]) -> UserOut:
-    return UserOut(id=user.id, email=user.email)
+    return UserOut(id=user.id, email=user.email, is_premium=user.is_premium)

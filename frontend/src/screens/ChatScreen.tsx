@@ -20,6 +20,7 @@ import {
   getChatHistory,
   sendChatMessage,
   sendChatMessageWithFit,
+  sendChatMessageWithImage,
   runOrchestrator,
   getChatThreads,
   createChatThread,
@@ -33,6 +34,7 @@ import { useTheme } from "../theme";
 import { useTranslation } from "../i18n";
 import { Ionicons } from "@expo/vector-icons";
 import { PremiumGateModal } from "../components/PremiumGateModal";
+import type { AuthUser } from "../api/client";
 
 function formatChatTime(isoOrTimestamp: string): string {
   try {
@@ -49,7 +51,15 @@ function formatChatTime(isoOrTimestamp: string): string {
   }
 }
 
-export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; onOpenPricing?: () => void }) {
+export function ChatScreen({
+  user,
+  onClose,
+  onOpenPricing,
+}: {
+  user?: AuthUser | null;
+  onClose: () => void;
+  onOpenPricing?: () => void;
+}) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [threads, setThreads] = useState<ChatThreadItem[]>([]);
@@ -58,7 +68,9 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [attachedFit, setAttachedFit] = useState<Blob | { uri: string; name: string } | null>(null);
+  const [attachedImage, setAttachedImage] = useState<Blob | { uri: string; name: string } | null>(null);
   const [saveWorkout, setSaveWorkout] = useState(false);
+  const isPremium = !!user?.is_premium;
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [renameModalOpen, setRenameModalOpen] = useState(false);
@@ -95,6 +107,36 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
       }
     };
     openDocPicker();
+  }, [t]);
+
+  const pickImage = useCallback(() => {
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      const inputEl = document.createElement("input");
+      inputEl.type = "file";
+      inputEl.accept = "image/*";
+      inputEl.onchange = async (e: Event) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        setAttachedImage(file);
+      };
+      inputEl.click();
+      return;
+    }
+    const openImagePicker = async () => {
+      try {
+        const { getDocumentAsync } = await import("expo-document-picker");
+        const result = await getDocumentAsync({
+          type: "image/*",
+          copyToCacheDirectory: true,
+        });
+        if (result.canceled) return;
+        const doc = result.assets[0];
+        setAttachedImage({ uri: doc.uri, name: doc.name || "photo.jpg" });
+      } catch (err) {
+        Alert.alert(t("common.error"), t("chat.attachFileError"));
+      }
+    };
+    openImagePicker();
   }, [t]);
 
   const loadHistoryForThread = useCallback(async (threadId: number | null) => {
@@ -292,22 +334,34 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
       return;
     }
     const text = input.trim();
-    if ((!text && !attachedFit) || loading) return;
-    const userContent = text || t("chat.fitAttachmentLabel");
+    if ((!text && !attachedFit && !attachedImage) || loading) return;
+    const userContent = text || (attachedImage ? t("chat.photoAttachmentLabel") : t("chat.fitAttachmentLabel"));
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userContent }]);
     if (attachedFit) setAttachedFit(null);
+    if (attachedImage) setAttachedImage(null);
     setLoading(true);
     try {
-      const { reply } = attachedFit
-        ? await sendChatMessageWithFit(text, attachedFit, currentThreadId ?? undefined, saveWorkout)
-        : await sendChatMessage(text, false, currentThreadId ?? undefined);
+      let reply: string;
+      if (attachedImage) {
+        const res = await sendChatMessageWithImage(text, attachedImage, currentThreadId ?? undefined);
+        reply = res.reply;
+      } else if (attachedFit) {
+        const res = await sendChatMessageWithFit(text, attachedFit, currentThreadId ?? undefined, saveWorkout);
+        reply = res.reply;
+      } else {
+        const res = await sendChatMessage(text, false, currentThreadId ?? undefined);
+        reply = res.reply;
+      }
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (e) {
       const msg = e instanceof Error ? e.message : t("chat.requestFailed");
-      if ((msg.includes("429") || msg.includes("limit") || msg.includes("Daily limit")) && onOpenPricing) {
+      const showPremiumGate =
+        (msg.includes("429") || msg.includes("limit") || msg.includes("Daily limit") || msg.includes("403") || msg.includes("Premium") || msg.includes("premium")) &&
+        onOpenPricing;
+      if (showPremiumGate) {
         setPremiumGateVisible(true);
       } else {
         setMessages((prev) => [
@@ -438,10 +492,25 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
           </TouchableOpacity>
         </View>
       ) : null}
+      {attachedImage ? (
+        <View style={[styles.attachedRow, { backgroundColor: colors.glassBg }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
+          <Text style={styles.attachedText}>{t("chat.attachedPhoto")}</Text>
+          <TouchableOpacity onPress={() => setAttachedImage(null)} style={styles.attachedRemove}>
+            <Text style={styles.attachedRemoveText}>{t("common.remove")}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <View style={[styles.inputRow, { backgroundColor: colors.glassBg, borderTopColor: colors.glassBorder }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
-        <TouchableOpacity onPress={pickFitFile} style={styles.attachBtn} disabled={loading || loadingHistory}>
-          <Text style={styles.attachBtnText}>FIT</Text>
-        </TouchableOpacity>
+        {isPremium ? (
+          <>
+            <TouchableOpacity onPress={pickFitFile} style={styles.attachBtn} disabled={loading || loadingHistory}>
+              <Text style={styles.attachBtnText}>FIT</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={pickImage} style={styles.attachBtn} disabled={loading || loadingHistory}>
+              <Text style={styles.attachBtnText}>{t("chat.attachPhotoShort")}</Text>
+            </TouchableOpacity>
+          </>
+        ) : null}
         <TextInput
           style={[styles.input, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, color: colors.text }]}
           placeholder={t("chat.placeholder")}
@@ -455,7 +524,7 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
         <TouchableOpacity
           style={[styles.sendBtn, { backgroundColor: colors.primary }, (loading || loadingHistory) && styles.sendBtnDisabled]}
           onPress={() => send(false)}
-          disabled={loading || loadingHistory || (!input.trim() && !attachedFit)}
+          disabled={loading || loadingHistory || (!input.trim() && !attachedFit && !attachedImage)}
         >
           <Text style={[styles.sendBtnText, { color: colors.primaryText }]}>{t("chat.send")}</Text>
         </TouchableOpacity>

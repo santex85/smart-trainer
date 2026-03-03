@@ -11,8 +11,9 @@ jest.mock("@expo/vector-icons", () => {
 
 jest.mock("../../api/client", () => ({
   getChatHistory: jest.fn().mockResolvedValue([]),
-  sendChatMessage: jest.fn().mockResolvedValue({}),
-  sendChatMessageWithFit: jest.fn().mockResolvedValue({}),
+  sendChatMessage: jest.fn().mockResolvedValue({ reply: "" }),
+  sendChatMessageWithFit: jest.fn().mockResolvedValue({ reply: "" }),
+  sendChatMessageWithImage: jest.fn().mockResolvedValue({ reply: "" }),
   runOrchestrator: jest.fn().mockResolvedValue({}),
   getChatThreads: jest.fn().mockResolvedValue({
     items: [{ id: 1, title: "Test", created_at: "2026-01-01T00:00:00Z" }],
@@ -29,12 +30,27 @@ describe("ChatScreen", () => {
     const { getByPlaceholderText } = render(
       <ThemeProvider>
         <I18nProvider>
-          <ChatScreen onClose={jest.fn()} />
+          <ChatScreen user={null} onClose={jest.fn()} />
         </I18nProvider>
       </ThemeProvider>
     );
     await waitFor(() => {
       expect(getByPlaceholderText("Сообщение или прикрепите FIT...")).toBeTruthy();
+    });
+  });
+
+  it("shows FIT and Photo buttons when user is premium", async () => {
+    const premiumUser = { id: 1, email: "u@test.com", is_premium: true };
+    const { getByText } = render(
+      <ThemeProvider>
+        <I18nProvider>
+          <ChatScreen user={premiumUser} onClose={jest.fn()} />
+        </I18nProvider>
+      </ThemeProvider>
+    );
+    await waitFor(() => {
+      expect(getByText("FIT")).toBeTruthy();
+      expect(getByText("Фото")).toBeTruthy();
     });
   });
 });

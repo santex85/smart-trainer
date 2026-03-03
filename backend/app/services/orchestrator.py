@@ -50,19 +50,23 @@ Hierarchy (NEVER violate):
 
 If context is insufficient to decide safely (e.g. missing sleep/wellness data), output Modify or Skip with a short reason — do not output Go.
 
-Output format (strict JSON):
+Output format (strict JSON). Always include decision, reason, modified_plan, suggestions_next_days. When asked for evening mode or when athlete already trained today, also include evening_tips and/or plan_tomorrow:
 {
   "decision": "Go" | "Modify" | "Skip",
   "reason": "short explanation",
   "modified_plan": { "title": "...", "start_date": "ISO datetime", "end_date": "ISO or null", "description": "..." } or null,
-  "suggestions_next_days": "optional text for next 7-14 days" or null
+  "suggestions_next_days": "optional text for next 7-14 days" or null,
+  "evening_tips": "food and sleep advice for the rest of the evening (only when evening mode or post-workout)" or null,
+  "plan_tomorrow": "workout recommendation for tomorrow (only when evening mode or post-workout)" or null
 }
 
+Consider already completed workouts today, today's nutrition, and sleep/wellness in all recommendations.
+
 Example (Go):
-{"decision": "Go", "reason": "Sleep and load OK.", "modified_plan": null, "suggestions_next_days": null}
+{"decision": "Go", "reason": "Sleep and load OK.", "modified_plan": null, "suggestions_next_days": null, "evening_tips": null, "plan_tomorrow": null}
 
 Example (Skip):
-{"decision": "Skip", "reason": "Poor sleep, low carbs.", "modified_plan": null, "suggestions_next_days": "Rest today; easy 30 min tomorrow if recovered."}
+{"decision": "Skip", "reason": "Poor sleep, low carbs.", "modified_plan": null, "suggestions_next_days": "Rest today; easy 30 min tomorrow if recovered.", "evening_tips": null, "plan_tomorrow": null}
 
 No metaphors, no long text. Output only a single JSON object, no markdown code fences."""
 
@@ -73,18 +77,34 @@ def _language_for_locale(locale: str) -> str:
     return LOCALE_LANGUAGE.get((locale or "ru").lower(), "Russian")
 
 
-def _build_system_prompt(locale: str, had_workout_today: bool) -> str:
+def _build_system_prompt(
+    locale: str,
+    had_workout_today: bool,
+    is_evening: bool = False,
+) -> str:
     lang = _language_for_locale(locale)
-    lang_rule = f"You must respond only in {lang}. All fields 'reason' and 'suggestions_next_days' must be in this language."
+    lang_rule = (
+        f"You must respond only in {lang}. All text fields (reason, suggestions_next_days, evening_tips, plan_tomorrow) must be in this language."
+    )
     if had_workout_today:
         scenario = (
-            "The athlete already had a workout today. In 'reason' give a brief assessment of the day and readiness. "
-            "In 'suggestions_next_days' give recovery/rest recommendations and concrete recommendations for tomorrow."
+            "The athlete already had a workout today. Do not suggest Go/Modify/Skip for today's workout. "
+            "In 'reason' give a brief assessment of the day and readiness. "
+            "In 'suggestions_next_days' give recovery, nutrition and rest recommendations. "
+            "In 'plan_tomorrow' give a concrete workout recommendation for tomorrow. "
+            "Optionally in 'evening_tips' give food and sleep advice for the rest of the evening."
+        )
+    elif is_evening:
+        scenario = (
+            "The athlete is running analysis in the evening and has not trained today. Do not suggest 'Skip' as the main message. "
+            "Provide 'plan_tomorrow' (workout recommendation for tomorrow) and 'evening_tips' (food and sleep advice for the rest of the evening). "
+            "Use 'reason' to briefly summarise the day; use 'suggestions_next_days' for any additional recovery or planning notes."
         )
     else:
         scenario = (
             "The athlete has not trained today. In 'reason' keep the Go/Modify/Skip explanation. "
-            "In 'suggestions_next_days' give recommendations for today and for tomorrow."
+            "In 'suggestions_next_days' give recommendations for today and for tomorrow. "
+            "Consider today's nutrition, sleep and wellness in your decision."
         )
     return f"{SYSTEM_PROMPT}\n\n{lang_rule}\n\n{scenario}"
 
@@ -123,11 +143,19 @@ def _parse_llm_response(text: str) -> OrchestratorResponse:
     suggestions = data.get("suggestions_next_days")
     if suggestions is not None and isinstance(suggestions, str) and len(suggestions) > 2000:
         suggestions = suggestions[:2000]
+    evening_tips = data.get("evening_tips")
+    if evening_tips is not None and isinstance(evening_tips, str) and len(evening_tips) > 1000:
+        evening_tips = evening_tips[:1000]
+    plan_tomorrow = data.get("plan_tomorrow")
+    if plan_tomorrow is not None and isinstance(plan_tomorrow, str) and len(plan_tomorrow) > 1000:
+        plan_tomorrow = plan_tomorrow[:1000]
     return OrchestratorResponse(
         decision=decision,
         reason=reason,
         modified_plan=modified_item,
         suggestions_next_days=suggestions,
+        evening_tips=evening_tips if isinstance(evening_tips, str) else None,
+        plan_tomorrow=plan_tomorrow if isinstance(plan_tomorrow, str) else None,
     )
 
 
@@ -166,18 +194,28 @@ def _build_context(
     return "\n".join(parts)
 
 
+def _is_evening(client_local_hour: int | None) -> bool:
+    """True if client local hour is at or past the configured evening threshold."""
+    if client_local_hour is None:
+        return False
+    return client_local_hour >= getattr(settings, "orchestrator_evening_from_hour", 18)
+
+
 async def run_daily_decision(
     session: AsyncSession,
     user_id: int,
     today: date | None = None,
     locale: str = "ru",
+    client_local_hour: int | None = None,
 ) -> OrchestratorResponse:
     """
     Aggregate context from food_log, wellness_cache, and Intervals events;
     call Gemini; return validated decision; on Modify/Skip optionally update
     Intervals and write to chat.
+    When client_local_hour is evening (e.g. >= 18), prompt asks for plan_tomorrow and evening_tips instead of Skip.
     """
     today = today or date.today()
+    is_evening = _is_evening(client_local_hour)
     oldest_food = today
     newest_food = today
     wellness_from = today - timedelta(days=7)
@@ -334,7 +372,7 @@ async def run_daily_decision(
         had_workout_today=had_workout_today,
     )
 
-    system_prompt = _build_system_prompt(locale, had_workout_today)
+    system_prompt = _build_system_prompt(locale, had_workout_today, is_evening=is_evening)
     model = genai.GenerativeModel(
         settings.gemini_model,
         generation_config=GENERATION_CONFIG,
@@ -354,18 +392,28 @@ async def run_daily_decision(
         )
         return OrchestratorResponse(decision=Decision.SKIP, reason="Parse error; defaulting to Skip.")
 
-    # On Modify: optionally push to Intervals and write to chat
-    if result.decision in (Decision.MODIFY, Decision.SKIP) and result.reason:
-        msg = f"Decision: {result.decision.value}. {result.reason}"
+    # On Modify/Skip or when we have evening/plan tips: write to chat
+    write_chat = (
+        result.decision in (Decision.MODIFY, Decision.SKIP) and result.reason
+    ) or result.evening_tips or result.plan_tomorrow
+    if write_chat:
+        parts = []
+        if result.reason:
+            parts.append(f"Decision: {result.decision.value}. {result.reason}")
         if result.suggestions_next_days:
-            msg += f"\n\nNext days: {result.suggestions_next_days}"
-        session.add(
-            ChatMessage(
-                user_id=user_id,
-                role=MessageRole.assistant.value,
-                content=msg,
+            parts.append(f"Next days: {result.suggestions_next_days}")
+        if result.evening_tips:
+            parts.append(f"Evening: {result.evening_tips}")
+        if result.plan_tomorrow:
+            parts.append(f"Tomorrow: {result.plan_tomorrow}")
+        if parts:
+            session.add(
+                ChatMessage(
+                    user_id=user_id,
+                    role=MessageRole.assistant.value,
+                    content="\n\n".join(parts),
+                )
             )
-        )
         api_key = decrypt_value(creds.encrypted_token_or_key) if creds else None
         if result.decision == Decision.MODIFY and result.modified_plan and creds and api_key:
             try:

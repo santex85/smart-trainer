@@ -877,6 +877,54 @@ export async function sendChatMessageWithFit(
     onUnauthorized?.();
     throw new Error("Unauthorized");
   }
+  if (res.status === 403) {
+    const t = await res.text();
+    throw new Error(t || "Premium required");
+  }
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(t || `Upload failed: ${res.status}`);
+  }
+  return res.json() as Promise<{ reply: string }>;
+}
+
+/** Send a message with an attached image (multipart). Premium only. */
+export async function sendChatMessageWithImage(
+  message: string,
+  imageFile: Blob | { uri: string; name: string },
+  threadId?: number | null
+): Promise<{ reply: string }> {
+  const API_BASE =
+    process.env.EXPO_PUBLIC_API_URL === "" ? "" : (process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000");
+  const token = await getAccessToken();
+  const form = new FormData();
+  form.append("message", message);
+  if (threadId != null) form.append("thread_id", String(threadId));
+  if (imageFile instanceof Blob) {
+    const ext = (imageFile as File).name?.match(/\.[a-z]+$/i)?.[0] || ".jpg";
+    form.append("file", imageFile, `photo${ext}`);
+  } else {
+    const blob = await fetch(imageFile.uri).then((r) => r.blob());
+    const name = imageFile.name || "photo.jpg";
+    form.append("file", blob, name);
+  }
+  const res = await fetch(`${API_BASE}/api/v1/chat/send-with-image`, {
+    method: "POST",
+    headers: { ...languageHeader(), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: form,
+  });
+  if (res.status === 401) {
+    if (await doRefreshToken()) {
+      return sendChatMessageWithImage(message, imageFile, threadId);
+    }
+    await clearAuth();
+    onUnauthorized?.();
+    throw new Error("Unauthorized");
+  }
+  if (res.status === 403) {
+    const t = await res.text();
+    throw new Error(t || "Premium required");
+  }
   if (!res.ok) {
     const t = await res.text();
     throw new Error(t || `Upload failed: ${res.status}`);
@@ -885,11 +933,23 @@ export async function sendChatMessageWithFit(
 }
 
 export async function runOrchestrator(
-  locale?: string
-): Promise<{ decision: string; reason: string; modified_plan?: unknown; suggestions_next_days?: string }> {
+  locale?: string,
+  clientLocalHour?: number
+): Promise<{
+  decision: string;
+  reason: string;
+  modified_plan?: unknown;
+  suggestions_next_days?: string;
+  evening_tips?: string;
+  plan_tomorrow?: string;
+}> {
+  const hour =
+    clientLocalHour !== undefined && clientLocalHour !== null
+      ? clientLocalHour
+      : new Date().getHours();
   return api("/api/v1/chat/orchestrator/run", {
     method: "POST",
-    body: { locale: locale ?? "ru" },
+    body: { locale: locale ?? "ru", client_local_hour: hour },
   });
 }
 
@@ -1030,6 +1090,7 @@ export async function postAnalyticsInsight(
 export interface AuthUser {
   id: number;
   email: string;
+  is_premium?: boolean;
 }
 export interface AuthResponse {
   access_token: string;

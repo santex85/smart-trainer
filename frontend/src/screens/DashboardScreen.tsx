@@ -1062,6 +1062,8 @@ export function DashboardScreen({
     decision: string;
     reason: string;
     suggestions_next_days?: string;
+    evening_tips?: string;
+    plan_tomorrow?: string;
   } | null>(null);
   const [intervalsSyncLoading, setIntervalsSyncLoading] = useState(false);
   const [sleepExtractions, setSleepExtractions] = useState<SleepExtractionSummary[]>([]);
@@ -1284,7 +1286,7 @@ export function DashboardScreen({
     setAnalysisLoading(true);
     setLastAnalysisResult(null);
     try {
-      const result = await runOrchestrator("ru");
+      const result = await runOrchestrator(locale, new Date().getHours());
       setLastAnalysisResult(result);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       load();
@@ -1944,28 +1946,44 @@ export function DashboardScreen({
             )}
           </View>
 
-          {lastAnalysisResult ? (
-            <View style={glassCardStyle}>
-              <Text style={styles.cardTitle}>{t("dashboard.analysisResult")}</Text>
-              <Text style={styles.analysisDecision}>{t("dashboard.decisionLabel")} {lastAnalysisResult.decision}</Text>
-              <Text style={styles.value}>{lastAnalysisResult.reason}</Text>
-              {lastAnalysisResult.suggestions_next_days ? (
-                <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.suggestions_next_days}</Text>
+          {athleteProfile?.is_premium ? (
+            <>
+              {lastAnalysisResult ? (
+                <View style={glassCardStyle}>
+                  <Text style={styles.cardTitle}>{t("dashboard.analysisResult")}</Text>
+                  <Text style={styles.analysisDecision}>{t("dashboard.decisionLabel")} {lastAnalysisResult.decision}</Text>
+                  <Text style={styles.value}>{lastAnalysisResult.reason}</Text>
+                  {lastAnalysisResult.suggestions_next_days ? (
+                    <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.suggestions_next_days}</Text>
+                  ) : null}
+                  {lastAnalysisResult.evening_tips ? (
+                    <>
+                      <Text style={[styles.cardTitle, { marginTop: 12, marginBottom: 4 }]}>{t("dashboard.eveningTips")}</Text>
+                      <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.evening_tips}</Text>
+                    </>
+                  ) : null}
+                  {lastAnalysisResult.plan_tomorrow ? (
+                    <>
+                      <Text style={[styles.cardTitle, { marginTop: 12, marginBottom: 4 }]}>{t("dashboard.planTomorrow")}</Text>
+                      <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.plan_tomorrow}</Text>
+                    </>
+                  ) : null}
+                </View>
               ) : null}
-            </View>
-          ) : null}
 
-          <TouchableOpacity
-            style={[styles.analysisBtn, analysisLoading && styles.analysisBtnDisabled]}
-            onPress={onRunAnalysisNow}
-            disabled={analysisLoading}
-          >
-            {analysisLoading ? (
-              <ActivityIndicator size="small" color="#0f172a" />
-            ) : (
-              <Text style={styles.analysisBtnText}>{t("dashboard.runAnalysis")}</Text>
-            )}
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.analysisBtn, analysisLoading && styles.analysisBtnDisabled]}
+                onPress={onRunAnalysisNow}
+                disabled={analysisLoading}
+              >
+                {analysisLoading ? (
+                  <ActivityIndicator size="small" color="#0f172a" />
+                ) : (
+                  <Text style={styles.analysisBtnText}>{t("dashboard.runAnalysis")}</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : null}
 
         </>
       )}

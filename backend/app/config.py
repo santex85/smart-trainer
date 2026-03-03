@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     debug: bool = False
     # Orchestrator run schedule: comma-separated hours (0-23), e.g. "7,16" for 07:00 and 16:00
     orchestrator_cron_hours: str = "7,16"
+    # Hour (0-23) from which "evening" mode applies: plan for tomorrow + evening tips instead of Skip
+    orchestrator_evening_from_hour: int = 18
 
     # Sentry
     sentry_dsn: str = ""

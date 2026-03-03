@@ -30,3 +30,5 @@ class OrchestratorResponse(BaseModel):
     reason: str = Field(..., max_length=1000)
     modified_plan: ModifiedPlanItem | None = None
     suggestions_next_days: str | None = Field(None, max_length=2000)
+    evening_tips: str | None = Field(None, max_length=1000)
+    plan_tomorrow: str | None = Field(None, max_length=1000)
