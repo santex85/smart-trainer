@@ -1478,9 +1478,9 @@ export function DashboardScreen({
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(today)}
-                  style={[styles.dateNavBtn, nutritionDate === today && styles.dateNavBtnActive]}
+                  style={[styles.dateNavBtn, styles.dateNavBtnActive]}
                 >
-                  <Text style={[styles.dateNavText, nutritionDate === today && styles.dateNavTextActive]}>{formatNavDate(nutritionDate, locale)}</Text>
+                  <Text style={[styles.dateNavText, styles.dateNavTextActive]}>{formatNavDate(nutritionDate, locale)}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(addDays(nutritionDate, 1))}
