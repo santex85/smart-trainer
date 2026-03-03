@@ -41,6 +41,14 @@ function formatShortDate(iso: string): string {
   return `${d.getDate()}/${d.getMonth() + 1}`;
 }
 
+function formatPeriodRange(fromIso: string, toIso: string): string {
+  const fmt = (iso: string) => {
+    const d = new Date(iso + "T12:00:00");
+    return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+  return `${fmt(fromIso)} – ${fmt(toIso)}`;
+}
+
 export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => void; onOpenPricing?: () => void }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -526,6 +534,21 @@ function NutritionSection({
     { value: totalFat, color: colors.accent },
     { value: totalCarbs, color: colors.success },
   ].filter((d) => d.value > 0);
+
+  const aggregatedMicronutrients: Record<string, number> = {};
+  for (const item of data.items) {
+    if (!item.extended_nutrients) continue;
+    for (const [key, value] of Object.entries(item.extended_nutrients)) {
+      if (typeof value === "number") {
+        aggregatedMicronutrients[key] = (aggregatedMicronutrients[key] ?? 0) + value;
+      }
+    }
+  }
+  const micronutrientEntries = Object.entries(aggregatedMicronutrients)
+    .filter(([, v]) => v > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => ({ key, value: Math.round(value * 10) / 10 }));
+
   return (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -550,6 +573,9 @@ function NutritionSection({
           <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 16 }]}>
             Б / Ж / У за период
           </Text>
+          <Text style={[styles.periodSubtitle, { color: colors.textMuted }]}>
+            {t("analytics.forPeriod")} {formatPeriodRange(data.from_date, data.to_date)}
+          </Text>
           <View style={[styles.chartWrap, { height: 160 }]}>
             <PieChart
               data={pieData}
@@ -557,13 +583,53 @@ function NutritionSection({
               radius={60}
               innerRadius={36}
               centerLabelComponent={() => (
-                <Text style={{ color: colors.text, fontSize: 12 }}>
+                <Text style={[styles.donutCenterLabel, { color: colors.text }]}>
                   {data.items.length} {t("analytics.days")}
                 </Text>
               )}
             />
           </View>
+          <View style={styles.legendWrap}>
+            <View style={styles.legendRow}>
+              <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+              <Text style={[styles.legendLabel, { color: colors.text }]}>{t("nutrition.proteinLabel")}</Text>
+            </View>
+            <View style={styles.legendRow}>
+              <View style={[styles.legendDot, { backgroundColor: colors.accent }]} />
+              <Text style={[styles.legendLabel, { color: colors.text }]}>{t("nutrition.fatLabel")}</Text>
+            </View>
+            <View style={styles.legendRow}>
+              <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
+              <Text style={[styles.legendLabel, { color: colors.text }]}>{t("nutrition.carbsLabel")}</Text>
+            </View>
+          </View>
         </>
+      )}
+      <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 24 }]}>
+        {t("nutrition.micronutrients")}
+      </Text>
+      <Text style={[styles.periodSubtitle, { color: colors.textMuted }]}>
+        {t("analytics.forPeriod")} {formatPeriodRange(data.from_date, data.to_date)}
+      </Text>
+      {micronutrientEntries.length > 0 ? (
+        <View style={styles.micronutrientsBlock}>
+          {micronutrientEntries.map(({ key, value }) => {
+            const labelKey = `nutrition.micronutrientLabels.${key}`;
+            const label = t(labelKey);
+            return (
+              <View key={key} style={styles.micronutrientRow}>
+                <Text style={styles.micronutrientLabel}>
+                  {label === labelKey ? key : label}
+                </Text>
+                <Text style={styles.micronutrientValue}>{value}</Text>
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <Text style={[styles.noData, { color: colors.textMuted, paddingVertical: 12 }]}>
+          {t("analytics.micronutrientsNoData")}
+        </Text>
       )}
     </View>
   );
@@ -594,6 +660,12 @@ function makeStyles(colors: Record<string, string>) {
     centered: { paddingVertical: 48, alignItems: "center" },
     section: { marginBottom: 24 },
     sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
+    periodSubtitle: { fontSize: 12, marginBottom: 8 },
+    donutCenterLabel: { fontSize: 14, fontWeight: "700" },
+    legendWrap: { flexDirection: "row", flexWrap: "wrap", gap: 16, marginTop: 8, marginBottom: 8 },
+    legendRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    legendDot: { width: 10, height: 10, borderRadius: 5 },
+    legendLabel: { fontSize: 13 },
     cardRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
     card: {
       flex: 1,
@@ -640,5 +712,9 @@ function makeStyles(colors: Record<string, string>) {
       marginBottom: 12,
     },
     insightText: { fontSize: 14, lineHeight: 22 },
+    micronutrientsBlock: { marginTop: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.surfaceBorder },
+    micronutrientRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
+    micronutrientLabel: { fontSize: 13, color: colors.textMuted },
+    micronutrientValue: { fontSize: 13, color: colors.text },
   });
 }
