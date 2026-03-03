@@ -8,7 +8,10 @@ RUN --mount=type=cache,target=/root/.npm \
     npm install
 
 COPY . .
-ENV EXPO_PUBLIC_API_URL=
+ARG EXPO_PUBLIC_API_URL=
+ARG EXPO_PUBLIC_SENTRY_DSN=
+ENV EXPO_PUBLIC_API_URL=$EXPO_PUBLIC_API_URL
+ENV EXPO_PUBLIC_SENTRY_DSN=$EXPO_PUBLIC_SENTRY_DSN
 ENV EXPO_PUBLIC_DEV_LOG=1
 RUN --mount=type=cache,target=/app/node_modules/.cache \
     --mount=type=cache,target=/app/.expo \

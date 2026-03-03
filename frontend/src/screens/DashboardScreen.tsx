@@ -15,6 +15,7 @@ import {
   LayoutAnimation,
   useWindowDimensions,
 } from "react-native";
+import * as Sentry from "@sentry/react-native";
 import { LineChart } from "react-native-gifted-charts";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -146,6 +147,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
   onSaved: () => void;
   onDeleted: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(entry.name);
   const [portionGrams, setPortionGrams] = useState(String(entry.portion_grams));
   const [calories, setCalories] = useState(String(entry.calories));
@@ -182,6 +184,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
       });
       onSaved();
     } catch (e) {
+      Sentry.captureException(e, { tags: { feature: "edit_food", action: "save" } });
       Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось сохранить");
     } finally {
       setSaving(false);
@@ -198,6 +201,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
       await deleteNutritionEntry(entry.id);
       onDeleted();
     } catch (e) {
+      Sentry.captureException(e, { tags: { feature: "edit_food", action: "delete" } });
       Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить");
     } finally {
       setDeleting(false);
@@ -219,6 +223,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
       onSaved();
       onClose();
     } catch (e) {
+      Sentry.captureException(e, { tags: { feature: "edit_food", action: "reanalyze" } });
       const msg = e instanceof Error ? e.message : "Не удалось выполнить пересчёт";
       Alert.alert("Ошибка", msg);
     } finally {
@@ -250,6 +255,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
       });
       onSaved();
     } catch (e) {
+      Sentry.captureException(e, { tags: { feature: "edit_food", action: "copy" } });
       Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось скопировать");
     } finally {
       setCopying(false);

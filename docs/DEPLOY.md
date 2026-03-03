@@ -81,6 +81,7 @@ cp .env.production.example .env
 # Отредактировать .env: POSTGRES_PASSWORD, SECRET_KEY, ENCRYPTION_KEY,
 # APP_ENV=production, GOOGLE_GEMINI_API_KEY,
 # DEBUG=false, DOMAIN=<ваш-домен>. Опционально: JWT_PRIVATE_KEY и JWT_PUBLIC_KEY для RS256 (см. раздел про JWT ниже).
+# Для Sentry: SENTRY_DSN и SENTRY_ENVIRONMENT (см. раздел Sentry ниже); фронт при сборке возьмёт DSN из SENTRY_DSN, если EXPO_PUBLIC_SENTRY_DSN не задан.
 docker compose -f docker-compose.yml -f docker-compose.prod.yml build
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend alembic upgrade head
@@ -112,6 +113,12 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml logs backend --t
   `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d backend`  
   После изменений в `.env`:  
   `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate backend`
+
+### Sentry (отслеживание ошибок)
+
+- **Backend:** при заданных в `.env` переменных `SENTRY_DSN` и `SENTRY_ENVIRONMENT` все необработанные исключения и вызовы `sentry_sdk.capture_exception` отправляются в Sentry.
+- **Frontend:** при сборке в образ передаётся DSN через build-arg: если в `.env` задан `EXPO_PUBLIC_SENTRY_DSN`, используется он; иначе — значение `SENTRY_DSN`. После деплоя с обновлённым DSN нужно пересобрать фронт: `docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend && ... up -d`.
+- Проверка на сервере: в `.env` должны быть `SENTRY_DSN=` и `SENTRY_ENVIRONMENT=production` (значения из проекта в sentry.io). Ошибки при редактировании еды и другие исключения на клиенте теперь отправляются во фронтовый проект с тегом `feature: edit_food`.
 
 ## 5. Prometheus и Grafana (мониторинг)
 

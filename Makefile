@@ -1,7 +1,12 @@
 # IP компьютера в Wi‑Fi: авто (en0 на Mac, иначе .wifi_ip или 192.168.1.157). Переопределить: make use-wifi WIFI_IP=192.168.1.200
 WIFI_IP ?= $(shell (ipconfig getifaddr en0 2>/dev/null) || (hostname -I 2>/dev/null | awk '{print $$1}') || (cat .wifi_ip 2>/dev/null) || echo "192.168.1.157")
 
-.PHONY: build up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test build-prod up-prod migrate-prod
+# Деплой на сервер: DEPLOY_HOST, DEPLOY_USER, DEPLOY_PATH. Пример: make deploy DEPLOY_USER=ubuntu
+DEPLOY_HOST ?= 167.71.74.220
+DEPLOY_USER ?= root
+DEPLOY_PATH ?= /root/smart_trainer
+
+.PHONY: build up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test build-prod up-prod migrate-prod deploy deploy-no-push
 
 build:
 	docker compose build
@@ -48,6 +53,17 @@ up-prod:
 	$(COMPOSE_PROD) up -d
 migrate-prod:
 	$(COMPOSE_PROD) exec -T backend alembic upgrade head
+
+# Деплой на сервер: пуш в origin main, затем на сервере git pull, build, up -d, alembic upgrade
+# Требует SSH-доступ: ssh $(DEPLOY_USER)@$(DEPLOY_HOST). Переопределить: make deploy DEPLOY_HOST=1.2.3.4 DEPLOY_PATH=/home/app/smart_trainer
+deploy:
+	git push origin main
+	$(MAKE) deploy-no-push
+
+# Только действия на сервере (без git push). Удобно, если коммиты уже запушены.
+deploy-no-push:
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && git pull && $(COMPOSE_PROD) build && $(COMPOSE_PROD) up -d && $(COMPOSE_PROD) exec -T backend alembic upgrade head"
+	@echo "Деплой завершён: https://tsspro.tech"
 
 shell-backend:
 	docker compose exec backend sh
