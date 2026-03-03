@@ -64,6 +64,7 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [renameThreadId, setRenameThreadId] = useState<number | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
+  const [threadMenuThread, setThreadMenuThread] = useState<ChatThreadItem | null>(null);
   const flatRef = useRef<FlatList>(null);
 
   const pickFitFile = useCallback(() => {
@@ -231,6 +232,10 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
 
   const openThreadMenu = useCallback(
     (thread: ChatThreadItem) => {
+      if (Platform.OS === "web") {
+        setThreadMenuThread(thread);
+        return;
+      }
       Alert.alert(t("tabs.chat"), `«${thread.title}»`, [
         { text: t("common.cancel"), style: "cancel" },
         {
@@ -488,6 +493,41 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
         </Pressable>
       </Modal>
 
+      {Platform.OS === "web" && threadMenuThread ? (
+        <Modal visible transparent animationType="fade">
+          <Pressable style={styles.renameBackdrop} onPress={() => setThreadMenuThread(null)}>
+            <Pressable style={[styles.renameBox, styles.threadMenuBox, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]} onPress={(e) => e.stopPropagation()}>
+              <Text style={[styles.renameTitle, { color: colors.text }]}>{threadMenuThread.title}</Text>
+              <View style={styles.threadMenuActions}>
+                <TouchableOpacity style={styles.renameCancel} onPress={() => setThreadMenuThread(null)}>
+                  <Text style={[styles.renameCancelText, { color: colors.text }]}>{t("common.cancel")}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.threadMenuBtn}
+                  onPress={() => {
+                    setRenameThreadId(threadMenuThread.id);
+                    setRenameTitle(threadMenuThread.title);
+                    setRenameModalOpen(true);
+                    setThreadMenuThread(null);
+                  }}
+                >
+                  <Text style={[styles.threadMenuBtnText, { color: colors.text }]}>{t("common.rename")}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.threadMenuBtnDestructive}
+                  onPress={() => {
+                    onDeleteThread(threadMenuThread.id, threadMenuThread.title);
+                    setThreadMenuThread(null);
+                  }}
+                >
+                  <Text style={styles.threadMenuBtnDestructiveText}>{t("common.delete")}</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
+
       <PremiumGateModal
         visible={premiumGateVisible}
         onClose={() => setPremiumGateVisible(false)}
@@ -524,6 +564,12 @@ const styles = StyleSheet.create({
   renameCancelText: { fontSize: 16 },
   renameSave: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12 },
   renameSaveText: { fontSize: 16, fontWeight: "600", color: "#0f172a" },
+  threadMenuBox: {},
+  threadMenuActions: { flexDirection: "column", gap: 8, marginTop: 8 },
+  threadMenuBtn: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: "center" },
+  threadMenuBtnText: { fontSize: 16 },
+  threadMenuBtnDestructive: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: "center", backgroundColor: "rgba(239, 68, 68, 0.2)" },
+  threadMenuBtnDestructiveText: { fontSize: 16, color: "#ef4444", fontWeight: "600" },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   listContent: { padding: 16, paddingBottom: 24 },
   bubble: { maxWidth: "85%", padding: 12, borderRadius: 16, marginBottom: 8 },
