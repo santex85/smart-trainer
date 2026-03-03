@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import {
   uploadPhotoForAnalysis,
   createNutritionEntry,
+  reanalyzeNutritionEntry,
   saveSleepFromPreview,
   createOrUpdateWellness,
   type NutritionResult,
@@ -170,7 +171,7 @@ export function CameraScreen({
       const res = await uploadPhotoForAnalysis(
         { uri: asset.uri, name: "meal.jpg", type: "image/jpeg" },
         undefined,
-        true
+        false
       );
       devLog("pickImage: upload success");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -234,7 +235,7 @@ export function CameraScreen({
       const res = await uploadPhotoForAnalysis(
         { uri: asset.uri, name: "meal.jpg", type: "image/jpeg" },
         undefined,
-        true
+        false
       );
       devLog("takePhoto: upload success");
       setPhotoResult(res);
@@ -275,25 +276,49 @@ export function CameraScreen({
     setSaving(true);
     try {
       if (photoResult.type === "food") {
-        if (photoResult.food.id != null && photoResult.food.id > 0) {
-          onSaved?.(photoResult.food);
-        } else {
-          const today = new Date().toISOString().slice(0, 10);
-          const payload = editedFood ?? {
-            name: photoResult.food.name,
-            portion_grams: photoResult.food.portion_grams,
-            calories: photoResult.food.calories,
-            protein_g: photoResult.food.protein_g,
-            fat_g: photoResult.food.fat_g,
-            carbs_g: photoResult.food.carbs_g,
-          };
-          await createNutritionEntry({
-            ...payload,
-            meal_type: selectedMealType,
-            date: today,
-          });
-          onSaved?.({ ...photoResult.food, ...payload });
+        const today = new Date().toISOString().slice(0, 10);
+        const payload = editedFood ?? {
+          name: photoResult.food.name,
+          portion_grams: photoResult.food.portion_grams,
+          calories: photoResult.food.calories,
+          protein_g: photoResult.food.protein_g,
+          fat_g: photoResult.food.fat_g,
+          carbs_g: photoResult.food.carbs_g,
+        };
+        const entry = await createNutritionEntry({
+          ...payload,
+          meal_type: selectedMealType,
+          date: today,
+        });
+        const original = photoResult.food;
+        const nameOrPortionChanged =
+          (payload.name ?? "").trim() !== (original.name ?? "").trim() ||
+          payload.portion_grams !== original.portion_grams;
+        let finalEntry: typeof entry = entry;
+        if (nameOrPortionChanged) {
+          try {
+            finalEntry = await reanalyzeNutritionEntry(entry.id, {
+              name: payload.name.trim() || undefined,
+              portion_grams: payload.portion_grams,
+            });
+          } catch (recalcErr) {
+            const msg = recalcErr instanceof Error ? recalcErr.message : String(recalcErr);
+            if (msg.includes("403") || msg.includes("Premium")) {
+              finalEntry = entry;
+            } else {
+              throw recalcErr;
+            }
+          }
         }
+        onSaved?.({
+          id: finalEntry.id,
+          name: finalEntry.name,
+          portion_grams: finalEntry.portion_grams,
+          calories: finalEntry.calories,
+          protein_g: finalEntry.protein_g,
+          fat_g: finalEntry.fat_g,
+          carbs_g: finalEntry.carbs_g,
+        });
       } else if (photoResult.type === "wellness") {
         const today = new Date().toISOString().slice(0, 10);
         await createOrUpdateWellness({
