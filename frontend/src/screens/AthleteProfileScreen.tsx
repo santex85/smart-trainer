@@ -19,7 +19,7 @@ import {
   createPortalSession,
   type AthleteProfileResponse,
 } from "../api/client";
-import { useTranslation } from "../i18n/context";
+import { useTranslation } from "../i18n";
 
 const DEFAULT_CALORIE_GOAL = 2200;
 const DEFAULT_PROTEIN_GOAL = 120;
@@ -153,7 +153,7 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
       setProfile(updated);
       setEditing(false);
     } catch (e) {
-      Alert.alert("Ошибка", getErrorMessage(e));
+      Alert.alert(t("common.error"), getErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -197,7 +197,7 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
                   await updateMyPremium(value);
                   setProfile((p) => (p ? { ...p, is_premium: value } : p));
                 } catch (e) {
-                  Alert.alert("Ошибка", getErrorMessage(e));
+                  Alert.alert(t("common.error"), getErrorMessage(e));
                 } finally {
                   setPremiumToggling(false);
                 }
@@ -211,7 +211,7 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
 
         {onOpenPricing ? (
           <View style={styles.subscriptionSection}>
-            <Text style={styles.sectionTitle}>{subscription?.is_premium ? "Подписка Pro" : "Подписка"}</Text>
+            <Text style={styles.sectionTitle}>{subscription?.is_premium ? t("athleteProfile.subscriptionPro") : t("athleteProfile.subscription")}</Text>
             {subscription?.has_subscription ? (
               <TouchableOpacity
                 style={styles.subscriptionBtn}
@@ -222,18 +222,18 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
                     const { url } = await createPortalSession(`${base}/?portal=return`);
                     if (url && typeof window !== "undefined") window.location.href = url;
                   } catch (e) {
-                    Alert.alert("Ошибка", getErrorMessage(e));
+                    Alert.alert(t("common.error"), getErrorMessage(e));
                   } finally {
                     setPortalLoading(false);
                   }
                 }}
                 disabled={portalLoading}
               >
-                {portalLoading ? <ActivityIndicator size="small" color="#38bdf8" /> : <Text style={styles.subscriptionBtnText}>Управление подпиской</Text>}
+                {portalLoading ? <ActivityIndicator size="small" color="#38bdf8" /> : <Text style={styles.subscriptionBtnText}>{t("pricing.manageSubscription")}</Text>}
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.subscriptionBtn} onPress={onOpenPricing}>
-                <Text style={styles.subscriptionBtnText}>Перейти на Pro</Text>
+                <Text style={styles.subscriptionBtnText}>{t("pricing.upgradeCta")}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -261,7 +261,7 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
 
         {editing ? (
           <>
-            <Text style={styles.label}>Вес (кг)</Text>
+            <Text style={styles.label}>{t("athleteProfile.weightKg")}</Text>
             <TextInput
               style={styles.input}
               value={weight}
@@ -270,7 +270,7 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
               placeholderTextColor="#64748b"
               keyboardType="decimal-pad"
             />
-            <Text style={styles.label}>Height (cm)</Text>
+            <Text style={styles.label}>{t("athleteProfile.height")} (cm)</Text>
             <TextInput
               style={styles.input}
               value={height}
@@ -279,7 +279,7 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
               placeholderTextColor="#64748b"
               keyboardType="number-pad"
             />
-            <Text style={styles.label}>Birth year</Text>
+            <Text style={styles.label}>{t("athleteProfile.birthYear")}</Text>
             <TextInput
               style={styles.input}
               value={birthYear}
@@ -288,23 +288,23 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
               placeholderTextColor="#64748b"
               keyboardType="number-pad"
             />
-            <Text style={styles.label}>FTP (watts)</Text>
+            <Text style={styles.label}>{t("athleteProfile.ftp")}</Text>
             <TextInput
               style={styles.input}
               value={ftp}
               onChangeText={setFtp}
-              placeholder="Используется для TSS по мощности"
+              placeholder={t("athleteProfile.ftpPlaceholder")}
               placeholderTextColor="#64748b"
               keyboardType="number-pad"
             />
-            <Text style={styles.sectionTitle}>Цели по питанию</Text>
+            <Text style={styles.sectionTitle}>{t("athleteProfile.nutritionGoals")}</Text>
             <View style={styles.segmentRow}>
               <TouchableOpacity
                 style={[styles.segmentBtn, nutritionInputMode === "calories" && styles.segmentBtnActive]}
                 onPress={() => setNutritionInputMode("calories")}
               >
                 <Text style={[styles.segmentBtnText, nutritionInputMode === "calories" && styles.segmentBtnTextActive]}>
-                  Задать калории
+                  {t("athleteProfile.setCalories")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -312,13 +312,13 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
                 onPress={() => setNutritionInputMode("bju")}
               >
                 <Text style={[styles.segmentBtnText, nutritionInputMode === "bju" && styles.segmentBtnTextActive]}>
-                  Задать БЖУ
+                  {t("athleteProfile.setBju")}
                 </Text>
               </TouchableOpacity>
             </View>
             {nutritionInputMode === "calories" ? (
               <>
-                <Text style={styles.label}>Калории (ккал/день)</Text>
+                <Text style={styles.label}>{t("athleteProfile.caloriesPerDay")}</Text>
                 <TextInput
                   style={styles.input}
                   value={calorieGoal}
@@ -333,19 +333,19 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
                   const { protein, fat, carbs } = valid ? bjuFromCalories(kcal) : { protein: 0, fat: 0, carbs: 0 };
                   return (
                     <>
-                      <Text style={styles.label}>Белки</Text>
-                      <Text style={styles.valueReadOnly}>{valid ? protein : "—"} г</Text>
-                      <Text style={styles.label}>Жиры</Text>
-                      <Text style={styles.valueReadOnly}>{valid ? fat : "—"} г</Text>
-                      <Text style={styles.label}>Углеводы</Text>
-                      <Text style={styles.valueReadOnly}>{valid ? carbs : "—"} г</Text>
+                      <Text style={styles.label}>{t("nutrition.proteinLabel")}</Text>
+                      <Text style={styles.valueReadOnly}>{valid ? protein : "—"} {t("athleteProfile.gramsShort")}</Text>
+                      <Text style={styles.label}>{t("nutrition.fatLabel")}</Text>
+                      <Text style={styles.valueReadOnly}>{valid ? fat : "—"} {t("athleteProfile.gramsShort")}</Text>
+                      <Text style={styles.label}>{t("nutrition.carbsLabel")}</Text>
+                      <Text style={styles.valueReadOnly}>{valid ? carbs : "—"} {t("athleteProfile.gramsShort")}</Text>
                     </>
                   );
                 })()}
               </>
             ) : (
               <>
-                <Text style={styles.label}>Белки (г)</Text>
+                <Text style={styles.label}>{t("nutrition.proteinLabel")} ({t("athleteProfile.gramsShort")})</Text>
                 <TextInput
                   style={styles.input}
                   value={proteinGoal}
@@ -354,7 +354,7 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
                   placeholderTextColor="#64748b"
                   keyboardType="number-pad"
                 />
-                <Text style={styles.label}>Жиры (г)</Text>
+                <Text style={styles.label}>{t("nutrition.fatLabel")} ({t("athleteProfile.gramsShort")})</Text>
                 <TextInput
                   style={styles.input}
                   value={fatGoal}
@@ -363,7 +363,7 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
                   placeholderTextColor="#64748b"
                   keyboardType="number-pad"
                 />
-                <Text style={styles.label}>Углеводы (г)</Text>
+                <Text style={styles.label}>{t("nutrition.carbsLabel")} ({t("athleteProfile.gramsShort")})</Text>
                 <TextInput
                   style={styles.input}
                   value={carbsGoal}
@@ -379,33 +379,33 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
                   const kcal = caloriesFromBju(p, f, c);
                   return (
                     <>
-                      <Text style={styles.label}>Калории</Text>
-                      <Text style={styles.valueReadOnly}>≈ {kcal} ккал</Text>
+                      <Text style={styles.label}>{t("nutrition.caloriesLabel")}</Text>
+                      <Text style={styles.valueReadOnly}>≈ {kcal} {t("nutrition.kcal")}</Text>
                     </>
                   );
                 })()}
               </>
             )}
-            <Text style={styles.hint}>Введите вес, рост, год рождения, FTP и цели по питанию. Цели используются на дашборде.</Text>
+            <Text style={styles.hint}>{t("athleteProfile.profileHint")}</Text>
             <View style={styles.editActions}>
               <TouchableOpacity style={styles.btnSecondary} onPress={() => setEditing(false)}>
-                <Text style={styles.btnSecondaryText}>Отмена</Text>
+                <Text style={styles.btnSecondaryText}>{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btnPrimary, saving && styles.btnDisabled]}
                 onPress={handleSave}
                 disabled={saving}
               >
-                {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.btnPrimaryText}>Сохранить</Text>}
+                {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.btnPrimaryText}>{t("common.save")}</Text>}
               </TouchableOpacity>
             </View>
           </>
         ) : (
           <>
-            <Text style={styles.sectionTitle}>Данные атлета</Text>
+            <Text style={styles.sectionTitle}>{t("athleteProfile.athleteData")}</Text>
             <View style={styles.card}>
               <View style={[styles.row, styles.rowFirst]}>
-                <Text style={styles.labelInRow}>Вес</Text>
+                <Text style={styles.labelInRow}>{t("wellness.weight")}</Text>
                 <View style={styles.rowValue}>
                   <Text style={styles.value}>{profile?.weight_kg != null ? `${profile.weight_kg} kg` : "—"}</Text>
                   {profile?.weight_source ? <Text style={styles.source}>({profile.weight_source})</Text> : null}
@@ -419,47 +419,47 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
                 </View>
               </View>
               <View style={styles.row}>
-                <Text style={styles.labelInRow}>Рост</Text>
+                <Text style={styles.labelInRow}>{t("athleteProfile.height")}</Text>
                 <View style={styles.rowValue}>
                   <Text style={styles.value}>{profile?.height_cm != null ? `${profile.height_cm} cm` : "—"}</Text>
                 </View>
               </View>
               <View style={styles.row}>
-                <Text style={styles.labelInRow}>Birth year</Text>
+                <Text style={styles.labelInRow}>{t("athleteProfile.birthYear")}</Text>
                 <View style={styles.rowValue}>
                   <Text style={styles.value}>{profile?.birth_year != null ? profile.birth_year : "—"}</Text>
                 </View>
               </View>
             </View>
             <View style={styles.card}>
-              <Text style={styles.sectionTitleInCard}>Цели по питанию</Text>
+              <Text style={styles.sectionTitleInCard}>{t("athleteProfile.nutritionGoals")}</Text>
               <View style={[styles.row, styles.rowFirst]}>
-                <Text style={styles.labelInRow}>Калории</Text>
+                <Text style={styles.labelInRow}>{t("nutrition.caloriesLabel")}</Text>
                 <View style={styles.rowValue}>
                   <Text style={styles.value}>{profile?.nutrition_goals?.calorie_goal ?? DEFAULT_CALORIE_GOAL} ккал</Text>
                 </View>
               </View>
               <View style={styles.row}>
-                <Text style={styles.labelInRow}>Белки</Text>
+                <Text style={styles.labelInRow}>{t("nutrition.proteinLabel")}</Text>
                 <View style={styles.rowValue}>
                   <Text style={styles.value}>{profile?.nutrition_goals?.protein_goal ?? DEFAULT_PROTEIN_GOAL} г</Text>
                 </View>
               </View>
               <View style={styles.row}>
-                <Text style={styles.labelInRow}>Жиры</Text>
+                <Text style={styles.labelInRow}>{t("nutrition.fatLabel")}</Text>
                 <View style={styles.rowValue}>
                   <Text style={styles.value}>{profile?.nutrition_goals?.fat_goal ?? DEFAULT_FAT_GOAL} г</Text>
                 </View>
               </View>
               <View style={styles.row}>
-                <Text style={styles.labelInRow}>Углеводы</Text>
+                <Text style={styles.labelInRow}>{t("nutrition.carbsLabel")}</Text>
                 <View style={styles.rowValue}>
                   <Text style={styles.value}>{profile?.nutrition_goals?.carbs_goal ?? DEFAULT_CARBS_GOAL} г</Text>
                 </View>
               </View>
             </View>
             <TouchableOpacity style={styles.editBtn} onPress={() => setEditing(true)}>
-              <Text style={styles.editBtnText}>Редактировать профиль</Text>
+              <Text style={styles.editBtnText}>{t("athleteProfile.editProfile")}</Text>
             </TouchableOpacity>
           </>
         )}

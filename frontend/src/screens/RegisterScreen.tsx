@@ -74,8 +74,8 @@ export function RegisterScreen({
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={[styles.cardBase, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderWidth: 1, borderRadius: colors.borderRadiusLg, padding: 20 }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
-            <Text style={[styles.title, { color: colors.text }]}>Регистрация</Text>
-            <Text style={[styles.hint, { color: colors.textMuted }]}>Email</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{t("auth.register")}</Text>
+            <Text style={[styles.hint, { color: colors.textMuted }]}>{t("auth.email")}</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text }]}
               value={email}
@@ -106,7 +106,7 @@ export function RegisterScreen({
               {loading ? (
                 <ActivityIndicator size="small" color={colors.primaryText} />
               ) : (
-                <Text style={[styles.buttonPrimaryText, { color: colors.primaryText }]}>Зарегистрироваться</Text>
+                <Text style={[styles.buttonPrimaryText, { color: colors.primaryText }]}>{t("auth.registerCta")}</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.link} onPress={onGoToLogin} disabled={loading}>

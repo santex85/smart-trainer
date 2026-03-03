@@ -123,7 +123,7 @@ export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => voi
         const res = await postAnalyticsInsight(chartType, data, insightQuestion || undefined);
         setInsightText(res.insight);
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Ошибка запроса";
+        const msg = e instanceof Error ? e.message : t("errors.requestError");
         if ((msg.includes("403") || msg.includes("Premium")) && onOpenPricing) {
           setPremiumGateVisible(true);
         } else {
@@ -133,7 +133,7 @@ export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => voi
         setInsightLoading(false);
       }
     },
-    [insightQuestion]
+    [insightQuestion, t]
   );
 
   const openInsight = useCallback(() => {

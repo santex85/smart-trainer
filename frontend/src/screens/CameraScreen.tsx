@@ -145,7 +145,7 @@ export function CameraScreen({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Нужен доступ", "Разрешите доступ к фото для учёта питания.");
+      Alert.alert(t("camera.needAccess"), t("camera.needPhotoAccess"));
       return;
     }
     const isNativeApp = Platform.OS !== "web";
@@ -159,7 +159,7 @@ export function CameraScreen({
     const asset = pickerResult.assets[0];
     if (!asset?.uri) {
       devLog("pickImage: no asset uri", "warn");
-      Alert.alert("Ошибка", "Не удалось получить фото. Попробуйте ещё раз.");
+      Alert.alert(t("common.error"), t("camera.getPhotoError"));
       return;
     }
     devLog("pickImage: selected, starting upload (preview)");
@@ -200,7 +200,7 @@ export function CameraScreen({
       if ((msg.includes("429") || msg.includes("limit") || msg.includes("Daily limit")) && onOpenPricing) {
         setPremiumGateVisible(true);
       } else {
-        Alert.alert("Ошибка", getErrorMessage(e));
+        Alert.alert(t("common.error"), getErrorMessage(e));
       }
     } finally {
       setLoading(false);
@@ -210,7 +210,7 @@ export function CameraScreen({
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Нужен доступ", "Разрешите доступ к камере для фото еды.");
+      Alert.alert(t("camera.needAccess"), t("camera.needCameraAccess"));
       return;
     }
     const isNativeApp = Platform.OS !== "web";
@@ -223,7 +223,7 @@ export function CameraScreen({
     const asset = pickerResult.assets[0];
     if (!asset?.uri) {
       devLog("takePhoto: no asset uri", "warn");
-      Alert.alert("Ошибка", "Не удалось получить фото. Попробуйте ещё раз.");
+      Alert.alert(t("common.error"), t("camera.getPhotoError"));
       return;
     }
     devLog("takePhoto: captured, starting upload (preview)");
@@ -263,7 +263,7 @@ export function CameraScreen({
       if ((msg.includes("429") || msg.includes("limit") || msg.includes("Daily limit")) && onOpenPricing) {
         setPremiumGateVisible(true);
       } else {
-        Alert.alert("Ошибка", getErrorMessage(e));
+        Alert.alert(t("common.error"), getErrorMessage(e));
       }
     } finally {
       setLoading(false);
@@ -302,7 +302,7 @@ export function CameraScreen({
           hrv: photoResult.wellness.hrv ?? undefined,
         });
         onWellnessSaved?.();
-        Alert.alert("Сохранено", "Данные пульса (RHR/HRV) сохранены.");
+        Alert.alert(t("common.alerts.done"), t("camera.pulseSaved"));
       } else if (photoResult.type === "sleep") {
         if (photoResult.sleep.id != null && photoResult.sleep.id > 0) {
           onSleepSaved?.(photoResult.sleep);
@@ -310,7 +310,7 @@ export function CameraScreen({
           const saved = await saveSleepFromPreview(photoResult.sleep.extracted_data);
           onSleepSaved?.(saved);
         }
-        Alert.alert("Сохранено", "Данные сна сохранены.");
+        Alert.alert(t("common.alerts.done"), t("camera.sleepSaved"));
       }
       setPhotoResult(null);
       setSelectedPhotoUri(null);
@@ -323,7 +323,7 @@ export function CameraScreen({
       const message = isSleepSave
         ? `Не удалось сохранить данные сна: ${getErrorMessage(e)}`
         : getErrorMessage(e);
-      Alert.alert("Ошибка", message);
+      Alert.alert(t("common.error"), message);
     } finally {
       setSaving(false);
     }
@@ -336,19 +336,19 @@ export function CameraScreen({
   };
 
   const MEAL_TYPES = [
-    { value: "breakfast", label: "Завтрак" },
-    { value: "lunch", label: "Обед" },
-    { value: "dinner", label: "Ужин" },
-    { value: "snack", label: "Перекус" },
-    { value: "other", label: "Другое" },
+    { value: "breakfast", label: t("camera.mealBreakfast") },
+    { value: "lunch", label: t("camera.mealLunch") },
+    { value: "dinner", label: t("camera.mealDinner") },
+    { value: "snack", label: t("camera.mealSnack") },
+    { value: "other", label: t("camera.mealOther") },
   ] as const;
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Фото</Text>
+        <Text style={styles.title}>{t("camera.photoTitle")}</Text>
         <TouchableOpacity onPress={onClose}>
-          <Text style={styles.close}>Закрыть</Text>
+          <Text style={styles.close}>{t("common.close")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -378,7 +378,7 @@ export function CameraScreen({
         {loading && (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color="#38bdf8" />
-            <Text style={styles.hint}>Анализ с помощью ИИ…</Text>
+            <Text style={styles.hint}>{t("camera.analysisHint")}</Text>
           </View>
         )}
 
@@ -389,17 +389,17 @@ export function CameraScreen({
             ) : null}
             {isPreview() && editedFood ? (
               <>
-                <Text style={styles.editLabel}>Название</Text>
+                <Text style={styles.editLabel}>{t("camera.nameLabel")}</Text>
                 <TextInput
                   style={styles.editInput}
                   value={editedFood.name}
-                  onChangeText={(t) => setEditedFood((p) => (p ? { ...p, name: t } : null))}
-                  placeholder="Блюдо"
+                  onChangeText={(txt) => setEditedFood((p) => (p ? { ...p, name: txt } : null))}
+                  placeholder={t("camera.dishPlaceholder")}
                   placeholderTextColor="#64748b"
                 />
                 <View style={styles.editRow}>
                   <View style={styles.editHalf}>
-                    <Text style={styles.editLabel}>Ккал</Text>
+                    <Text style={styles.editLabel}>{t("nutrition.caloriesLabel")}</Text>
                     <TextInput
                       style={styles.editInput}
                       value={String(editedFood.calories)}
@@ -410,7 +410,7 @@ export function CameraScreen({
                     />
                   </View>
                   <View style={styles.editHalf}>
-                    <Text style={styles.editLabel}>Порция (г)</Text>
+                    <Text style={styles.editLabel}>{t("nutrition.portionG")}</Text>
                     <TextInput
                       style={styles.editInput}
                       value={String(editedFood.portion_grams)}
@@ -422,11 +422,11 @@ export function CameraScreen({
                   </View>
                 </View>
                 <View style={styles.editRow}>
-                  <View style={styles.editThird}><Text style={styles.editLabel}>Б</Text><TextInput style={styles.editInput} value={String(editedFood.protein_g)} onChangeText={(t) => setEditedFood((p) => (p ? { ...p, protein_g: Number(t) || 0 } : null))} keyboardType="numeric" placeholder="0" placeholderTextColor="#64748b" /></View>
-                  <View style={styles.editThird}><Text style={styles.editLabel}>Ж</Text><TextInput style={styles.editInput} value={String(editedFood.fat_g)} onChangeText={(t) => setEditedFood((p) => (p ? { ...p, fat_g: Number(t) || 0 } : null))} keyboardType="numeric" placeholder="0" placeholderTextColor="#64748b" /></View>
-                  <View style={styles.editThird}><Text style={styles.editLabel}>У</Text><TextInput style={styles.editInput} value={String(editedFood.carbs_g)} onChangeText={(t) => setEditedFood((p) => (p ? { ...p, carbs_g: Number(t) || 0 } : null))} keyboardType="numeric" placeholder="0" placeholderTextColor="#64748b" /></View>
+                  <View style={styles.editThird}><Text style={styles.editLabel}>{t("nutrition.proteinShort")}</Text><TextInput style={styles.editInput} value={String(editedFood.protein_g)} onChangeText={(val) => setEditedFood((p) => (p ? { ...p, protein_g: Number(val) || 0 } : null))} keyboardType="numeric" placeholder="0" placeholderTextColor="#64748b" /></View>
+                  <View style={styles.editThird}><Text style={styles.editLabel}>{t("nutrition.fatShort")}</Text><TextInput style={styles.editInput} value={String(editedFood.fat_g)} onChangeText={(val) => setEditedFood((p) => (p ? { ...p, fat_g: Number(val) || 0 } : null))} keyboardType="numeric" placeholder="0" placeholderTextColor="#64748b" /></View>
+                  <View style={styles.editThird}><Text style={styles.editLabel}>{t("nutrition.carbsShort")}</Text><TextInput style={styles.editInput} value={String(editedFood.carbs_g)} onChangeText={(val) => setEditedFood((p) => (p ? { ...p, carbs_g: Number(val) || 0 } : null))} keyboardType="numeric" placeholder="0" placeholderTextColor="#64748b" /></View>
                 </View>
-                <Text style={styles.editLabel}>Приём пищи</Text>
+                <Text style={styles.editLabel}>{t("camera.mealTypeLabel")}</Text>
                 <View style={styles.mealTypeRow}>
                   {MEAL_TYPES.map(({ value, label }) => (
                     <TouchableOpacity
@@ -445,7 +445,7 @@ export function CameraScreen({
                 <Text style={styles.resultMacros}>
                   {photoResult.food.calories} {t("nutrition.kcal")} · {t("nutrition.proteinShort")} {photoResult.food.protein_g}{t("nutrition.grams")} · {t("nutrition.fatShort")} {photoResult.food.fat_g}{t("nutrition.grams")} · {t("nutrition.carbsShort")} {photoResult.food.carbs_g}{t("nutrition.grams")}
                 </Text>
-                <Text style={styles.hint}>Порция: {photoResult.food.portion_grams}г</Text>
+                <Text style={styles.hint}>{t("camera.portionLabel")}: {photoResult.food.portion_grams}{t("nutrition.grams")}</Text>
               </>
             )}
             {photoResult.food.extended_nutrients && Object.keys(photoResult.food.extended_nutrients).length > 0 ? (
@@ -466,7 +466,7 @@ export function CameraScreen({
               </>
             ) : null}
             <Text style={styles.resultWhere}>
-              {isPreview() ? "Проверьте данные и нажмите Сохранить." : "Сохранено. Закройте, чтобы вернуться."}
+              {isPreview() ? t("camera.checkAndSave") : t("camera.savedClose")}
             </Text>
             {isPreview() ? (
               <View style={styles.previewActions}>
@@ -475,15 +475,15 @@ export function CameraScreen({
                   onPress={handleSave}
                   disabled={saving}
                 >
-                  <Text style={styles.doneBtnText}>{saving ? "…" : "Сохранить"}</Text>
+                  <Text style={styles.doneBtnText}>{saving ? "…" : t("common.save")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel} disabled={saving}>
-                  <Text style={styles.cancelBtnText}>Отмена</Text>
+                  <Text style={styles.cancelBtnText}>{t("common.cancel")}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
-                <Text style={styles.doneBtnText}>Готово</Text>
+                <Text style={styles.doneBtnText}>{t("camera.done")}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -494,10 +494,10 @@ export function CameraScreen({
             {selectedPhotoUri ? (
               <Image source={{ uri: selectedPhotoUri }} style={styles.photoThumbnail} resizeMode="cover" />
             ) : null}
-            <Text style={styles.resultName}>Распознаны данные сна</Text>
+            <Text style={styles.resultName}>{t("camera.sleepRecognized")}</Text>
             <SleepDataLines data={photoResult.sleep.extracted_data} />
             <Text style={styles.resultWhere}>
-              {isPreview() ? "Проверьте данные и нажмите Сохранить." : "Сохранено. Закройте, чтобы вернуться."}
+              {isPreview() ? t("camera.checkAndSave") : t("camera.savedClose")}
             </Text>
             {isPreview() ? (
               <View style={styles.previewActions}>
@@ -506,15 +506,15 @@ export function CameraScreen({
                   onPress={handleSave}
                   disabled={saving}
                 >
-                  <Text style={styles.doneBtnText}>{saving ? "…" : "Сохранить"}</Text>
+                  <Text style={styles.doneBtnText}>{saving ? "…" : t("common.save")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel} disabled={saving}>
-                  <Text style={styles.cancelBtnText}>Отмена</Text>
+                  <Text style={styles.cancelBtnText}>{t("common.cancel")}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity style={styles.doneBtn} onPress={onClose}>
-                <Text style={styles.doneBtnText}>Готово</Text>
+                <Text style={styles.doneBtnText}>{t("camera.done")}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -525,29 +525,29 @@ export function CameraScreen({
             {selectedPhotoUri ? (
               <Image source={{ uri: selectedPhotoUri }} style={styles.photoThumbnail} resizeMode="cover" />
             ) : null}
-            <Text style={styles.resultName}>Распознаны пульс и HRV</Text>
+            <Text style={styles.resultName}>{t("camera.wellnessRecognized")}</Text>
             <View style={styles.sleepLines}>
               {photoResult.wellness.rhr != null && (
-                <Text style={styles.sleepLine}>Пульс в покое (RHR): {photoResult.wellness.rhr} уд/мин</Text>
+                <Text style={styles.sleepLine}>{t("camera.rhrLabel")}: {photoResult.wellness.rhr}</Text>
               )}
               {photoResult.wellness.hrv != null && (
                 <Text style={styles.sleepLine}>HRV: {photoResult.wellness.hrv}</Text>
               )}
               {photoResult.wellness.rhr == null && photoResult.wellness.hrv == null && (
-                <Text style={styles.hint}>Не удалось извлечь RHR или HRV.</Text>
+                <Text style={styles.hint}>{t("camera.noRhrHrv")}</Text>
               )}
             </View>
-            <Text style={styles.resultWhere}>Проверьте данные и нажмите Сохранить.</Text>
+            <Text style={styles.resultWhere}>{t("camera.checkAndSave")}</Text>
             <View style={styles.previewActions}>
               <TouchableOpacity
                 style={[styles.doneBtn, styles.saveBtn]}
                 onPress={handleSave}
                 disabled={saving}
               >
-                <Text style={styles.doneBtnText}>{saving ? "…" : "Сохранить"}</Text>
+                <Text style={styles.doneBtnText}>{saving ? "…" : t("common.save")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel} disabled={saving}>
-                <Text style={styles.cancelBtnText}>Отмена</Text>
+                <Text style={styles.cancelBtnText}>{t("common.cancel")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -556,16 +556,16 @@ export function CameraScreen({
         {!photoResult && !loading && (
           <>
             <Text style={styles.flowHint}>
-              Выберите фото — мы определим: еда, сон или пульс/HRV, и обработаем.
+              {t("camera.selectPhotoHint")}
             </Text>
             <View style={styles.actions}>
               <TouchableOpacity style={[styles.button, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={takePhoto}>
                 <Text style={styles.buttonIcon}>📷</Text>
-                <Text style={styles.buttonText}>Сделать фото</Text>
+                <Text style={styles.buttonText}>{t("camera.takePhoto")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.button, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={pickImage}>
                 <Text style={styles.buttonIcon}>🖼️</Text>
-                <Text style={styles.buttonText}>Выбрать из галереи</Text>
+                <Text style={styles.buttonText}>{t("camera.selectFromGallery")}</Text>
               </TouchableOpacity>
             </View>
           </>

@@ -70,8 +70,8 @@ export function LoginScreen({
       >
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <View style={[styles.cardBase, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderWidth: 1, borderRadius: colors.borderRadiusLg, padding: 20 }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
-            <Text style={[styles.title, { color: colors.text }]}>Вход</Text>
-            <Text style={[styles.hint, { color: colors.textMuted }]}>Email</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{t("auth.loginTitle")}</Text>
+            <Text style={[styles.hint, { color: colors.textMuted }]}>{t("auth.email")}</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text }]}
               value={email}
@@ -106,7 +106,7 @@ export function LoginScreen({
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.link} onPress={onGoToRegister} disabled={loading}>
-              <Text style={[styles.linkText, { color: colors.primary }]}>Создать аккаунт</Text>
+              <Text style={[styles.linkText, { color: colors.primary }]}>{t("auth.createAccount")}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

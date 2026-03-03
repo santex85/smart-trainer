@@ -2,6 +2,7 @@ import React from "react";
 import { render, waitFor } from "@testing-library/react-native";
 import { ChatScreen } from "../ChatScreen";
 import { ThemeProvider } from "../../theme";
+import { I18nProvider } from "../../i18n";
 
 jest.mock("@expo/vector-icons", () => {
   const { View } = require("react-native");
@@ -27,7 +28,9 @@ describe("ChatScreen", () => {
   it("renders chat screen with input", async () => {
     const { getByPlaceholderText } = render(
       <ThemeProvider>
-        <ChatScreen onClose={jest.fn()} />
+        <I18nProvider>
+          <ChatScreen onClose={jest.fn()} />
+        </I18nProvider>
       </ThemeProvider>
     );
     await waitFor(() => {

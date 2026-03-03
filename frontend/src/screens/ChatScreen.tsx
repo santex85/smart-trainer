@@ -30,6 +30,7 @@ import {
   type ChatThreadItem,
 } from "../api/client";
 import { useTheme } from "../theme";
+import { useTranslation } from "../i18n";
 import { Ionicons } from "@expo/vector-icons";
 import { PremiumGateModal } from "../components/PremiumGateModal";
 
@@ -49,6 +50,7 @@ function formatChatTime(isoOrTimestamp: string): string {
 }
 
 export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; onOpenPricing?: () => void }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const [threads, setThreads] = useState<ChatThreadItem[]>([]);
   const [premiumGateVisible, setPremiumGateVisible] = useState(false);
@@ -88,11 +90,11 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
         const doc = result.assets[0];
         setAttachedFit({ uri: doc.uri, name: doc.name || "workout.fit" });
       } catch (err) {
-        Alert.alert("Ошибка", "Не удалось выбрать файл");
+        Alert.alert(t("common.error"), t("chat.attachFileError"));
       }
     };
     openDocPicker();
-  }, []);
+  }, [t]);
 
   const loadHistoryForThread = useCallback(async (threadId: number | null) => {
     try {
@@ -111,7 +113,7 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
       const nextThreads = res?.items ?? [];
       setThreads(nextThreads);
       if (nextThreads.length === 0) {
-        const created = await createChatThread("Основной");
+        const created = await createChatThread(t("chat.defaultThreadName"));
         setThreads([created]);
         setCurrentThreadId(created.id);
         await loadHistoryForThread(created.id);
@@ -127,7 +129,7 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
       setMessages([]);
       setLoadingHistory(false);
     }
-  }, [loadHistoryForThread]);
+  }, [loadHistoryForThread, t]);
 
   useEffect(() => {
     setLoadingHistory(true);
@@ -146,14 +148,14 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
   const onNewChat = useCallback(async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      const created = await createChatThread("Новый чат");
+      const created = await createChatThread(t("chat.newChat"));
       setThreads((prev) => [created, ...prev]);
       setCurrentThreadId(created.id);
       setMessages([]);
     } catch {
       // ignore
     }
-  }, []);
+  }, [t]);
 
   const onClearChat = useCallback(async () => {
     if (currentThreadId == null) return;
@@ -179,7 +181,7 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
             } else {
               setCurrentThreadId(null);
               setMessages([]);
-              createChatThread("Основной").then((created) => {
+              createChatThread(t("chat.defaultThreadName")).then((created) => {
                 setThreads([created]);
                 setCurrentThreadId(created.id);
                 loadHistoryForThread(created.id);
@@ -189,29 +191,29 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
           return next;
         });
       } catch (e) {
-        const raw = e instanceof Error ? e.message : "Не удалось удалить чат";
+        const raw = e instanceof Error ? e.message : t("chat.deleteFailed");
         let msg = raw;
         try {
           const parsed = JSON.parse(raw);
           if (parsed?.detail === "Not Found" || parsed?.detail === "Thread not found")
-            msg = "Чат не найден или сервер не обновлён. Обновите страницу и попробуйте снова.";
+            msg = t("common.alerts.recordNotFound");
         } catch {
-          if (raw.startsWith("{")) msg = "Ошибка сервера. Обновите страницу.";
+          if (raw.startsWith("{")) msg = t("common.alerts.serverError");
         }
         if (Platform.OS === "web" && typeof window !== "undefined") {
           window.alert(msg);
         } else {
-          Alert.alert("Ошибка", msg);
+          Alert.alert(t("common.error"), msg);
         }
       }
     },
-    [currentThreadId, loadHistoryForThread]
+    [currentThreadId, loadHistoryForThread, t]
   );
 
   const onDeleteThread = useCallback(
     (threadId: number, title: string) => {
-      const confirmTitle = "Удалить чат?";
-      const confirmMessage = `Чат «${title}» будет удалён безвозвратно.`;
+      const confirmTitle = t("chat.deleteChatConfirmTitle");
+      const confirmMessage = t("chat.deleteChatConfirmMessage").replace("{name}", title);
       const runDelete = () => performDeleteThread(threadId);
       if (Platform.OS === "web" && typeof window !== "undefined") {
         if (window.confirm(`${confirmTitle}\n${confirmMessage}`)) {
@@ -219,34 +221,34 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
         }
       } else {
         Alert.alert(confirmTitle, confirmMessage, [
-          { text: "Отмена", style: "cancel" },
-          { text: "Удалить", style: "destructive", onPress: runDelete },
+          { text: t("common.cancel"), style: "cancel" },
+          { text: t("common.delete"), style: "destructive", onPress: runDelete },
         ]);
       }
     },
-    [performDeleteThread]
+    [performDeleteThread, t]
   );
 
   const openThreadMenu = useCallback(
-    (t: ChatThreadItem) => {
-      Alert.alert("Чат", `«${t.title}»`, [
-        { text: "Отмена", style: "cancel" },
+    (thread: ChatThreadItem) => {
+      Alert.alert(t("tabs.chat"), `«${thread.title}»`, [
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Переименовать",
+          text: t("common.rename"),
           onPress: () => {
-            setRenameThreadId(t.id);
-            setRenameTitle(t.title);
+            setRenameThreadId(thread.id);
+            setRenameTitle(thread.title);
             setRenameModalOpen(true);
           },
         },
         {
-          text: "Удалить",
+          text: t("common.delete"),
           style: "destructive",
-          onPress: () => onDeleteThread(t.id, t.title),
+          onPress: () => onDeleteThread(thread.id, thread.title),
         },
       ]);
     },
-    [onDeleteThread]
+    [onDeleteThread, t]
   );
 
   const onRenameSubmit = useCallback(async () => {
@@ -260,14 +262,14 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
       setRenameThreadId(null);
       setRenameTitle("");
     } catch {
-      Alert.alert("Ошибка", "Не удалось переименовать чат");
+      Alert.alert(t("common.error"), t("chat.renameError"));
     }
-  }, [renameThreadId, renameTitle]);
+  }, [renameThreadId, renameTitle, t]);
 
   const send = async (runOrch = false) => {
     if (runOrch) {
       if (loading) return;
-      setMessages((prev) => [...prev, { role: "user", content: "Какое решение на сегодня?" }]);
+      setMessages((prev) => [...prev, { role: "user", content: t("chat.solutionQuestion") }]);
       setLoading(true);
       try {
         const orch = await runOrchestrator();
@@ -277,7 +279,7 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
       } catch (e) {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: "Ошибка: " + (e instanceof Error ? e.message : "Запрос не удался") },
+          { role: "assistant", content: t("common.error") + ": " + (e instanceof Error ? e.message : t("chat.requestFailed")) },
         ]);
       } finally {
         setLoading(false);
@@ -286,7 +288,7 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
     }
     const text = input.trim();
     if ((!text && !attachedFit) || loading) return;
-    const userContent = text || "Приложен FIT-файл тренировки.";
+    const userContent = text || t("chat.fitAttachmentLabel");
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userContent }]);
     if (attachedFit) setAttachedFit(null);
@@ -299,13 +301,13 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Запрос не удался";
+      const msg = e instanceof Error ? e.message : t("chat.requestFailed");
       if ((msg.includes("429") || msg.includes("limit") || msg.includes("Daily limit")) && onOpenPricing) {
         setPremiumGateVisible(true);
       } else {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: "Ошибка: " + msg },
+          { role: "assistant", content: t("common.error") + ": " + msg },
         ]);
       }
     } finally {
@@ -317,8 +319,8 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
         <View style={styles.header}>
-          <Text style={styles.title}>AI-тренер</Text>
-          <TouchableOpacity onPress={onClose}><Text style={styles.close}>Закрыть</Text></TouchableOpacity>
+          <Text style={styles.title}>{t("chat.title")}</Text>
+          <TouchableOpacity onPress={onClose}><Text style={styles.close}>{t("common.close")}</Text></TouchableOpacity>
         </View>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -335,16 +337,16 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
       keyboardVerticalOffset={80}
     >
       <View style={[styles.header, { backgroundColor: colors.glassBg, borderBottomColor: colors.glassBorder }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
-        <Text style={[styles.title, { color: colors.text }]}>AI-тренер</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t("chat.title")}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={onNewChat} style={styles.headerBtn}>
-            <Text style={[styles.headerBtnText, { color: colors.textMuted }]}>Новый чат</Text>
+            <Text style={[styles.headerBtnText, { color: colors.textMuted }]}>{t("chat.newChat")}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onClearChat} style={styles.headerBtn} disabled={currentThreadId == null}>
-            <Text style={[styles.headerBtnText, { color: colors.textMuted }]}>Очистить</Text>
+            <Text style={[styles.headerBtnText, { color: colors.textMuted }]}>{t("chat.clear")}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onClose}>
-            <Text style={[styles.close, { color: colors.primary }]}>Закрыть</Text>
+            <Text style={[styles.close, { color: colors.primary }]}>{t("common.close")}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -356,23 +358,23 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
           style={[styles.tabsScroll, { backgroundColor: colors.glassBg, borderBottomColor: colors.glassBorder }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}
           contentContainerStyle={styles.tabsContent}
         >
-          {threads.map((t) => (
-            <View key={t.id} style={styles.tabWrap}>
+          {threads.map((thread) => (
+            <View key={thread.id} style={styles.tabWrap}>
               <TouchableOpacity
-                style={[styles.tab, t.id === currentThreadId && styles.tabActive]}
-                onPress={() => selectThread(t.id)}
-                onLongPress={() => openThreadMenu(t)}
+                style={[styles.tab, thread.id === currentThreadId && styles.tabActive]}
+                onPress={() => selectThread(thread.id)}
+                onLongPress={() => openThreadMenu(thread)}
               >
-                <Text style={[styles.tabText, t.id === currentThreadId && styles.tabTextActive]} numberOfLines={1}>
-                  {t.title}
+                <Text style={[styles.tabText, thread.id === currentThreadId && styles.tabTextActive]} numberOfLines={1}>
+                  {thread.title}
                 </Text>
-                {t.id === currentThreadId ? (
+                {thread.id === currentThreadId ? (
                   <TouchableOpacity
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    onPress={() => openThreadMenu(t)}
+                    onPress={() => openThreadMenu(thread)}
                     style={styles.tabMenuBtn}
                   >
-                    <Ionicons name="ellipsis-horizontal" size={16} color={t.id === currentThreadId ? "#0f172a" : colors.textMuted} />
+                    <Ionicons name="ellipsis-horizontal" size={16} color={thread.id === currentThreadId ? "#0f172a" : colors.textMuted} />
                   </TouchableOpacity>
                 ) : null}
               </TouchableOpacity>
@@ -401,9 +403,9 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
         )}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Text style={styles.placeholder}>Напишите сообщение или запросите решение на сегодня.</Text>
+            <Text style={styles.placeholder}>{t("chat.emptyPrompt")}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickPrompts} contentContainerStyle={styles.quickPromptsContent}>
-              {["Как прошла моя неделя?", "Что съесть перед тренировкой?", "Нужен ли мне отдых?"].map((prompt) => (
+              {[t("chat.quickPrompt1"), t("chat.quickPrompt2"), t("chat.quickPrompt3")].map((prompt) => (
                 <TouchableOpacity
                   key={prompt}
                   style={styles.quickPromptChip}
@@ -419,15 +421,15 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
       )}
       {attachedFit ? (
         <View style={[styles.attachedRow, { backgroundColor: colors.glassBg }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
-          <Text style={styles.attachedText}>Прикреплён FIT</Text>
+          <Text style={styles.attachedText}>{t("chat.attachedFIT")}</Text>
           <TouchableOpacity onPress={() => setAttachedFit(null)} style={styles.attachedRemove}>
-            <Text style={styles.attachedRemoveText}>Убрать</Text>
+            <Text style={styles.attachedRemoveText}>{t("common.remove")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setSaveWorkout((v) => !v)}
             style={[styles.saveWorkoutChip, saveWorkout && styles.saveWorkoutChipActive]}
           >
-            <Text style={styles.saveWorkoutChipText}>{saveWorkout ? "В дневник ✓" : "Добавить в дневник"}</Text>
+            <Text style={styles.saveWorkoutChipText}>{saveWorkout ? t("chat.addToDiaryDone") : t("chat.addToDiary")}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -437,7 +439,7 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
         </TouchableOpacity>
         <TextInput
           style={[styles.input, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, color: colors.text }]}
-          placeholder="Сообщение или прикрепите FIT..."
+          placeholder={t("chat.placeholder")}
           placeholderTextColor={colors.textMuted}
           value={input}
           onChangeText={setInput}
@@ -450,7 +452,7 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
           onPress={() => send(false)}
           disabled={loading || loadingHistory || (!input.trim() && !attachedFit)}
         >
-          <Text style={[styles.sendBtnText, { color: colors.primaryText }]}>Отправить</Text>
+          <Text style={[styles.sendBtnText, { color: colors.primaryText }]}>{t("chat.send")}</Text>
         </TouchableOpacity>
       </View>
       <TouchableOpacity
@@ -458,17 +460,17 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
         onPress={() => send(true)}
         disabled={loading}
       >
-        <Text style={styles.orchBtnText}>Решение на сегодня</Text>
+        <Text style={styles.orchBtnText}>{t("chat.solutionToday")}</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
 
       <Modal visible={renameModalOpen} transparent animationType="fade">
         <Pressable style={styles.renameBackdrop} onPress={() => setRenameModalOpen(false)}>
           <Pressable style={[styles.renameBox, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]} onPress={(e) => e.stopPropagation()}>
-            <Text style={[styles.renameTitle, { color: colors.text }]}>Переименовать чат</Text>
+            <Text style={[styles.renameTitle, { color: colors.text }]}>{t("chat.renameTitle")}</Text>
             <TextInput
               style={[styles.renameInput, { backgroundColor: colors.surface, borderColor: colors.glassBorder, color: colors.text }]}
-              placeholder="Название"
+              placeholder={t("chat.renamePlaceholder")}
               placeholderTextColor={colors.textMuted}
               value={renameTitle}
               onChangeText={setRenameTitle}
@@ -476,10 +478,10 @@ export function ChatScreen({ onClose, onOpenPricing }: { onClose: () => void; on
             />
             <View style={styles.renameActions}>
               <TouchableOpacity style={styles.renameCancel} onPress={() => setRenameModalOpen(false)}>
-                <Text style={[styles.renameCancelText, { color: colors.text }]}>Отмена</Text>
+                <Text style={[styles.renameCancelText, { color: colors.text }]}>{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.renameSave, { backgroundColor: colors.primary }]} onPress={onRenameSubmit}>
-                <Text style={styles.renameSaveText}>Сохранить</Text>
+                <Text style={styles.renameSaveText}>{t("common.save")}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>

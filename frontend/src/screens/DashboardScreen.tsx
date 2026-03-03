@@ -177,7 +177,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
     const f = Number(fatG);
     const ca = Number(carbsG);
     if (Number.isNaN(p) || Number.isNaN(c) || Number.isNaN(pr) || Number.isNaN(f) || Number.isNaN(ca)) {
-      Alert.alert("Ошибка", "Введите корректные числа.");
+      Alert.alert(t("common.error"), t("dashboard.validationNumbers"));
       return;
     }
     setSaving(true);
@@ -194,7 +194,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
       onSaved();
     } catch (e) {
       Sentry.captureException(e, { tags: { feature: "edit_food", action: "save" } });
-      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось сохранить");
+      Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -211,7 +211,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
       onDeleted();
     } catch (e) {
       Sentry.captureException(e, { tags: { feature: "edit_food", action: "delete" } });
-      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить");
+      Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.deleteFailed"));
     } finally {
       setDeleting(false);
     }
@@ -220,7 +220,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
   const handleReanalyze = async () => {
     const p = Number(portionGrams);
     if (Number.isNaN(p) || p < 0) {
-      Alert.alert("Ошибка", "Укажите корректную порцию (г).");
+      Alert.alert(t("common.error"), t("dashboard.validationPortion"));
       return;
     }
     setReanalyzing(true);
@@ -233,8 +233,8 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
       onClose();
     } catch (e) {
       Sentry.captureException(e, { tags: { feature: "edit_food", action: "reanalyze" } });
-      const msg = e instanceof Error ? e.message : "Не удалось выполнить пересчёт";
-      Alert.alert("Ошибка", msg);
+      const msg = e instanceof Error ? e.message : t("dashboard.recalcFailed");
+      Alert.alert(t("common.error"), msg);
     } finally {
       setReanalyzing(false);
     }
@@ -247,7 +247,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
     const f = Number(fatG);
     const ca = Number(carbsG);
     if (Number.isNaN(p) || Number.isNaN(c) || Number.isNaN(pr) || Number.isNaN(f) || Number.isNaN(ca)) {
-      Alert.alert("Ошибка", "Введите корректные числа.");
+      Alert.alert(t("common.error"), t("dashboard.validationNumbers"));
       return;
     }
     setCopying(true);
@@ -265,7 +265,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
       onSaved();
     } catch (e) {
       Sentry.captureException(e, { tags: { feature: "edit_food", action: "copy" } });
-      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось скопировать");
+      Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.copyFailed"));
     } finally {
       setCopying(false);
     }
@@ -275,17 +275,17 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
     <Modal visible transparent animationType="fade">
       <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
         <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
-          <Text style={styles.modalTitle}>Edit entry</Text>
+          <Text style={styles.modalTitle}>{t("nutrition.entryEditTitle")}</Text>
           <ScrollView keyboardShouldPersistTaps="handled" style={styles.modalScroll}>
-            <Text style={styles.modalLabel}>Name</Text>
+            <Text style={styles.modalLabel}>{t("nutrition.entryName")}</Text>
             <TextInput
               style={styles.modalInput}
               value={name}
               onChangeText={setName}
-              placeholder="Dish name"
+              placeholder={t("nutrition.dishNamePlaceholder")}
               placeholderTextColor="#64748b"
             />
-            <Text style={styles.modalLabel}>Portion (g)</Text>
+            <Text style={styles.modalLabel}>{t("nutrition.portionG")}</Text>
             <TextInput
               style={styles.modalInput}
               value={portionGrams}
@@ -294,7 +294,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
               placeholder="0"
               placeholderTextColor="#64748b"
             />
-            <Text style={styles.modalLabel}>Calories</Text>
+            <Text style={styles.modalLabel}>{t("nutrition.entryCalories")}</Text>
             <TextInput
               style={styles.modalInput}
               value={calories}
@@ -303,7 +303,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
               placeholder="0"
               placeholderTextColor="#64748b"
             />
-            <Text style={styles.modalLabel}>Protein (g)</Text>
+            <Text style={styles.modalLabel}>{t("nutrition.entryProtein")}</Text>
             <TextInput
               style={styles.modalInput}
               value={proteinG}
@@ -312,7 +312,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
               placeholder="0"
               placeholderTextColor="#64748b"
             />
-            <Text style={styles.modalLabel}>Fat (g)</Text>
+            <Text style={styles.modalLabel}>{t("nutrition.entryFat")}</Text>
             <TextInput
               style={styles.modalInput}
               value={fatG}
@@ -321,7 +321,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
               placeholder="0"
               placeholderTextColor="#64748b"
             />
-            <Text style={styles.modalLabel}>Carbs (g)</Text>
+            <Text style={styles.modalLabel}>{t("nutrition.entryCarbs")}</Text>
             <TextInput
               style={styles.modalInput}
               value={carbsG}
@@ -330,7 +330,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
               placeholder="0"
               placeholderTextColor="#64748b"
             />
-            <Text style={styles.modalLabel}>Meal type</Text>
+            <Text style={styles.modalLabel}>{t("nutrition.mealType")}</Text>
             <View style={styles.mealTypeRow}>
               {MEAL_TYPES.map((t) => (
                 <TouchableOpacity
@@ -359,49 +359,49 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
                 </View>
               </>
             ) : null}
-            {entry.can_reanalyze ? (
-              <View style={{ marginTop: 16 }}>
-                <TouchableOpacity
-                  style={[styles.modalBtnSave, { backgroundColor: "#0ea5e9" }]}
-                  onPress={handleReanalyze}
-                  disabled={saving || deleting || copying || reanalyzing}
-                >
-                  {reanalyzing ? (
-                    <ActivityIndicator size="small" color="#0f172a" />
-                  ) : (
-                    <Text style={styles.modalBtnSaveText}>Пересчитать</Text>
-                  )}
-                </TouchableOpacity>
-                <Text style={[styles.modalLabel, { marginTop: 6, fontSize: 12, opacity: 0.8 }]}>
-                  Пересчёт макросов по текущему названию и порции
-                </Text>
-              </View>
-            ) : null}
           </ScrollView>
+          {entry.can_reanalyze ? (
+            <View style={{ marginTop: 16 }}>
+              <TouchableOpacity
+                style={[styles.modalBtnSave, { backgroundColor: "#0ea5e9" }]}
+                onPress={handleReanalyze}
+                disabled={saving || deleting || copying || reanalyzing}
+              >
+                {reanalyzing ? (
+                  <ActivityIndicator size="small" color="#0f172a" />
+                ) : (
+                  <Text style={styles.modalBtnSaveText}>Пересчитать</Text>
+                )}
+              </TouchableOpacity>
+              <Text style={[styles.modalLabel, { marginTop: 6, fontSize: 12, opacity: 0.8 }]}>
+                Пересчёт макросов по текущему названию и порции
+              </Text>
+            </View>
+          ) : null}
           {confirmDeleteVisible ? (
             <View style={styles.deleteConfirmBox}>
-              <Text style={styles.deleteConfirmTitle}>Удалить запись?</Text>
-              <Text style={styles.deleteConfirmMessage}>«{entry.name}» будет удалена.</Text>
+              <Text style={styles.deleteConfirmTitle}>{t("dashboard.deleteEntryConfirm")}</Text>
+              <Text style={styles.deleteConfirmMessage}>{t("dashboard.deleteEntryMessage").replace("{name}", entry.name)}</Text>
               <View style={styles.deleteConfirmActions}>
                 <TouchableOpacity style={styles.modalBtnCancel} onPress={hideDeleteConfirm}>
-                  <Text style={styles.modalBtnCancelText}>Отмена</Text>
+                  <Text style={styles.modalBtnCancelText}>{t("common.cancel")}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.modalBtnDelete} onPress={runDelete} disabled={deleting}>
-                  {deleting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalBtnDeleteText}>Удалить</Text>}
+                  {deleting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalBtnDeleteText}>{t("common.delete")}</Text>}
                 </TouchableOpacity>
               </View>
             </View>
           ) : (
-            <View style={styles.modalActions}>
+            <View style={styles.modalActionsColumn}>
               <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
-                <Text style={styles.modalBtnCancelText}>Отмена</Text>
+                <Text style={styles.modalBtnCancelText}>{t("common.cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtnDelete, (saving || deleting || copying || reanalyzing) && styles.modalBtnDisabled]}
                 onPress={showDeleteConfirm}
                 disabled={saving || deleting || copying || reanalyzing}
               >
-                <Text style={styles.modalBtnDeleteText}>Удалить</Text>
+                <Text style={styles.modalBtnDeleteText}>{t("common.delete")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtnCopy, (saving || deleting || copying || reanalyzing) && styles.modalBtnDisabled]}
@@ -415,7 +415,7 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
                 onPress={handleSave}
                 disabled={saving || deleting || copying || reanalyzing}
               >
-                {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Сохранить</Text>}
+                {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>{t("common.save")}</Text>}
               </TouchableOpacity>
             </View>
           )}
@@ -452,19 +452,19 @@ const EditWellnessModal = React.memo(function EditWellnessModal({
     const h = hrv.trim() ? parseFloat(hrv) : undefined;
     const w = weightKg.trim() ? parseFloat(weightKg) : undefined;
     if (sh !== undefined && (Number.isNaN(sh) || sh < 0 || sh > 24)) {
-      Alert.alert("Ошибка", "Сон: введите число от 0 до 24.");
+      Alert.alert(t("common.error"), t("dashboard.validationSleep"));
       return;
     }
     if (r !== undefined && (Number.isNaN(r) || r < 0 || r > 200)) {
-      Alert.alert("Ошибка", "RHR: введите число от 0 до 200.");
+      Alert.alert(t("common.error"), t("dashboard.validationRhr"));
       return;
     }
     if (h !== undefined && (Number.isNaN(h) || h < 0)) {
-      Alert.alert("Ошибка", "HRV: введите положительное число.");
+      Alert.alert(t("common.error"), t("dashboard.validationHrv"));
       return;
     }
     if (w !== undefined && (Number.isNaN(w) || w < 20 || w > 300)) {
-      Alert.alert("Ошибка", "Вес: введите число от 20 до 300 кг.");
+      Alert.alert(t("common.error"), t("dashboard.validationWeight"));
       return;
     }
     setSaving(true);
@@ -474,7 +474,7 @@ const EditWellnessModal = React.memo(function EditWellnessModal({
       onSaved();
       onClose();
     } catch (e) {
-      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось сохранить.");
+      Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -484,11 +484,11 @@ const EditWellnessModal = React.memo(function EditWellnessModal({
     <Modal visible transparent animationType="fade">
       <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
         <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
-          <Text style={styles.cardTitle}>Сон и здоровье ({date})</Text>
+          <Text style={styles.cardTitle}>{t("dashboard.wellnessModalTitle").replace("{date}", date)}</Text>
           <Text style={styles.hint}>Данные учитываются ИИ при анализе и в чате.</Text>
           <TextInput
             style={styles.modalInput}
-            placeholder="Сон (часы)"
+            placeholder={t("wellness.sleepPlaceholder")}
             placeholderTextColor="#64748b"
             value={sleepHours}
             onChangeText={setSleepHours}
@@ -496,7 +496,7 @@ const EditWellnessModal = React.memo(function EditWellnessModal({
           />
           <TextInput
             style={styles.modalInput}
-            placeholder="RHR (уд/мин)"
+            placeholder={t("wellness.rhrPlaceholder")}
             placeholderTextColor="#64748b"
             value={rhr}
             onChangeText={setRhr}
@@ -504,7 +504,7 @@ const EditWellnessModal = React.memo(function EditWellnessModal({
           />
           <TextInput
             style={styles.modalInput}
-            placeholder="HRV (мс)"
+            placeholder={t("wellness.hrvPlaceholder")}
             placeholderTextColor="#64748b"
             value={hrv}
             onChangeText={setHrv}
@@ -512,7 +512,7 @@ const EditWellnessModal = React.memo(function EditWellnessModal({
           />
           <TextInput
             style={styles.modalInput}
-            placeholder="Вес (кг)"
+            placeholder={t("wellness.weightPlaceholder")}
             placeholderTextColor="#64748b"
             value={weightKg}
             onChangeText={setWeightKg}
@@ -520,10 +520,10 @@ const EditWellnessModal = React.memo(function EditWellnessModal({
           />
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
-              <Text style={styles.modalBtnCancelText}>Отмена</Text>
+              <Text style={styles.modalBtnCancelText}>{t("common.cancel")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalBtnSave} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Сохранить</Text>}
+              {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>{t("common.save")}</Text>}
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -556,7 +556,7 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
       if (Platform.OS !== "web") {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert("Ошибка", "Нужен доступ к галерее для загрузки скриншота.");
+          Alert.alert(t("common.error"), t("dashboard.galleryAccessRequired"));
           return;
         }
       }
@@ -589,15 +589,15 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
           if (w.notes) setNotes(w.notes);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         } else {
-          Alert.alert("Info", "Не удалось распознать данные тренировки.");
+          Alert.alert(t("common.alerts.info"), t("dashboard.workoutRecognizeFailed"));
         }
       } catch (e) {
-        Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось проанализировать фото");
+        Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.analyzeFailed"));
       } finally {
         setAnalyzing(false);
       }
     } catch (e) {
-      Alert.alert("Ошибка", "Не удалось выбрать изображение");
+      Alert.alert(t("common.error"), t("dashboard.selectImageFailed"));
     }
   };
 
@@ -606,7 +606,7 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
     const distanceM = distanceKm.trim() ? parseFloat(distanceKm) * 1000 : undefined;
     const tssVal = tss.trim() ? parseFloat(tss) : undefined;
     if (durationSec !== undefined && (Number.isNaN(durationSec) || durationSec < 0)) {
-      Alert.alert("Ошибка", "Длительность: введите число минут.");
+      Alert.alert(t("common.error"), t("dashboard.validationDuration"));
       return;
     }
     setSaving(true);
@@ -623,7 +623,7 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
       onSaved();
       onClose();
     } catch (e) {
-      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось сохранить.");
+      Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -634,18 +634,18 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
       <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
         <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <Text style={styles.cardTitle}>Добавить тренировку</Text>
+            <Text style={styles.cardTitle}>{t("dashboard.addWorkoutTitle")}</Text>
             <TouchableOpacity 
               style={[styles.outlineButton, { borderColor: "#38bdf8" }]} 
               onPress={handleScan}
               disabled={analyzing}
             >
-               {analyzing ? <ActivityIndicator size="small" color="#38bdf8" /> : <Text style={styles.outlineButtonText}>📷 Скан фото</Text>}
+               {analyzing ? <ActivityIndicator size="small" color="#38bdf8" /> : <Text style={styles.outlineButtonText}>📷 {t("dashboard.scanPhoto")}</Text>}
             </TouchableOpacity>
           </View>
           
           <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
-            <Text style={styles.modalLabel}>Дата (YYYY-MM-DD)</Text>
+            <Text style={styles.modalLabel}>{t("dashboard.addWorkoutDateLabel")}</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="2024-01-01"
@@ -653,23 +653,23 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
               value={dateStr}
               onChangeText={setDateStr}
             />
-            <Text style={styles.modalLabel}>Название</Text>
+            <Text style={styles.modalLabel}>{t("dashboard.addWorkoutName")}</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Утренняя пробежка"
+              placeholder={t("dashboard.placeholderWorkoutName")}
               placeholderTextColor="#64748b"
               value={name}
               onChangeText={setName}
             />
-            <Text style={styles.modalLabel}>Тип</Text>
+            <Text style={styles.modalLabel}>{t("dashboard.addWorkoutType")}</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Run, Ride, Swim..."
+              placeholder={t("dashboard.sportTypePlaceholder")}
               placeholderTextColor="#64748b"
               value={type}
               onChangeText={setType}
             />
-            <Text style={styles.modalLabel}>Длительность (мин)</Text>
+            <Text style={styles.modalLabel}>{t("dashboard.addWorkoutDurationMin")}</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="60"
@@ -678,7 +678,7 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
               onChangeText={setDurationMin}
               keyboardType="numeric"
             />
-            <Text style={styles.modalLabel}>Дистанция (км)</Text>
+            <Text style={styles.modalLabel}>{t("dashboard.addWorkoutDistanceKm")}</Text>
             <TextInput
               style={styles.modalInput}
               placeholder="10.5"
@@ -696,10 +696,10 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
               onChangeText={setTss}
               keyboardType="numeric"
             />
-            <Text style={styles.modalLabel}>Заметки</Text>
+            <Text style={styles.modalLabel}>{t("dashboard.addWorkoutNotes")}</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Самочувствие, условия..."
+              placeholder={t("dashboard.placeholderFeelings")}
               placeholderTextColor="#64748b"
               value={notes}
               onChangeText={setNotes}
@@ -711,10 +711,10 @@ const AddWorkoutModal = React.memo(function AddWorkoutModal({
 
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
-              <Text style={styles.modalBtnCancelText}>Отмена</Text>
+              <Text style={styles.modalBtnCancelText}>{t("common.cancel")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalBtnSave} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Сохранить</Text>}
+              {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>{t("common.save")}</Text>}
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -742,7 +742,7 @@ const WorkoutPreviewModal = React.memo(function WorkoutPreviewModal({
       await onSave(file);
       onClose();
     } catch (e) {
-      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось сохранить.");
+      Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -784,10 +784,10 @@ const WorkoutPreviewModal = React.memo(function WorkoutPreviewModal({
           )}
           <View style={styles.modalActions}>
             <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
-              <Text style={styles.modalBtnCancelText}>Отмена</Text>
+              <Text style={styles.modalBtnCancelText}>{t("common.cancel")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalBtnSave} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>Сохранить</Text>}
+              {saving ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>{t("common.save")}</Text>}
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -833,12 +833,13 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
   onClose: () => void;
   onDeleted: () => void;
 }) {
+  const { t } = useTranslation();
   const { colors } = useTheme();
   const { width: chartWidth } = useWindowDimensions();
   const [deleting, setDeleting] = useState(false);
   if (!workout) return null;
   const raw = workout.raw as Record<string, unknown> | undefined;
-  const sourceLabel = workout.source === "fit" ? "FIT-файл" : workout.source === "intervals" ? "Intervals.icu" : "Ручной ввод";
+  const sourceLabel = workout.source === "fit" ? t("dashboard.workoutSourceFit") : workout.source === "intervals" ? t("dashboard.workoutSourceIntervals") : t("dashboard.workoutSourceManual");
   const series = raw?.series as Array<{ elapsed_sec?: number; power?: number | null; speed?: number | null; heart_rate?: number | null }> | undefined;
   const hasSeries = Array.isArray(series) && series.length > 0;
   const sampled = useMemo(() => (hasSeries ? sampleSeries(series, CHART_MAX_POINTS) : []), [series, hasSeries]);
@@ -877,7 +878,7 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
       onDeleted();
       onClose();
     } catch (e) {
-      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить.");
+      Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.deleteFailed"));
     } finally {
       setDeleting(false);
     }
@@ -885,14 +886,14 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
 
   const handleDelete = () => {
     if (Platform.OS === "web" && typeof window !== "undefined") {
-      if (window.confirm("Удалить тренировку? Тренировка будет удалена без возможности восстановления.")) {
+      if (window.confirm(`${t("dashboard.deleteWorkoutTitle")}\n${t("dashboard.deleteWorkoutMessage")}`)) {
         performDelete();
       }
       return;
     }
-    Alert.alert("Удалить тренировку?", "Тренировка будет удалена без возможности восстановления.", [
-      { text: "Отмена", style: "cancel" },
-      { text: "Удалить", style: "destructive", onPress: performDelete },
+    Alert.alert(t("dashboard.deleteWorkoutTitle"), t("dashboard.deleteWorkoutMessage"), [
+      { text: t("common.cancel"), style: "cancel" },
+      { text: t("common.delete"), style: "destructive", onPress: performDelete },
     ]);
   };
 
@@ -901,18 +902,18 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
       <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
         <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }, hasSeries && { maxHeight: "85%" }]} onPress={(e) => e.stopPropagation()}>
           <ScrollView style={{ maxHeight: hasSeries ? 400 : undefined }} showsVerticalScrollIndicator>
-            <Text style={styles.cardTitle}>Тренировка</Text>
-            <Text style={styles.modalLabel}>Название / тип</Text>
+            <Text style={styles.cardTitle}>{t("dashboard.workoutFallbackName")}</Text>
+            <Text style={styles.modalLabel}>{t("dashboard.workoutDetailNameType")}</Text>
             <Text style={styles.value}>{workout.name ?? workout.type ?? "—"}</Text>
-            <Text style={styles.modalLabel}>Дата и время</Text>
+            <Text style={styles.modalLabel}>{t("dashboard.workoutDetailDateTime")}</Text>
             <Text style={styles.value}>{workout.start_date ? new Date(workout.start_date).toLocaleString() : "—"}</Text>
-            <Text style={styles.modalLabel}>Источник</Text>
+            <Text style={styles.modalLabel}>{t("dashboard.workoutDetailSource")}</Text>
             <Text style={styles.value}>{sourceLabel}</Text>
-            <Text style={styles.modalLabel}>Длительность</Text>
+            <Text style={styles.modalLabel}>{t("dashboard.workoutDetailDuration")}</Text>
             <Text style={styles.value}>{formatDuration(workout.duration_sec ?? undefined) || "—"}</Text>
             {workout.distance_m != null && (
               <>
-                <Text style={styles.modalLabel}>Дистанция</Text>
+                <Text style={styles.modalLabel}>{t("dashboard.workoutDetailDistance")}</Text>
                 <Text style={styles.value}>{(workout.distance_m / 1000).toFixed(2)} km</Text>
               </>
             )}
@@ -924,13 +925,13 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
             )}
             {workout.notes && (
               <>
-                <Text style={styles.modalLabel}>Заметки</Text>
+                <Text style={styles.modalLabel}>{t("dashboard.workoutDetailNotes")}</Text>
                 <Text style={styles.hint}>{workout.notes}</Text>
               </>
             )}
             {raw && (workout.source === "fit" || workout.source === "intervals") && (
             <>
-              <Text style={[styles.modalLabel, { marginTop: 8 }]}>Из данных (ЧСС, мощность, калории)</Text>
+              <Text style={[styles.modalLabel, { marginTop: 8 }]}>{t("dashboard.workoutDetailFromData")}</Text>
               <View style={{ gap: 2 }}>
                 {raw.avg_heart_rate != null && <Text style={styles.hint}>ЧСС ср.: {String(raw.avg_heart_rate)}</Text>}
                 {raw.max_heart_rate != null && <Text style={styles.hint}>ЧСС макс.: {String(raw.max_heart_rate)}</Text>}
@@ -944,7 +945,7 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
             <>
               {(avgPower != null || np != null || vi != null) && (
                 <View style={{ marginTop: 12, gap: 4 }}>
-                  <Text style={[styles.modalLabel, { marginTop: 8 }]}>Метрики мощности</Text>
+                  <Text style={[styles.modalLabel, { marginTop: 8 }]}>{t("dashboard.workoutDetailPowerMetrics")}</Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
                     {avgPower != null && <Text style={styles.hint}>Ср. мощность: {avgPower} W</Text>}
                     {np != null && <Text style={styles.hint}>NP: {np} W</Text>}
@@ -954,7 +955,7 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
               )}
               {powerData.some((d) => d.value > 0) && (
                 <View style={{ marginTop: 12 }}>
-                  <Text style={[styles.modalLabel, { marginBottom: 4 }]}>Мощность (Вт)</Text>
+                  <Text style={[styles.modalLabel, { marginBottom: 4 }]}>{t("dashboard.workoutDetailPowerW")}</Text>
                   <View style={{ height: WORKOUT_CHART_HEIGHT }}>
                     <LineChart
                       data={powerData}
@@ -975,7 +976,7 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
               )}
               {speedData.some((d) => d.value > 0) && (
                 <View style={{ marginTop: 12 }}>
-                  <Text style={[styles.modalLabel, { marginBottom: 4 }]}>Скорость (км/ч)</Text>
+                  <Text style={[styles.modalLabel, { marginBottom: 4 }]}>{t("dashboard.workoutDetailSpeedKmh")}</Text>
                   <View style={{ height: WORKOUT_CHART_HEIGHT }}>
                     <LineChart
                       data={speedData}
@@ -999,10 +1000,10 @@ const WorkoutDetailModal = React.memo(function WorkoutDetailModal({
           </ScrollView>
           <View style={[styles.modalActions, styles.deleteConfirmBox]}>
             <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
-              <Text style={styles.modalBtnCancelText}>Закрыть</Text>
+              <Text style={styles.modalBtnCancelText}>{t("common.close")}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.modalBtnDelete} onPress={handleDelete} disabled={deleting}>
-              {deleting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalBtnDeleteText}>Удалить</Text>}
+              {deleting ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalBtnDeleteText}>{t("common.delete")}</Text>}
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -1223,10 +1224,10 @@ export function DashboardScreen({
   };
 
   const handleQuickDelete = (entry: NutritionDayEntry) => {
-    Alert.alert("Удалить запись?", `«${entry.name}» будет удалена.`, [
-      { text: "Отмена", style: "cancel" },
+    Alert.alert(t("dashboard.deleteEntryConfirm"), t("dashboard.deleteEntryMessage").replace("{name}", entry.name), [
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Удалить",
+        text: t("common.delete"),
         style: "destructive",
         onPress: async () => {
           try {
@@ -1234,7 +1235,7 @@ export function DashboardScreen({
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             loadNutritionForDate(nutritionDate);
           } catch (e) {
-            Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось удалить");
+            Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.deleteFailed"));
           }
         },
       },
@@ -1257,7 +1258,7 @@ export function DashboardScreen({
         const preview = await previewFitWorkout(file);
         setFitPreviewData({ file, preview });
       } catch (err) {
-        Alert.alert("Ошибка", err instanceof Error ? err.message : "Не удалось разобрать FIT.");
+        Alert.alert(t("common.error"), err instanceof Error ? err.message : t("dashboard.parseFitFailed"));
       } finally {
         setFitUploading(false);
       }
@@ -1430,7 +1431,7 @@ export function DashboardScreen({
             setMenuVisible(true);
           }}
           style={styles.menuIconBtn}
-          accessibilityLabel="Меню"
+          accessibilityLabel={t("common.menu")}
         >
           <Text style={styles.menuIcon}>☰</Text>
         </TouchableOpacity>
@@ -1585,12 +1586,12 @@ export function DashboardScreen({
               {(wellnessToday || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
                 <>
                   <Text style={[styles.wellnessMetricsLine, { marginTop: 8 }]} numberOfLines={2}>
-                    {wellnessToday?.sleep_hours != null ? `Сон\u00A0${formatSleepDuration(wellnessToday.sleep_hours)}` : "Сон —"}
+                    {wellnessToday?.sleep_hours != null ? `${t("wellness.sleep")}\u00A0${formatSleepDuration(wellnessToday.sleep_hours)}` : `${t("wellness.sleep")} —`}
                     {wellnessToday?.rhr != null ? ` · RHR\u00A0${wellnessToday.rhr}` : " · RHR —"}
                     {wellnessToday?.hrv != null ? ` · HRV\u00A0${wellnessToday.hrv}` : " · HRV —"}
                     {(wellnessToday?.weight_kg ?? athleteProfile?.weight_kg) != null
-                      ? ` · Вес\u00A0${wellnessToday?.weight_kg ?? athleteProfile?.weight_kg}\u00A0кг`
-                      : " · Вес —"}
+                      ? ` · ${t("wellness.weight")}\u00A0${wellnessToday?.weight_kg ?? athleteProfile?.weight_kg}\u00A0${t("wellness.weightKg")}`
+                      : ` · ${t("wellness.weight")} —`}
                   </Text>
                   {wellnessToday?.sleep_hours == null && (
                     <Text style={styles.hint}>{t("wellness.manualHint")}</Text>
@@ -1657,7 +1658,7 @@ export function DashboardScreen({
                             onPress={() => { setSleepReanalyzeExtId(entry.extraction!.id); setSleepReanalyzeCorrection(""); }}
                             disabled={sleepReanalyzingId != null}
                           >
-                            <Text style={styles.modalBtnSaveText}>Повторный анализ</Text>
+                            <Text style={styles.modalBtnSaveText}>{t("wellness.reanalyze")}</Text>
                           </TouchableOpacity>
                         ) : null}
                         {entry.source === "photo" && entry.extraction ? (
@@ -1673,19 +1674,19 @@ export function DashboardScreen({
                                   const fresh = await getSleepExtractions(addDays(today, -14), today).catch(() => []);
                                   setSleepExtractions(fresh ?? []);
                                 } catch (e) {
-                                  const raw = e instanceof Error ? e.message : "Не удалось удалить";
+                                  const raw = e instanceof Error ? e.message : t("dashboard.deleteFailed");
                                   let msg = raw;
                                   try {
                                     const parsed = JSON.parse(raw);
                                     if (parsed?.detail === "Not Found" || parsed?.detail === "Extraction not found")
-                                      msg = "Запись не найдена или сервер не обновлён. Обновите страницу и попробуйте снова.";
+                                      msg = t("common.alerts.recordNotFound");
                                   } catch {
-                                    if (raw.startsWith("{")) msg = "Ошибка сервера. Обновите страницу.";
+                                    if (raw.startsWith("{")) msg = t("common.alerts.serverError");
                                   }
                                   if (Platform.OS === "web" && typeof window !== "undefined") {
                                     window.alert(msg);
                                   } else {
-                                    Alert.alert("Ошибка", msg);
+                                    Alert.alert(t("common.error"), msg);
                                   }
                                 }
                               };
@@ -1716,7 +1717,7 @@ export function DashboardScreen({
                           style={styles.modalInput}
                           value={sleepReanalyzeCorrection}
                           onChangeText={setSleepReanalyzeCorrection}
-                          placeholder="Например: actual sleep was 7.5 hours"
+                          placeholder={t("wellness.reanalyzePlaceholder")}
                           placeholderTextColor="#64748b"
                           editable={sleepReanalyzingId === null}
                         />
@@ -1726,7 +1727,7 @@ export function DashboardScreen({
                             onPress={() => { setSleepReanalyzeExtId(null); setSleepReanalyzeCorrection(""); }}
                             disabled={sleepReanalyzingId !== null}
                           >
-                            <Text style={styles.modalBtnCancelText}>Отмена</Text>
+                            <Text style={styles.modalBtnCancelText}>{t("common.cancel")}</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={[styles.modalBtnSave, (sleepReanalyzingId !== null || !sleepReanalyzeCorrection.trim()) && styles.modalBtnDisabled]}
@@ -1742,7 +1743,7 @@ export function DashboardScreen({
                                 const fresh = await getSleepExtractions(addDays(today, -14), today).catch(() => []);
                                 setSleepExtractions(fresh ?? []);
                               } catch (e) {
-                                Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось выполнить повторный анализ");
+                                Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.reanalyzeFailed"));
                               } finally {
                                 setSleepReanalyzingId(null);
                               }
@@ -1752,7 +1753,7 @@ export function DashboardScreen({
                             {sleepReanalyzingId === entry.extraction.id ? (
                               <ActivityIndicator size="small" color="#0f172a" />
                             ) : (
-                              <Text style={styles.modalBtnSaveText}>Отправить на анализ</Text>
+                              <Text style={styles.modalBtnSaveText}>{t("wellness.sendToAnalysis")}</Text>
                             )}
                           </TouchableOpacity>
                         </View>
@@ -1801,10 +1802,10 @@ export function DashboardScreen({
                         const message =
                           activities > 0 || wellness > 0
                             ? `Синхронизировано: ${activities} тренировок, ${wellness} дн. wellness.`
-                            : "Готово. Данных за период нет.";
-                        Alert.alert("Синхронизация Intervals", message);
+                            : t("dashboard.syncDoneNoData");
+                        Alert.alert(t("dashboard.syncIntervalsTitle"), message);
                       } catch (e) {
-                        Alert.alert("Ошибка синхронизации", e instanceof Error ? e.message : "Не удалось синхронизировать");
+                        Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.syncFailed"));
                       } finally {
                         setIntervalsSyncLoading(false);
                       }
@@ -1900,7 +1901,7 @@ export function DashboardScreen({
                 </TouchableOpacity>
               </View>
             </View>
-            <Text style={styles.hint}>Последние 14 дней · ручной ввод, FIT и Intervals.icu</Text>
+            <Text style={styles.hint}>{t("workouts.hint")}</Text>
             {wellnessToday?.sport_info?.length ? (() => {
               const ride = wellnessToday.sport_info.find((s) => s.type === "Ride") ?? wellnessToday.sport_info[0];
               const eftp = ride?.eftp != null ? Math.round(ride.eftp) : null;
@@ -1921,7 +1922,7 @@ export function DashboardScreen({
               >
                 <Text style={styles.calendarDate}>{formatEventDate(act.start_date)}</Text>
                 <View style={styles.activityInfo}>
-                  <Text style={styles.calendarTitle}>{act.name || "Тренировка"}</Text>
+                  <Text style={styles.calendarTitle}>{act.name || t("dashboard.workoutFallbackName")}</Text>
                   <Text style={styles.hint}>
                     {formatDuration(act.duration_sec ?? undefined)}
                     {act.distance_m != null ? ` · ${(act.distance_m / 1000).toFixed(1)} km` : ""}
@@ -1930,14 +1931,14 @@ export function DashboardScreen({
                 </View>
               </TouchableOpacity>
             )) : (
-              <Text style={styles.placeholder}>Нет тренировок. Подключите Intervals.icu и нажмите «Синхронизировать» или добавьте вручную / загрузите FIT.</Text>
+              <Text style={styles.placeholder}>{t("dashboard.noWorkoutsHint")}</Text>
             )}
           </View>
 
           {lastAnalysisResult ? (
             <View style={glassCardStyle}>
-              <Text style={styles.cardTitle}>Результат анализа</Text>
-              <Text style={styles.analysisDecision}>Решение: {lastAnalysisResult.decision}</Text>
+              <Text style={styles.cardTitle}>{t("dashboard.analysisResult")}</Text>
+              <Text style={styles.analysisDecision}>{t("dashboard.decisionLabel")} {lastAnalysisResult.decision}</Text>
               <Text style={styles.value}>{lastAnalysisResult.reason}</Text>
               {lastAnalysisResult.suggestions_next_days ? (
                 <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.suggestions_next_days}</Text>
@@ -1953,7 +1954,7 @@ export function DashboardScreen({
             {analysisLoading ? (
               <ActivityIndicator size="small" color="#0f172a" />
             ) : (
-              <Text style={styles.analysisBtnText}>Запустить анализ</Text>
+              <Text style={styles.analysisBtnText}>{t("dashboard.runAnalysis")}</Text>
             )}
           </TouchableOpacity>
 
@@ -1965,7 +1966,7 @@ export function DashboardScreen({
         <LinearGradient colors={["#3b82f6", "#8b5cf6"]} style={StyleSheet.absoluteFill} />
         <TouchableOpacity style={styles.fabTouchable} onPress={onOpenCamera} activeOpacity={0.9}>
           <Text style={styles.fabLabel}>📷</Text>
-          <Text style={styles.fabText}>Фото</Text>
+          <Text style={styles.fabText}>{t("dashboard.photo")}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -2130,6 +2131,7 @@ const styles = StyleSheet.create({
   micronutrientLabel: { fontSize: 12, color: "#94a3b8" },
   micronutrientValue: { fontSize: 12, color: "#e2e8f0" },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#334155" },
+  modalActionsColumn: { flexDirection: "column", gap: 10, marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#334155" },
   modalBtnCancel: { paddingVertical: 10, paddingHorizontal: 16 },
   modalBtnCancelText: { fontSize: 16, color: "#b8c5d6" },
   modalBtnDelete: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#dc2626" },

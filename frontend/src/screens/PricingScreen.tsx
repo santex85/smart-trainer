@@ -57,9 +57,9 @@ export function PricingScreen({
         window.location.href = url;
         return;
       }
-      setError("Не удалось открыть страницу оплаты.");
+      setError(t("pricing.checkoutError"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка запроса");
+      setError(e instanceof Error ? e.message : t("auth.requestError"));
     } finally {
       setLoading(null);
     }

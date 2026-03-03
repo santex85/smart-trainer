@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar } from "react-native-calendars";
 import { getWellness, createOrUpdateWellness, type WellnessDay } from "../api/client";
+import { useTranslation } from "../i18n";
 
 function getTodayLocal(): string {
   const d = new Date();
@@ -44,6 +45,7 @@ const CALENDAR_THEME = {
 };
 
 export function WellnessScreen({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
   const today = getTodayLocal();
   const [selectedDay, setSelectedDay] = useState(today);
   const [sleepHours, setSleepHours] = useState("");
@@ -88,15 +90,15 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
     const rhrVal = rhr.trim() ? parseFloat(rhr) : undefined;
     const hrvVal = hrv.trim() ? parseFloat(hrv) : undefined;
     if (sleep != null && (Number.isNaN(sleep) || sleep < 0 || sleep > 24)) {
-      Alert.alert("Ошибка", "Сон: от 0 до 24 часов.");
+      Alert.alert(t("common.error"), t("wellnessScreen.validationSleep"));
       return;
     }
     if (rhrVal != null && (Number.isNaN(rhrVal) || rhrVal < 0 || rhrVal > 200)) {
-      Alert.alert("Ошибка", "Пульс: введите число от 0 до 200.");
+      Alert.alert(t("common.error"), t("wellnessScreen.validationPulse"));
       return;
     }
     if (hrvVal != null && (Number.isNaN(hrvVal) || hrvVal < 0)) {
-      Alert.alert("Ошибка", "HRV: положительное число.");
+      Alert.alert(t("common.error"), t("wellnessScreen.validationHrv"));
       return;
     }
     setSaving(true);
@@ -108,9 +110,9 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
         hrv: hrvVal,
       });
       await loadDay(selectedDay);
-      Alert.alert("Сохранено", "Данные сохранены.");
+      Alert.alert(t("wellnessScreen.savedTitle"), t("wellnessScreen.saved"));
     } catch (e) {
-      Alert.alert("Ошибка", e instanceof Error ? e.message : "Не удалось сохранить.");
+      Alert.alert(t("common.error"), e instanceof Error ? e.message : t("wellnessScreen.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -120,9 +122,9 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-          <Text style={styles.backText}>Назад</Text>
+          <Text style={styles.backText}>{t("settings.back")}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Сон и здоровье</Text>
+        <Text style={styles.title}>{t("wellnessScreen.title")}</Text>
         <View style={styles.backBtn} />
       </View>
       <KeyboardAvoidingView
@@ -140,7 +142,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
         <ScrollView style={styles.formScroll} contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled">
           {trendData.length > 0 ? (
             <View style={styles.trendSection}>
-              <Text style={styles.trendTitle}>Сон за 7 дней</Text>
+              <Text style={styles.trendTitle}>{t("wellnessScreen.sleepTrendTitle")}</Text>
               <View style={styles.trendChart}>
                 {[...trendData].sort((a, b) => a.date.localeCompare(b.date)).map((day) => {
                   const hours = day.sleep_hours ?? 0;
@@ -159,13 +161,13 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
               </View>
             </View>
           ) : null}
-          <Text style={styles.sectionTitle}>Данные на {selectedDay}</Text>
+          <Text style={styles.sectionTitle}>{t("wellnessScreen.dataForDate").replace("{date}", selectedDay)}</Text>
           {loading ? (
             <ActivityIndicator size="small" color="#38bdf8" style={styles.loader} />
           ) : (
             <>
               <View style={styles.field}>
-                <Text style={styles.label}>Сон (часы)</Text>
+                <Text style={styles.label}>{t("wellnessScreen.sleepHoursLabel")}</Text>
                 <TextInput
                   style={styles.input}
                   value={sleepHours}
@@ -176,7 +178,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
                 />
               </View>
               <View style={styles.field}>
-                <Text style={styles.label}>Пульс в покое (уд/мин)</Text>
+                <Text style={styles.label}>{t("wellnessScreen.rhrLabel")}</Text>
                 <TextInput
                   style={styles.input}
                   value={rhr}
@@ -199,7 +201,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
               </View>
               {loaded && (loaded.ctl != null || loaded.atl != null || loaded.tsb != null) ? (
                 <View style={styles.readOnly}>
-                  <Text style={styles.label}>Нагрузка (только чтение)</Text>
+                  <Text style={styles.label}>{t("wellnessScreen.loadReadOnly")}</Text>
                   <Text style={styles.hint}>
                     CTL: {loaded.ctl != null ? loaded.ctl.toFixed(0) : "—"} · ATL: {loaded.atl != null ? loaded.atl.toFixed(0) : "—"} · TSB: {loaded.tsb != null ? loaded.tsb.toFixed(0) : "—"}
                   </Text>
@@ -213,7 +215,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
                 {saving ? (
                   <ActivityIndicator size="small" color="#0f172a" />
                 ) : (
-                  <Text style={styles.saveBtnText}>Сохранить</Text>
+                  <Text style={styles.saveBtnText}>{t("common.save")}</Text>
                 )}
               </TouchableOpacity>
             </>
