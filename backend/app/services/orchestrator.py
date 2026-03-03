@@ -137,18 +137,24 @@ def _parse_llm_response(text: str) -> OrchestratorResponse:
             modified_item = ModifiedPlanItem.model_validate(modified, strict=False)
         except Exception:
             modified_item = None
-    reason = data.get("reason") or ""
-    if isinstance(reason, str) and len(reason) > 1000:
+    reason = str(data.get("reason") or "")
+    if len(reason) > 1000:
         reason = reason[:1000]
     suggestions = data.get("suggestions_next_days")
-    if suggestions is not None and isinstance(suggestions, str) and len(suggestions) > 2000:
-        suggestions = suggestions[:2000]
+    if suggestions is not None:
+        suggestions = str(suggestions) if not isinstance(suggestions, str) else suggestions
+        if len(suggestions) > 2000:
+            suggestions = suggestions[:2000]
     evening_tips = data.get("evening_tips")
-    if evening_tips is not None and isinstance(evening_tips, str) and len(evening_tips) > 1000:
-        evening_tips = evening_tips[:1000]
+    if evening_tips is not None:
+        evening_tips = str(evening_tips) if not isinstance(evening_tips, str) else evening_tips
+        if len(evening_tips) > 1000:
+            evening_tips = evening_tips[:1000]
     plan_tomorrow = data.get("plan_tomorrow")
-    if plan_tomorrow is not None and isinstance(plan_tomorrow, str) and len(plan_tomorrow) > 1000:
-        plan_tomorrow = plan_tomorrow[:1000]
+    if plan_tomorrow is not None:
+        plan_tomorrow = str(plan_tomorrow) if not isinstance(plan_tomorrow, str) else plan_tomorrow
+        if len(plan_tomorrow) > 1000:
+            plan_tomorrow = plan_tomorrow[:1000]
     return OrchestratorResponse(
         decision=decision,
         reason=reason,
@@ -384,10 +390,13 @@ async def run_daily_decision(
     try:
         result = _parse_llm_response(response.text)
     except (json.JSONDecodeError, Exception) as e:
-        raw_preview = (response.text or "")[:500].replace("\n", " ")
+        raw_text = response.text or ""
+        raw_preview = raw_text[:1000].replace("\n", " ")
         logger.warning(
-            "Orchestrator parse failed: %s. Raw response preview: %s",
+            "Orchestrator parse failed: %s: %s. Response length: %d. Raw response preview: %s",
             type(e).__name__,
+            str(e),
+            len(raw_text),
             raw_preview,
         )
         return OrchestratorResponse(decision=Decision.SKIP, reason="Parse error; defaulting to Skip.")
