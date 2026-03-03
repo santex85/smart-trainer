@@ -71,7 +71,13 @@ async def get_analytics_overview(
         .limit(1)
     )
     lw = last_wellness.one_or_none()
-    ctl_atl_tsb = {"ctl": lw.ctl, "atl": lw.atl, "tsb": lw.tsb} if lw else None
+    if lw:
+        ctl = float(lw.ctl or 0)
+        atl = float(lw.atl or 0)
+        tsb = float(lw.tsb) if lw.tsb is not None else (ctl - atl)
+        ctl_atl_tsb = {"ctl": round(ctl, 1), "atl": round(atl, 1), "tsb": round(tsb, 1)}
+    else:
+        ctl_atl_tsb = None
 
     # Workouts count and total TSS in range
     from_dt = datetime.combine(from_d, datetime.min.time()).replace(tzinfo=timezone.utc)

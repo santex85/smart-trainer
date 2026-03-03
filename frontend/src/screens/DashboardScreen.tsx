@@ -1773,14 +1773,14 @@ export function DashboardScreen({
             {workoutFitness ? (
               <>
                 <Text style={[styles.fitnessMetricsLine, { color: colors.text, marginBottom: 4 }]}>
-                  CTL {workoutFitness.ctl.toFixed(0)} · ATL {workoutFitness.atl.toFixed(0)} · TSB {workoutFitness.tsb.toFixed(0)}
+                  CTL {workoutFitness.ctl.toFixed(1)} · ATL {workoutFitness.atl.toFixed(1)} · TSB {workoutFitness.tsb.toFixed(1)}
                 </Text>
                 <Text style={[styles.fitnessCaption, { color: colors.textMuted, marginBottom: 12 }]}>{t("fitness.dateLabel")} {workoutFitness.date}</Text>
               </>
             ) : (wellnessToday?.ctl != null || wellnessToday?.atl != null || wellnessToday?.tsb != null) ? (
               <>
                 <Text style={[styles.fitnessMetricsLine, { color: colors.text, marginBottom: 4 }]}>
-                  CTL {wellnessToday?.ctl?.toFixed(0) ?? "—"} · ATL {wellnessToday?.atl?.toFixed(0) ?? "—"} · TSB {wellnessToday?.tsb?.toFixed(0) ?? "—"}
+                  CTL {wellnessToday?.ctl?.toFixed(1) ?? "—"} · ATL {wellnessToday?.atl?.toFixed(1) ?? "—"} · TSB {wellnessToday?.tsb?.toFixed(1) ?? "—"}
                 </Text>
                 <Text style={[styles.fitnessCaption, styles.fitnessCaptionMuted, { color: colors.textMuted, marginBottom: 12 }]}>{t("fitness.fromWellness")}</Text>
               </>

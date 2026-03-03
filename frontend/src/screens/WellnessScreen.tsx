@@ -203,7 +203,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
                 <View style={styles.readOnly}>
                   <Text style={styles.label}>{t("wellnessScreen.loadReadOnly")}</Text>
                   <Text style={styles.hint}>
-                    CTL: {loaded.ctl != null ? loaded.ctl.toFixed(0) : "—"} · ATL: {loaded.atl != null ? loaded.atl.toFixed(0) : "—"} · TSB: {loaded.tsb != null ? loaded.tsb.toFixed(0) : "—"}
+                    CTL: {loaded.ctl != null ? loaded.ctl.toFixed(1) : "—"} · ATL: {loaded.atl != null ? loaded.atl.toFixed(1) : "—"} · TSB: {loaded.tsb != null ? loaded.tsb.toFixed(1) : "—"}
                   </Text>
                 </View>
               ) : null}
