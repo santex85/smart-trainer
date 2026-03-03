@@ -41,6 +41,10 @@ export const ru = {
       info: "Инфо",
     },
   },
+  units: {
+    hourShort: "ч",
+    minuteShort: "мин",
+  },
   tabs: {
     home: "Главная",
     chat: "Чат",
@@ -101,6 +105,8 @@ export const ru = {
     placeholder: "Отмечайте приёмы пищи камерой →",
     loadError: "Не удалось загрузить питание. Потяните для обновления.",
     copy: "Копировать",
+    recalculate: "Пересчитать",
+    recalculateHint: "Пересчёт макросов по текущему названию и порции",
     micronutrients: "Микронутриенты",
     entryEditTitle: "Редактировать запись",
     entryName: "Название",
@@ -164,6 +170,7 @@ export const ru = {
   },
   chat: {
     title: "AI-тренер",
+    openCoachChat: "Открыть чат AI-тренера",
     clear: "Очистить",
     placeholder: "Сообщение или прикрепите FIT...",
     emptyPrompt: "Напишите сообщение или запросите решение на сегодня.",
@@ -236,6 +243,12 @@ export const ru = {
     workoutDetailPowerMetrics: "Метрики мощности",
     workoutDetailPowerW: "Мощность (Вт)",
     workoutDetailSpeedKmh: "Скорость (км/ч)",
+    hrAvg: "ЧСС ср.",
+    hrMax: "ЧСС макс.",
+    avgPower: "Мощность ср.",
+    avgPowerShort: "Ср. мощность",
+    caloriesLabel: "Калории",
+    syncIntervalsMessage: "Синхронизировано: {activities} тренировок, {wellness} дн. здоровья.",
     addWorkoutTitle: "Добавить тренировку",
     addWorkoutDateLabel: "Дата (YYYY-MM-DD)",
     addWorkoutName: "Название",
@@ -312,8 +325,10 @@ export const ru = {
     selectFromGallery: "Выбрать из галереи",
   },
   athleteProfile: {
+    title: "Профиль атлета",
     subscription: "Подписка",
     subscriptionPro: "Подписка Pro",
+    premiumTestLabel: "Премиум (для теста)",
     ftpPlaceholder: "Используется для TSS по мощности",
     gramsShort: "г",
     weightKg: "Вес (кг)",
@@ -344,6 +359,7 @@ export const ru = {
   },
   fit: {
     webOnly: "Загрузка FIT доступна в веб-версии. Откройте приложение в браузере.",
+    previewTitle: "Превью FIT-тренировки",
   },
   pricing: {
     title: "Подписка Pro",
@@ -409,6 +425,10 @@ export const en = {
       info: "Info",
     },
   },
+  units: {
+    hourShort: "h",
+    minuteShort: "min",
+  },
   tabs: {
     home: "Home",
     chat: "Chat",
@@ -469,6 +489,8 @@ export const en = {
     placeholder: "Log meals with camera →",
     loadError: "Failed to load nutrition. Pull to refresh.",
     copy: "Copy",
+    recalculate: "Recalculate",
+    recalculateHint: "Recalculate macros from current name and portion",
     micronutrients: "Micronutrients",
     entryEditTitle: "Edit entry",
     entryName: "Name",
@@ -532,6 +554,7 @@ export const en = {
   },
   chat: {
     title: "AI coach",
+    openCoachChat: "Open AI coach chat",
     clear: "Clear",
     placeholder: "Message or attach FIT...",
     emptyPrompt: "Write a message or request today's plan.",
@@ -604,6 +627,12 @@ export const en = {
     workoutDetailPowerMetrics: "Power metrics",
     workoutDetailPowerW: "Power (W)",
     workoutDetailSpeedKmh: "Speed (km/h)",
+    hrAvg: "Avg HR",
+    hrMax: "Max HR",
+    avgPower: "Avg power",
+    avgPowerShort: "Avg power",
+    caloriesLabel: "Calories",
+    syncIntervalsMessage: "Synced: {activities} workouts, {wellness} wellness days.",
     addWorkoutTitle: "Add workout",
     addWorkoutDateLabel: "Date (YYYY-MM-DD)",
     addWorkoutName: "Name",
@@ -680,8 +709,10 @@ export const en = {
     selectFromGallery: "Select from gallery",
   },
   athleteProfile: {
+    title: "Athlete profile",
     subscription: "Subscription",
     subscriptionPro: "Pro subscription",
+    premiumTestLabel: "Premium (test)",
     ftpPlaceholder: "Used for power-based TSS",
     gramsShort: "g",
     weightKg: "Weight (kg)",
@@ -712,6 +743,7 @@ export const en = {
   },
   fit: {
     webOnly: "FIT upload is available in the web app. Open in browser.",
+    previewTitle: "FIT workout preview",
   },
   pricing: {
     title: "Pro subscription",

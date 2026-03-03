@@ -164,9 +164,9 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose}>
-            <Text style={styles.closeText}>Закрыть</Text>
+            <Text style={styles.closeText}>{t("common.close")}</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Профиль атлета</Text>
+          <Text style={styles.title}>{t("athleteProfile.title")}</Text>
         </View>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#38bdf8" />
@@ -179,16 +179,16 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose}>
-          <Text style={styles.closeText}>Закрыть</Text>
+          <Text style={styles.closeText}>{t("common.close")}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Профиль атлета</Text>
+        <Text style={styles.title}>{t("athleteProfile.title")}</Text>
       </View>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.displayName}>{profile?.display_name ?? "—"}</Text>
 
         {profile?.dev_can_toggle_premium ? (
           <View style={styles.premiumRow}>
-            <Text style={styles.label}>Премиум (для теста)</Text>
+            <Text style={styles.label}>{t("athleteProfile.premiumTestLabel")}</Text>
             <Switch
               value={profile?.is_premium ?? false}
               onValueChange={async (value) => {
@@ -436,25 +436,25 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
               <View style={[styles.row, styles.rowFirst]}>
                 <Text style={styles.labelInRow}>{t("nutrition.caloriesLabel")}</Text>
                 <View style={styles.rowValue}>
-                  <Text style={styles.value}>{profile?.nutrition_goals?.calorie_goal ?? DEFAULT_CALORIE_GOAL} ккал</Text>
+                  <Text style={styles.value}>{profile?.nutrition_goals?.calorie_goal ?? DEFAULT_CALORIE_GOAL} {t("nutrition.kcal")}</Text>
                 </View>
               </View>
               <View style={styles.row}>
                 <Text style={styles.labelInRow}>{t("nutrition.proteinLabel")}</Text>
                 <View style={styles.rowValue}>
-                  <Text style={styles.value}>{profile?.nutrition_goals?.protein_goal ?? DEFAULT_PROTEIN_GOAL} г</Text>
+                  <Text style={styles.value}>{profile?.nutrition_goals?.protein_goal ?? DEFAULT_PROTEIN_GOAL} {t("nutrition.grams")}</Text>
                 </View>
               </View>
               <View style={styles.row}>
                 <Text style={styles.labelInRow}>{t("nutrition.fatLabel")}</Text>
                 <View style={styles.rowValue}>
-                  <Text style={styles.value}>{profile?.nutrition_goals?.fat_goal ?? DEFAULT_FAT_GOAL} г</Text>
+                  <Text style={styles.value}>{profile?.nutrition_goals?.fat_goal ?? DEFAULT_FAT_GOAL} {t("nutrition.grams")}</Text>
                 </View>
               </View>
               <View style={styles.row}>
                 <Text style={styles.labelInRow}>{t("nutrition.carbsLabel")}</Text>
                 <View style={styles.rowValue}>
-                  <Text style={styles.value}>{profile?.nutrition_goals?.carbs_goal ?? DEFAULT_CARBS_GOAL} г</Text>
+                  <Text style={styles.value}>{profile?.nutrition_goals?.carbs_goal ?? DEFAULT_CARBS_GOAL} {t("nutrition.grams")}</Text>
                 </View>
               </View>
             </View>
