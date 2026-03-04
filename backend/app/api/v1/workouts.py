@@ -4,7 +4,7 @@ import hashlib
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -380,8 +380,10 @@ async def delete_workout(
 async def get_fitness(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
+    response: Response,
 ) -> dict | None:
     """Return CTL/ATL/TSB: from Intervals.icu (wellness_cache) when linked, else from our workout-based calculation."""
+    response.headers["Cache-Control"] = "no-store"
     uid = user.id
     # If Intervals is linked, use synced wellness (CTL/ATL/TSB from Intervals). Prefer today's row so numbers match Intervals UI.
     r = await session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == uid))

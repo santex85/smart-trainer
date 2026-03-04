@@ -143,7 +143,7 @@ async def sync_intervals_to_db(
     Fetch activities and wellness from Intervals.icu and upsert into workouts and wellness_cache.
     Returns (activities_upserted, wellness_days_upserted).
     """
-    newest = date.today()
+    newest = date.today() + timedelta(days=1)  # include "tomorrow" so athlete's "today" in any TZ is fetched
     oldest = newest - timedelta(days=SYNC_DAYS)
     activities = await get_activities(athlete_id, api_key, oldest, newest, limit=500)
     wellness_days = await get_wellness(athlete_id, api_key, oldest, newest)

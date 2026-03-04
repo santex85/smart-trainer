@@ -1884,6 +1884,7 @@ export function DashboardScreen({
                       setIntervalsSyncLoading(true);
                       try {
                         const result = await onSyncIntervals();
+                        await load();
                         const activities = result?.activities_synced ?? 0;
                         const wellness = result?.wellness_days_synced ?? 0;
                         const message =
