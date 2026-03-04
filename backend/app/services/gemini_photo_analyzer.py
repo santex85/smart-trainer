@@ -75,23 +75,28 @@ def _language_for_locale(locale: str) -> str:
     return {"ru": "Russian", "en": "English"}.get((locale or "ru").lower(), "Russian")
 
 
-def _photo_system_prompt(locale: str) -> str:
+def _photo_system_prompt(locale: str, reference_date: str | None = None) -> str:
     lang = _language_for_locale(locale)
     lang_rule = (
         f"All text values in your JSON (dish name in food.name, workout name/notes, raw_notes, factor_ratings values) must be STRICTLY in {lang}. "
         "JSON keys must always be in English (e.g. name, type, food, sleep, workout); only string values may be in the user's language."
     )
-    return f"{lang_rule}\n\n{SYSTEM_PROMPT}"
+    base = f"{lang_rule}\n\n{SYSTEM_PROMPT}"
+    if reference_date and len(str(reference_date).strip()) >= 10:
+        base += f"\n\nThe user is logging this entry for date {reference_date.strip()[:10]}. For sleep, set the 'date' field to this exact value (YYYY-MM-DD)."
+    return base
 
 
 async def classify_and_analyze_image(
     image_bytes: bytes,
     *,
     locale: str = "ru",
+    reference_date: str | None = None,
 ) -> tuple[str, NutritionAnalysisResult | SleepExtractionResult | WellnessPhotoResult | WorkoutPhotoResult]:
     """
     Single Gemini call: classify image and return the analysis.
     Returns ("food", result), ("sleep", result), ("wellness", result), or ("workout", result).
+    reference_date: optional YYYY-MM-DD for sleep; if set, prompt tells the model to use this date.
     """
     model = genai.GenerativeModel(
         settings.gemini_model,
@@ -99,7 +104,7 @@ async def classify_and_analyze_image(
         safety_settings=SAFETY_SETTINGS,
     )
     part = {"mime_type": "image/jpeg", "data": image_bytes}
-    contents = [_photo_system_prompt(locale), part]
+    contents = [_photo_system_prompt(locale, reference_date=reference_date), part]
     response = await run_generate_content(model, contents)
     if not response or not response.text:
         raise ValueError("Empty response from Gemini")

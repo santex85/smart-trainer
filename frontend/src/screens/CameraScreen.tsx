@@ -107,7 +107,7 @@ export function CameraScreen({
   onClose: () => void;
   onSaved?: (result: NutritionResult) => void;
   onSleepSaved?: (result: SleepExtractionResponse) => void;
-  onWellnessSaved?: () => void;
+  onWellnessSaved?: (wellness: WellnessPhotoResult, date: string) => void;
   onOpenPricing?: () => void;
 }) {
   const { t } = useTranslation();
@@ -185,7 +185,7 @@ export function CameraScreen({
         onSleepSaved?.(res.sleep);
       }
       if (res?.type === "wellness") {
-        onWellnessSaved?.();
+        // Don't call onWellnessSaved here — user may tap Save later; call in handleSave.
       }
       if (res?.type === "food") {
         setSelectedMealType("other");
@@ -248,7 +248,7 @@ export function CameraScreen({
         onSleepSaved?.(res.sleep);
       }
       if (res?.type === "wellness") {
-        onWellnessSaved?.();
+        // Don't call onWellnessSaved here — user may tap Save later; call in handleSave.
       }
       if (res?.type === "food") {
         setSelectedMealType("other");
@@ -325,13 +325,14 @@ export function CameraScreen({
           carbs_g: finalEntry.carbs_g,
         });
       } else if (photoResult.type === "wellness") {
-        const today = new Date().toISOString().slice(0, 10);
+        const d = new Date();
+        const todayLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         await createOrUpdateWellness({
-          date: today,
+          date: todayLocal,
           rhr: photoResult.wellness.rhr ?? undefined,
           hrv: photoResult.wellness.hrv ?? undefined,
         });
-        onWellnessSaved?.();
+        onWellnessSaved?.(photoResult.wellness, todayLocal);
         Alert.alert(t("common.alerts.done"), t("camera.pulseSaved"));
       } else if (photoResult.type === "sleep") {
         if (photoResult.sleep.id != null && photoResult.sleep.id > 0) {

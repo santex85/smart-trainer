@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   LayoutAnimation,
   useWindowDimensions,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import * as Sentry from "@sentry/react-native";
 import { LineChart } from "react-native-gifted-charts";
 import * as Haptics from "expo-haptics";
@@ -1038,6 +1039,8 @@ export function DashboardScreen({
   refreshWellnessTrigger = 0,
   lastSavedSleep = null,
   onClearLastSavedSleep,
+  lastSavedWellness = null,
+  onClearLastSavedWellness,
 }: {
   user?: AuthUser | null;
   onLogout?: () => void;
@@ -1052,6 +1055,8 @@ export function DashboardScreen({
   refreshWellnessTrigger?: number;
   lastSavedSleep?: SleepExtractionResponse | null;
   onClearLastSavedSleep?: () => void;
+  lastSavedWellness?: { date: string; rhr?: number | null; hrv?: number | null } | null;
+  onClearLastSavedWellness?: () => void;
 }) {
   const [workouts, setWorkouts] = useState<WorkoutItem[]>([]);
   const [workoutFitness, setWorkoutFitness] = useState<WorkoutFitness | null>(null);
@@ -1094,6 +1099,19 @@ export function DashboardScreen({
     if (exists) return sleepExtractions;
     return [summary, ...sleepExtractions];
   }, [lastSavedSleep, sleepExtractions]);
+  const effectiveWellnessToday = useMemo((): WellnessDay | null => {
+    if (!wellnessToday && !lastSavedWellness) return null;
+    const todayNorm = today.slice(0, 10);
+    if (lastSavedWellness && String(lastSavedWellness.date).slice(0, 10) === todayNorm) {
+      return {
+        date: todayNorm,
+        ...wellnessToday,
+        rhr: wellnessToday?.rhr ?? lastSavedWellness.rhr ?? undefined,
+        hrv: wellnessToday?.hrv ?? lastSavedWellness.hrv ?? undefined,
+      } as WellnessDay;
+    }
+    return wellnessToday ?? null;
+  }, [wellnessToday, lastSavedWellness, today]);
   const [sleepReanalyzingId, setSleepReanalyzingId] = useState<number | null>(null);
   const [sleepReanalyzeExtId, setSleepReanalyzeExtId] = useState<number | null>(null);
   const [sleepReanalyzeCorrection, setSleepReanalyzeCorrection] = useState("");
@@ -1169,6 +1187,7 @@ export function DashboardScreen({
       setWorkoutFitness(fitness ?? null);
       setSleepExtractions(sleepList ?? []);
       onClearLastSavedSleep?.();
+      onClearLastSavedWellness?.();
     } catch {
       setNutritionDay(null);
       setNutritionLoadError(true);
@@ -1181,11 +1200,22 @@ export function DashboardScreen({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [today, nutritionDate]);
+  }, [today, nutritionDate, onClearLastSavedSleep, onClearLastSavedWellness]);
 
   useEffect(() => {
     load();
   }, [load, refreshNutritionTrigger, refreshSleepTrigger, refreshWellnessTrigger]);
+
+  const isFirstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      load();
+    }, [load])
+  );
 
   const setNutritionDateAndLoad = useCallback(
     (dateStr: string) => {
@@ -1619,7 +1649,7 @@ export function DashboardScreen({
                 <Text style={styles.outlineButtonText}>{t("wellness.edit")}</Text>
               </TouchableOpacity>
             </View>
-            {wellnessToday?.sleep_hours == null ? (
+            {effectiveWellnessToday?.sleep_hours == null ? (
               <View style={[styles.sleepReminderBanner, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
                 <Text style={styles.sleepReminderText}>{t("wellness.sleepReminder")}</Text>
                 <View style={styles.sleepReminderButtons}>
@@ -1635,17 +1665,17 @@ export function DashboardScreen({
             <View style={{ marginBottom: 12 }}>
               <Text style={styles.hint}>{t("wellness.todayLabel")}</Text>
               <Text style={[styles.hint, styles.disclaimer]}>{t("wellness.disclaimer")}</Text>
-              {(wellnessToday || athleteProfile?.weight_kg != null || wellnessToday?.weight_kg != null) ? (
+              {(effectiveWellnessToday || athleteProfile?.weight_kg != null || effectiveWellnessToday?.weight_kg != null) ? (
                 <>
                   <Text style={[styles.wellnessMetricsLine, { marginTop: 8 }]}>
-                    {wellnessToday?.sleep_hours != null ? `${t("wellness.sleep")}\u00A0${formatSleepDuration(wellnessToday.sleep_hours, t)}` : `${t("wellness.sleep")} —`}
-                    {wellnessToday?.rhr != null ? ` · RHR\u00A0${wellnessToday.rhr}` : " · RHR —"}
-                    {wellnessToday?.hrv != null ? ` · HRV\u00A0${wellnessToday.hrv}` : " · HRV —"}
-                    {(wellnessToday?.weight_kg ?? athleteProfile?.weight_kg) != null
-                      ? ` · ${t("wellness.weight")}\u00A0${wellnessToday?.weight_kg ?? athleteProfile?.weight_kg}\u00A0${t("wellness.weightKg")}`
+                    {effectiveWellnessToday?.sleep_hours != null ? `${t("wellness.sleep")}\u00A0${formatSleepDuration(effectiveWellnessToday.sleep_hours, t)}` : `${t("wellness.sleep")} —`}
+                    {effectiveWellnessToday?.rhr != null ? ` · RHR\u00A0${effectiveWellnessToday.rhr}` : " · RHR —"}
+                    {effectiveWellnessToday?.hrv != null ? ` · HRV\u00A0${effectiveWellnessToday.hrv}` : " · HRV —"}
+                    {(effectiveWellnessToday?.weight_kg ?? athleteProfile?.weight_kg) != null
+                      ? ` · ${t("wellness.weight")}\u00A0${effectiveWellnessToday?.weight_kg ?? athleteProfile?.weight_kg}\u00A0${t("wellness.weightKg")}`
                       : ` · ${t("wellness.weight")} —`}
                   </Text>
-                  {wellnessToday?.sleep_hours == null && (
+                  {effectiveWellnessToday?.sleep_hours == null && (
                     <Text style={styles.hint}>{t("wellness.manualHint")}</Text>
                   )}
                 </>
@@ -1825,10 +1855,10 @@ export function DashboardScreen({
                 </Text>
                 <Text style={[styles.fitnessCaption, { color: colors.textMuted, marginBottom: 12 }]}>{t("fitness.dateLabel")} {workoutFitness.date}</Text>
               </>
-            ) : (wellnessToday?.ctl != null || wellnessToday?.atl != null || wellnessToday?.tsb != null) ? (
+            ) : (effectiveWellnessToday?.ctl != null || effectiveWellnessToday?.atl != null || effectiveWellnessToday?.tsb != null) ? (
               <>
                 <Text style={[styles.fitnessMetricsLine, { color: colors.text, marginBottom: 4 }]}>
-                  CTL {wellnessToday?.ctl?.toFixed(1) ?? "—"} · ATL {wellnessToday?.atl?.toFixed(1) ?? "—"} · TSB {wellnessToday?.tsb?.toFixed(1) ?? "—"}
+                  CTL {effectiveWellnessToday?.ctl?.toFixed(1) ?? "—"} · ATL {effectiveWellnessToday?.atl?.toFixed(1) ?? "—"} · TSB {effectiveWellnessToday?.tsb?.toFixed(1) ?? "—"}
                 </Text>
                 <Text style={[styles.fitnessCaption, styles.fitnessCaptionMuted, { color: colors.textMuted, marginBottom: 12 }]}>{t("fitness.fromWellness")}</Text>
               </>
@@ -1900,7 +1930,7 @@ export function DashboardScreen({
           {wellnessEditVisible ? (
             <EditWellnessModal
               date={today}
-              initialWellness={wellnessToday}
+              initialWellness={effectiveWellnessToday}
               initialWeight={athleteProfile?.weight_kg ?? null}
               onClose={() => setWellnessEditVisible(false)}
               onSaved={() => {
@@ -1959,8 +1989,8 @@ export function DashboardScreen({
               </View>
             </View>
             <Text style={styles.hint}>{t("workouts.hint")}</Text>
-            {wellnessToday?.sport_info?.length ? (() => {
-              const ride = wellnessToday.sport_info.find((s) => s.type === "Ride") ?? wellnessToday.sport_info[0];
+            {effectiveWellnessToday?.sport_info?.length ? (() => {
+              const ride = effectiveWellnessToday.sport_info!.find((s) => s.type === "Ride") ?? effectiveWellnessToday.sport_info![0];
               const eftp = ride?.eftp != null ? Math.round(ride.eftp) : null;
               const pmax = ride?.pMax != null ? Math.round(ride.pMax) : null;
               const show = eftp != null || pmax != null;

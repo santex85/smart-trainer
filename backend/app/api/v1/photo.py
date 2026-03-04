@@ -60,6 +60,26 @@ def _parse_optional_date(value: str | None) -> date | None:
     return None
 
 
+def _normalize_sleep_date(sleep_result: SleepExtractionResult, client_date: date | None) -> SleepExtractionResult:
+    """If client_date is set, fix sleep_result.date when empty or year mismatch."""
+    if not client_date:
+        return sleep_result
+    raw = sleep_result.date
+    if not raw or not str(raw).strip():
+        return sleep_result.model_copy(update={"date": client_date.isoformat()})
+    s = str(raw).strip()[:10]
+    if len(s) == 10 and s[4] == "-" and s[7] == "-":
+        try:
+            parsed = date.fromisoformat(s)
+            if parsed.year != client_date.year:
+                fixed = date(client_date.year, parsed.month, parsed.day)
+                return sleep_result.model_copy(update={"date": fixed.isoformat()})
+            return sleep_result
+        except ValueError:
+            return sleep_result.model_copy(update={"date": client_date.isoformat()})
+    return sleep_result.model_copy(update={"date": client_date.isoformat()})
+
+
 @router.post(
     "/analyze",
     response_model=PhotoAnalyzeResponse,
@@ -92,8 +112,12 @@ async def analyze_photo(
     _validate_image(file, image_bytes)
     image_bytes = await resize_image_for_ai_async(image_bytes)
 
+    ref_date = _parse_optional_date(wellness_date)
+    reference_date_str = ref_date.isoformat() if ref_date else None
     try:
-        kind, result = await classify_and_analyze_image(image_bytes, locale=locale)
+        kind, result = await classify_and_analyze_image(
+            image_bytes, locale=locale, reference_date=reference_date_str
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except PydanticValidationError:
@@ -204,12 +228,11 @@ async def analyze_photo(
         )
 
     # kind == "sleep"
+    sleep_result: SleepExtractionResult = result
+    sleep_result = _normalize_sleep_date(sleep_result, ref_date)
+
     if save:
         try:
-            sleep_result: SleepExtractionResult = result
-            client_date = _parse_optional_date(wellness_date)
-            if client_date and not (sleep_result.date and str(sleep_result.date).strip()):
-                sleep_result = sleep_result.model_copy(update={"date": client_date.isoformat()})
             record, data = await save_sleep_result(session, user.id, sleep_result)
             await session.commit()
         except ValueError as e:
@@ -225,7 +248,7 @@ async def analyze_photo(
                 created_at=record.created_at.isoformat() if record.created_at else "",
             ),
         )
-    data = result.model_dump(mode="json")
+    data = sleep_result.model_dump(mode="json")
     return PhotoSleepResponse(
         type="sleep",
         sleep=SleepExtractionResponse(

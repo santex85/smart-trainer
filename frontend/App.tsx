@@ -21,6 +21,7 @@ import {
   setOnUnauthorized,
   syncIntervals,
   type SleepExtractionResponse,
+  type WellnessPhotoResult,
 } from "./src/api/client";
 import { registerForPushTokenAsync } from "./src/utils/pushNotifications";
 import { clearAuth, getAccessToken } from "./src/storage/authStorage";
@@ -55,6 +56,7 @@ function AppContent() {
   const [refreshSleepTrigger, setRefreshSleepTrigger] = useState(0);
   const [refreshWellnessTrigger, setRefreshWellnessTrigger] = useState(0);
   const [lastSavedSleep, setLastSavedSleep] = useState<SleepExtractionResponse | null>(null);
+  const [lastSavedWellness, setLastSavedWellness] = useState<{ date: string } & WellnessPhotoResult | null>(null);
 
   useEffect(() => {
     setOnUnauthorized(() => {
@@ -208,6 +210,8 @@ function AppContent() {
                   refreshWellnessTrigger={refreshWellnessTrigger}
                   lastSavedSleep={lastSavedSleep}
                   onClearLastSavedSleep={() => setLastSavedSleep(null)}
+                  lastSavedWellness={lastSavedWellness}
+                  onClearLastSavedWellness={() => setLastSavedWellness(null)}
                 />
               )}
             </Tab.Screen>
@@ -257,7 +261,8 @@ function AppContent() {
                 setRefreshWellnessTrigger((t) => t + 1);
                 setCameraVisible(false);
               }}
-              onWellnessSaved={() => {
+              onWellnessSaved={(wellness, date) => {
+                setLastSavedWellness({ date, ...wellness });
                 setRefreshSleepTrigger((t) => t + 1);
                 setRefreshWellnessTrigger((t) => t + 1);
                 setCameraVisible(false);
