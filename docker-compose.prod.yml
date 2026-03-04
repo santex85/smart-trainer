@@ -4,6 +4,14 @@
 services:
   postgres:
     ports: []
+    deploy:
+      resources:
+        limits:
+          memory: 450M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
 
   # MinIO: do not expose 9000/9001 to the host in production. Backend/backup use minio:9000 internally.
   # Require explicit S3_ACCESS_KEY/S3_SECRET_KEY so default minioadmin is never used in prod.
@@ -12,6 +20,13 @@ services:
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in .env for production MinIO}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in .env for production MinIO}
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 64M
 
   backup:
     build:
@@ -36,6 +51,13 @@ services:
     networks:
       - backend-db
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+          cpus: "0.25"
+        reservations:
+          memory: 64M
 
   prometheus:
     image: prom/prometheus:latest
@@ -48,6 +70,13 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--web.enable-lifecycle"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+          cpus: "0.25"
+        reservations:
+          memory: 64M
 
   grafana:
     image: grafana/grafana:latest
@@ -63,6 +92,13 @@ services:
     networks:
       - backend-db
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+          cpus: "0.25"
+        reservations:
+          memory: 32M
 
   caddy:
     image: caddy:alpine
@@ -80,15 +116,37 @@ services:
     depends_on:
       - frontend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: "0.25"
+        reservations:
+          memory: 32M
 
   backend:
     ports: []
     volumes: []
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 700M
+          cpus: "0.75"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
 
   frontend:
     ports: []
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+        reservations:
+          memory: 32M
 
 volumes:
   caddy_data:

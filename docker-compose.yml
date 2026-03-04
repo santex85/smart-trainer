@@ -18,6 +18,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 450M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
 
   redis:
     image: redis:7-alpine
@@ -29,6 +37,13 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+        reservations:
+          memory: 32M
 
   # MinIO: no host ports by default. Override (e.g. docker-compose.override.yml) can expose 9000/9001 for local dev.
   minio:
@@ -46,6 +61,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 64M
 
   backend:
     build:
@@ -80,6 +102,14 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 700M
+          cpus: "0.75"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
 
   frontend:
     build:
@@ -99,6 +129,13 @@ services:
       retries: 3
       start_period: 15s
     # Ports: use docker-compose.override.yml for local (80:80), or docker-compose.prod.yml for prod (127.0.0.1:8080:80)
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+        reservations:
+          memory: 32M
 
 networks:
   backend-db:
