@@ -337,7 +337,9 @@ export function CameraScreen({
         if (photoResult.sleep.id != null && photoResult.sleep.id > 0) {
           onSleepSaved?.(photoResult.sleep);
         } else {
+          Sentry.addBreadcrumb({ message: "Sleep save: sending POST", category: "api" });
           const saved = await saveSleepFromPreview(photoResult.sleep.extracted_data);
+          Sentry.addBreadcrumb({ message: "Sleep save: success", category: "api" });
           onSleepSaved?.(saved);
         }
         Alert.alert(t("common.alerts.done"), t("camera.sleepSaved"));
@@ -351,6 +353,7 @@ export function CameraScreen({
         photoResult?.type === "sleep" &&
         (photoResult.sleep.id == null || photoResult.sleep.id === 0);
       if (isSleepSave) {
+        Sentry.addBreadcrumb({ message: "Sleep save: failed", category: "api", level: "error" });
         Sentry.captureException(e, {
           tags: { feature: "camera_sleep_save" },
           extra: { step: "saveSleepFromPreview" },

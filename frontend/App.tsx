@@ -14,7 +14,14 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { flushOfflineMutations, getMe, savePushToken, setOnUnauthorized, syncIntervals } from "./src/api/client";
+import {
+  flushOfflineMutations,
+  getMe,
+  savePushToken,
+  setOnUnauthorized,
+  syncIntervals,
+  type SleepExtractionResponse,
+} from "./src/api/client";
 import { registerForPushTokenAsync } from "./src/utils/pushNotifications";
 import { clearAuth, getAccessToken } from "./src/storage/authStorage";
 import { ThemeProvider, useTheme } from "./src/theme";
@@ -47,6 +54,7 @@ function AppContent() {
   const [refreshNutritionTrigger, setRefreshNutritionTrigger] = useState(0);
   const [refreshSleepTrigger, setRefreshSleepTrigger] = useState(0);
   const [refreshWellnessTrigger, setRefreshWellnessTrigger] = useState(0);
+  const [lastSavedSleep, setLastSavedSleep] = useState<SleepExtractionResponse | null>(null);
 
   useEffect(() => {
     setOnUnauthorized(() => {
@@ -198,6 +206,8 @@ function AppContent() {
                   refreshNutritionTrigger={refreshNutritionTrigger}
                   refreshSleepTrigger={refreshSleepTrigger}
                   refreshWellnessTrigger={refreshWellnessTrigger}
+                  lastSavedSleep={lastSavedSleep}
+                  onClearLastSavedSleep={() => setLastSavedSleep(null)}
                 />
               )}
             </Tab.Screen>
@@ -241,7 +251,8 @@ function AppContent() {
                 setRefreshNutritionTrigger((t) => t + 1);
                 setCameraVisible(false);
               }}
-              onSleepSaved={() => {
+              onSleepSaved={(saved) => {
+                setLastSavedSleep(saved ?? null);
                 setRefreshSleepTrigger((t) => t + 1);
                 setRefreshWellnessTrigger((t) => t + 1);
                 setCameraVisible(false);

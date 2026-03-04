@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react-native";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -111,6 +112,11 @@ export async function api<T>(
   } catch (e) {
     const method = String(rest.method || "GET").toUpperCase();
     if (method !== "GET" && method !== "HEAD") {
+      Sentry.addBreadcrumb({
+        message: `api ${method} ${path}: network error`,
+        category: "api",
+        level: "error",
+      });
       await enqueueOfflineMutation(path, method, body);
       throw new Error("No network. Action queued and will retry when online.");
     }
@@ -140,6 +146,11 @@ export async function api<T>(
       e instanceof TypeError && (e.message === "Failed to fetch" || e.message?.includes("network"));
     const isNetworkError = (e as Error)?.name === "NetworkError" || (e as Error)?.message?.includes("network");
     if ((isNetworkLike || isNetworkError) && method !== "GET" && method !== "HEAD") {
+      Sentry.addBreadcrumb({
+        message: `api ${method} ${path}: network error`,
+        category: "api",
+        level: "error",
+      });
       await enqueueOfflineMutation(path, method, body);
       throw new Error("No network. Action queued and will retry when online.");
     }

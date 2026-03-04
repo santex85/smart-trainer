@@ -50,6 +50,7 @@ import {
   type WorkoutPreviewItem,
   type WorkoutFitness,
   type SleepExtractionSummary,
+  type SleepExtractionResponse,
 } from "../api/client";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -1035,6 +1036,8 @@ export function DashboardScreen({
   refreshNutritionTrigger = 0,
   refreshSleepTrigger = 0,
   refreshWellnessTrigger = 0,
+  lastSavedSleep = null,
+  onClearLastSavedSleep,
 }: {
   user?: AuthUser | null;
   onLogout?: () => void;
@@ -1047,6 +1050,8 @@ export function DashboardScreen({
   refreshNutritionTrigger?: number;
   refreshSleepTrigger?: number;
   refreshWellnessTrigger?: number;
+  lastSavedSleep?: SleepExtractionResponse | null;
+  onClearLastSavedSleep?: () => void;
 }) {
   const [workouts, setWorkouts] = useState<WorkoutItem[]>([]);
   const [workoutFitness, setWorkoutFitness] = useState<WorkoutFitness | null>(null);
@@ -1074,6 +1079,21 @@ export function DashboardScreen({
   } | null>(null);
   const [intervalsSyncLoading, setIntervalsSyncLoading] = useState(false);
   const [sleepExtractions, setSleepExtractions] = useState<SleepExtractionSummary[]>([]);
+  const effectiveSleepExtractions = useMemo((): SleepExtractionSummary[] => {
+    if (!lastSavedSleep) return sleepExtractions;
+    const d = lastSavedSleep.extracted_data;
+    const summary: SleepExtractionSummary = {
+      id: lastSavedSleep.id,
+      created_at: lastSavedSleep.created_at,
+      sleep_date: d?.date ?? lastSavedSleep.created_at?.slice(0, 10) ?? null,
+      sleep_hours: d?.actual_sleep_hours ?? d?.sleep_hours ?? null,
+      actual_sleep_hours: d?.actual_sleep_hours ?? null,
+      quality_score: d?.quality_score ?? null,
+    };
+    const exists = sleepExtractions.some((s) => s.id === summary.id);
+    if (exists) return sleepExtractions;
+    return [summary, ...sleepExtractions];
+  }, [lastSavedSleep, sleepExtractions]);
   const [sleepReanalyzingId, setSleepReanalyzingId] = useState<number | null>(null);
   const [sleepReanalyzeExtId, setSleepReanalyzeExtId] = useState<number | null>(null);
   const [sleepReanalyzeCorrection, setSleepReanalyzeCorrection] = useState("");
@@ -1128,7 +1148,18 @@ export function DashboardScreen({
         getAthleteProfile().catch(() => null),
         getWorkouts(activitiesStart, today).then((r) => r.items).catch(() => []),
         getWorkoutFitness().catch(() => null),
-        getSleepExtractions(addDays(today, -14), today).catch(() => []),
+        (async (): Promise<SleepExtractionSummary[]> => {
+          try {
+            return await getSleepExtractions(addDays(today, -14), today);
+          } catch {
+            await new Promise((r) => setTimeout(r, 1500));
+            try {
+              return await getSleepExtractions(addDays(today, -14), today);
+            } catch {
+              return [];
+            }
+          }
+        })(),
       ]);
       setNutritionDay(nResult.ok ? nResult.data : null);
       setNutritionLoadError(!nResult.ok);
@@ -1137,6 +1168,7 @@ export function DashboardScreen({
       setWorkouts(workoutsList ?? []);
       setWorkoutFitness(fitness ?? null);
       setSleepExtractions(sleepList ?? []);
+      onClearLastSavedSleep?.();
     } catch {
       setNutritionDay(null);
       setNutritionLoadError(true);
@@ -1206,7 +1238,7 @@ export function DashboardScreen({
       if (!dateKey) return;
       byDate.set(dateKey, { date: dateKey, hours: h, source: "manual" });
     });
-    sleepExtractions.forEach((ext) => {
+    effectiveSleepExtractions.forEach((ext) => {
       const raw = ext.sleep_date ?? ext.created_at?.slice(0, 10) ?? "";
       const dateKey = normalizeSleepDateKey(raw);
       if (!dateKey) return;
@@ -1222,7 +1254,7 @@ export function DashboardScreen({
         byDisplayDate.set(displayKey, entry);
     });
     return Array.from(byDisplayDate.values()).sort((a, b) => b.date.localeCompare(a.date));
-  }, [wellnessWeek, sleepExtractions]);
+  }, [wellnessWeek, effectiveSleepExtractions]);
 
   const { weeklySleepTotal, weeklySleepDeficit } = useMemo(() => {
     const last7 = combinedSleepHistory.slice(0, 7);
