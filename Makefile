@@ -72,7 +72,7 @@ deploy:
 
 # Только действия на сервере (без git push). Сборка образов, затем docker stack deploy (Swarm) и миграции.
 deploy-no-push:
-	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && git pull && $(COMPOSE_PROD) build && set -a && . ./.env && set +a && docker stack deploy -c docker-compose.yml -c docker-compose.prod.yml st2 && sleep 20 && docker service exec st2_backend alembic upgrade head"
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && git pull && $(COMPOSE_PROD) build && set -a && . ./.env && set +a && docker stack deploy -c docker-compose.yml -c docker-compose.prod.yml st2 && sleep 20 && BACKEND_CONTAINER=$$(docker ps -q -f name=st2_backend | head -1) && docker exec $$BACKEND_CONTAINER alembic upgrade head"
 	@echo "Деплой завершён: https://tsspro.tech"
 
 shell-backend:
