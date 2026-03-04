@@ -69,6 +69,7 @@ services:
           memory: 64M
 
   backend:
+    image: st2-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -109,6 +110,7 @@ services:
           cpus: "0.25"
 
   frontend:
+    image: st2-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile

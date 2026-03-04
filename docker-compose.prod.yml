@@ -29,6 +29,7 @@ services:
           memory: 64M
 
   backup:
+    image: st2-backup:latest
     build:
       context: ./deploy/backup
       dockerfile: Dockerfile
