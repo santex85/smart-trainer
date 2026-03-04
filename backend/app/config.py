@@ -6,7 +6,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://user:password@localhost:5432/smart_trainer"
     google_gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-3.1-flash-lite"
     gemini_request_timeout_seconds: int = 90
     intervals_icu_base_url: str = "https://intervals.icu/api/v1"
     intervals_sync_timeout_seconds: int = 120
