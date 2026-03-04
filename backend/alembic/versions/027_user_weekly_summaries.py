@@ -1,7 +1,7 @@
 """Add user_weekly_summaries table for RAG weekly coach memory.
 
 Revision ID: 027
-Revises: 025
+Revises: 026
 Create Date: 2025-03-04
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = "027"
-down_revision: Union[str, None] = "025"
+down_revision: Union[str, None] = "026"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
