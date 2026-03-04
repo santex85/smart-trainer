@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     retention_recovery_reminder_hour: int = 18  # run at 18:00
     retention_tss_threshold: float = 100.0  # sum TSS yesterday above this triggers reminder
 
+    # Weekly summary (RAG): day 0=Monday..6=Sunday, run at given hour (e.g. Sunday 21:00)
+    weekly_summary_cron_day_of_week: int = 6  # Sunday
+    weekly_summary_cron_hour: int = 21
+
     # Stripe billing
     stripe_secret_key: str = ""
     stripe_publishable_key: str = ""

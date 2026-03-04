@@ -15,7 +15,12 @@ from slowapi.util import get_remote_address
 
 from app.api.v1 import analytics, auth, athlete_profile, billing, chat, intervals, nutrition, photo, users, wellness, workouts
 from app.core.scheduler_lock import try_acquire_cron_lock
-from app.services.retention import run_recovery_reminder_job
+from app.services.retention import (
+    run_ctl_drop_reminder_job,
+    run_nutrition_after_long_reminder_job,
+    run_recovery_reminder_job,
+)
+from app.services.weekly_summary import run_weekly_summary_job
 
 # Ensure app loggers (Intervals, sync, etc.) print to stdout so you see them in the terminal
 logging.basicConfig(
@@ -45,6 +50,9 @@ scheduler = AsyncIOScheduler()
 LOCK_ORCHESTRATOR = "orchestrator_run"
 LOCK_SLEEP_REMINDER = "sleep_reminder"
 LOCK_RECOVERY_REMINDER = "recovery_reminder"
+LOCK_CTL_DROP = "ctl_drop_reminder"
+LOCK_NUTRITION_AFTER_LONG = "nutrition_after_long_reminder"
+LOCK_WEEKLY_SUMMARY = "weekly_summary"
 
 
 ORCHESTRATOR_PUSH_TITLE_BY_LOCALE = {
@@ -68,26 +76,29 @@ async def scheduled_orchestrator_run():
 
     async with async_session_maker() as session:
         r = await session.execute(
-            select(User.id, User.locale).where(User.is_premium.is_(True))
+            select(User.id, User.locale, User.is_premium)
         )
-        user_rows = [(row[0], (row[1] or "ru")) for row in r.all()]
+        user_rows = [(row[0], (row[1] or "ru"), bool(row[2])) for row in r.all()]
     if not user_rows:
         return
 
     sem = asyncio.Semaphore(5)
 
-    async def run_for_user(uid: int, locale: str) -> None:
+    async def run_for_user(uid: int, locale: str, is_premium: bool) -> None:
         async with sem:
             async with async_session_maker() as session:
                 result = await run_daily_decision(session, uid, date.today(), locale=locale)
                 await session.commit()
-                summary = f"{result.decision.value}: {(result.reason or '')[:80]}"
-                if result.reason and len(result.reason or '') > 80:
-                    summary += "..."
+                if is_premium:
+                    summary = f"{result.decision.value}: {(result.reason or '')[:80]}"
+                    if result.reason and len(result.reason or '') > 80:
+                        summary += "..."
+                else:
+                    summary = result.decision.value
                 title = ORCHESTRATOR_PUSH_TITLE_BY_LOCALE.get(locale, ORCHESTRATOR_PUSH_TITLE_BY_LOCALE["en"])
                 await send_push_to_user(session, uid, title, summary)
 
-    await asyncio.gather(*[run_for_user(uid, loc) for uid, loc in user_rows])
+    await asyncio.gather(*[run_for_user(uid, loc, is_prem) for uid, loc, is_prem in user_rows])
 
 
 SLEEP_REMINDER_BY_LOCALE = {
@@ -140,6 +151,30 @@ async def scheduled_recovery_reminder():
     await run_recovery_reminder_job()
 
 
+async def scheduled_ctl_drop_reminder():
+    """Wrapper: acquire distributed lock then run CTL drop retention job."""
+    if not await try_acquire_cron_lock(LOCK_CTL_DROP, ttl_seconds=300):
+        logger.info("Scheduler: ctl_drop_reminder skipped (another worker holds the lock)")
+        return
+    await run_ctl_drop_reminder_job()
+
+
+async def scheduled_nutrition_after_long_reminder():
+    """Wrapper: acquire distributed lock then run nutrition-after-long retention job."""
+    if not await try_acquire_cron_lock(LOCK_NUTRITION_AFTER_LONG, ttl_seconds=300):
+        logger.info("Scheduler: nutrition_after_long_reminder skipped (another worker holds the lock)")
+        return
+    await run_nutrition_after_long_reminder_job()
+
+
+async def scheduled_weekly_summary():
+    """Generate weekly AI summaries for premium users (RAG coach memory)."""
+    if not await try_acquire_cron_lock(LOCK_WEEKLY_SUMMARY, ttl_seconds=3600):
+        logger.info("Scheduler: weekly_summary skipped (another worker holds the lock)")
+        return
+    await run_weekly_summary_job()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # TODO(next push): tighten production detection fallback (e.g., app_env=="production" OR debug==False)
@@ -174,6 +209,18 @@ async def lifespan(app: FastAPI):
     retention_hour = getattr(settings, "retention_recovery_reminder_hour", 18)
     if 0 <= retention_hour <= 23:
         scheduler.add_job(scheduled_recovery_reminder, "cron", hour=retention_hour, minute=0)
+
+    # Retention: CTL drop reminder (e.g. 10:00)
+    scheduler.add_job(scheduled_ctl_drop_reminder, "cron", hour=10, minute=0)
+
+    # Retention: nutrition after long workout (e.g. 20:00)
+    scheduler.add_job(scheduled_nutrition_after_long_reminder, "cron", hour=20, minute=0)
+
+    # Weekly summary (RAG): one summary per premium user per week
+    ws_day = getattr(settings, "weekly_summary_cron_day_of_week", 6)
+    ws_hour = getattr(settings, "weekly_summary_cron_hour", 21)
+    if 0 <= ws_day <= 6 and 0 <= ws_hour <= 23:
+        scheduler.add_job(scheduled_weekly_summary, "cron", day_of_week=ws_day, hour=ws_hour, minute=0)
 
     scheduler.start()
     yield

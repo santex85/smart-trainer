@@ -1,5 +1,6 @@
 """Athlete profile: GET/PATCH profile (manual fields only)."""
 
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -34,6 +35,9 @@ def _profile_response(profile: AthleteProfile | None, user: User) -> dict:
             "birth_year": None,
             "display_name": user.email,
             "nutrition_goals": None,
+            "target_race_date": None,
+            "target_race_name": None,
+            "days_to_race": None,
         }
     nutrition_goals = None
     if (
@@ -48,6 +52,11 @@ def _profile_response(profile: AthleteProfile | None, user: User) -> dict:
             "fat_goal": profile.fat_goal,
             "carbs_goal": profile.carbs_goal,
         }
+    today = date.today()
+    days_to_race = None
+    if profile.target_race_date is not None and profile.target_race_date >= today:
+        days_to_race = (profile.target_race_date - today).days
+
     return {
         **base,
         "weight_kg": profile.weight_kg,
@@ -58,6 +67,9 @@ def _profile_response(profile: AthleteProfile | None, user: User) -> dict:
         "birth_year": profile.birth_year,
         "display_name": user.email,
         "nutrition_goals": nutrition_goals,
+        "target_race_date": profile.target_race_date.isoformat() if profile.target_race_date else None,
+        "target_race_name": profile.target_race_name,
+        "days_to_race": days_to_race,
     }
 
 
@@ -70,6 +82,8 @@ class AthleteProfileUpdate(BaseModel):
     protein_goal: float | None = Field(None, ge=0, le=1000, description="Daily protein goal (g)")
     fat_goal: float | None = Field(None, ge=0, le=1000, description="Daily fat goal (g)")
     carbs_goal: float | None = Field(None, ge=0, le=1000, description="Daily carbs goal (g)")
+    target_race_date: date | None = Field(None, description="Target race date (YYYY-MM-DD)")
+    target_race_name: str | None = Field(None, max_length=512, description="Target race name")
     locale: str | None = Field(None, description="User language preference (ru, en)")
 
 
@@ -123,6 +137,10 @@ async def update_athlete_profile(
         profile.fat_goal = body.fat_goal
     if body.carbs_goal is not None:
         profile.carbs_goal = body.carbs_goal
+    if "target_race_date" in body.model_fields_set:
+        profile.target_race_date = body.target_race_date
+    if "target_race_name" in body.model_fields_set:
+        profile.target_race_name = body.target_race_name
     if body.locale is not None:
         from app.api.deps import SUPPORTED_LOCALES, _normalize_locale
         normalized = _normalize_locale(body.locale)

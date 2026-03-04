@@ -322,7 +322,10 @@ export function ChatScreen({
       setLoading(true);
       try {
         const orch = await runOrchestrator();
-        const reply = `Решение: ${orch.decision}. ${orch.reason}${orch.suggestions_next_days ? "\n\n" + orch.suggestions_next_days : ""}`;
+        const reasonPart = orch.reason != null && orch.reason !== "" ? `. ${orch.reason}` : "";
+        const reply = orch.is_teaser
+          ? `Решение: ${orch.decision}.`
+          : `Решение: ${orch.decision}${reasonPart}${orch.suggestions_next_days ? "\n\n" + orch.suggestions_next_days : ""}`;
         setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
         setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 100);
       } catch (e) {

@@ -1078,10 +1078,11 @@ export function DashboardScreen({
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutItem | null>(null);
   const [lastAnalysisResult, setLastAnalysisResult] = useState<{
     decision: string;
-    reason: string;
+    reason?: string;
     suggestions_next_days?: string;
     evening_tips?: string;
     plan_tomorrow?: string;
+    is_teaser?: boolean;
   } | null>(null);
   const [intervalsSyncLoading, setIntervalsSyncLoading] = useState(false);
   const [sleepExtractions, setSleepExtractions] = useState<SleepExtractionSummary[]>([]);
@@ -2022,28 +2023,43 @@ export function DashboardScreen({
             )}
           </View>
 
-          {athleteProfile?.is_premium ? (
-            <>
-              {lastAnalysisResult ? (
+          <>
+            {lastAnalysisResult ? (
                 <View style={glassCardStyle}>
                   <Text style={styles.cardTitle}>{t("dashboard.analysisResult")}</Text>
                   <Text style={styles.analysisDecision}>{t("dashboard.decisionLabel")} {lastAnalysisResult.decision}</Text>
-                  <Text style={styles.value}>{lastAnalysisResult.reason}</Text>
-                  {lastAnalysisResult.suggestions_next_days ? (
-                    <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.suggestions_next_days}</Text>
+                  {lastAnalysisResult.reason != null && lastAnalysisResult.reason !== "" ? (
+                    <Text style={styles.value}>{lastAnalysisResult.reason}</Text>
                   ) : null}
-                  {lastAnalysisResult.evening_tips ? (
+                  {lastAnalysisResult.is_teaser ? (
+                    <View style={styles.orchestratorTeaserCta}>
+                      <Text style={[styles.hint, { marginBottom: 12 }]}>{t("dashboard.orchestratorTeaserCta")}</Text>
+                      <TouchableOpacity
+                        style={[styles.orchestratorUpgradeBtn, { backgroundColor: colors.primary }]}
+                        onPress={() => setPremiumGateVisible(true)}
+                      >
+                        <Text style={[styles.orchestratorUpgradeBtnText, { color: colors.primaryText }]}>{t("pricing.upgradeCta")}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
                     <>
-                      <Text style={[styles.cardTitle, { marginTop: 12, marginBottom: 4 }]}>{t("dashboard.eveningTips")}</Text>
-                      <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.evening_tips}</Text>
+                      {lastAnalysisResult.suggestions_next_days ? (
+                        <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.suggestions_next_days}</Text>
+                      ) : null}
+                      {lastAnalysisResult.evening_tips ? (
+                        <>
+                          <Text style={[styles.cardTitle, { marginTop: 12, marginBottom: 4 }]}>{t("dashboard.eveningTips")}</Text>
+                          <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.evening_tips}</Text>
+                        </>
+                      ) : null}
+                      {lastAnalysisResult.plan_tomorrow ? (
+                        <>
+                          <Text style={[styles.cardTitle, { marginTop: 12, marginBottom: 4 }]}>{t("dashboard.planTomorrow")}</Text>
+                          <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.plan_tomorrow}</Text>
+                        </>
+                      ) : null}
                     </>
-                  ) : null}
-                  {lastAnalysisResult.plan_tomorrow ? (
-                    <>
-                      <Text style={[styles.cardTitle, { marginTop: 12, marginBottom: 4 }]}>{t("dashboard.planTomorrow")}</Text>
-                      <Text style={[styles.hint, styles.analysisSuggestions]}>{lastAnalysisResult.plan_tomorrow}</Text>
-                    </>
-                  ) : null}
+                  )}
                 </View>
               ) : null}
 
@@ -2058,8 +2074,7 @@ export function DashboardScreen({
                   <Text style={styles.analysisBtnText}>{t("dashboard.runAnalysis")}</Text>
                 )}
               </TouchableOpacity>
-            </>
-          ) : null}
+          </>
 
         </>
       )}
@@ -2282,6 +2297,9 @@ const styles = StyleSheet.create({
   },
   analysisBtnDisabled: { opacity: 0.7 },
   analysisBtnText: { fontSize: 16, color: "#0f172a", fontWeight: "600" },
+  orchestratorTeaserCta: { marginTop: 12 },
+  orchestratorUpgradeBtn: { paddingVertical: 12, borderRadius: 12, alignItems: "center" },
+  orchestratorUpgradeBtnText: { fontSize: 16, fontWeight: "600" },
   chatLink: { marginTop: 16, paddingVertical: 12 },
   chatLinkText: { fontSize: 16, color: "#38bdf8" },
   fabWrapper: {

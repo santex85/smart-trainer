@@ -12,6 +12,7 @@ from app.models.audit_log import AuditLog
 from app.models.subscription import Subscription
 from app.models.daily_usage import DailyUsage
 from app.models.retention_reminder_sent import RetentionReminderSent
+from app.models.user_weekly_summary import UserWeeklySummary
 
 __all__ = [
     "User",
@@ -28,4 +29,5 @@ __all__ = [
     "Subscription",
     "DailyUsage",
     "RetentionReminderSent",
+    "UserWeeklySummary",
 ]

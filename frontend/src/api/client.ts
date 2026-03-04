@@ -768,6 +768,9 @@ export interface AthleteProfileResponse {
   birth_year: number | null;
   display_name: string;
   nutrition_goals?: NutritionGoals | null;
+  target_race_date?: string | null;
+  target_race_name?: string | null;
+  days_to_race?: number | null;
   is_premium?: boolean;
   dev_can_toggle_premium?: boolean;
   locale?: string;
@@ -786,6 +789,8 @@ export async function updateAthleteProfile(body: {
   protein_goal?: number | null;
   fat_goal?: number | null;
   carbs_goal?: number | null;
+  target_race_date?: string | null;
+  target_race_name?: string | null;
   locale?: string | null;
 }): Promise<AthleteProfileResponse> {
   return api<AthleteProfileResponse>("/api/v1/athlete-profile", {
@@ -992,11 +997,12 @@ export async function runOrchestrator(
   clientLocalHour?: number
 ): Promise<{
   decision: string;
-  reason: string;
+  reason?: string;
   modified_plan?: unknown;
   suggestions_next_days?: string;
   evening_tips?: string;
   plan_tomorrow?: string;
+  is_teaser?: boolean;
 }> {
   const hour =
     clientLocalHour !== undefined && clientLocalHour !== null
@@ -1130,12 +1136,17 @@ export async function getAnalyticsNutrition(
   return api<AnalyticsNutritionResponse>(`/api/v1/analytics/nutrition?${params}`);
 }
 
+export interface AnalyticsInsightResponse {
+  insight: string;
+  is_teaser?: boolean;
+}
+
 export async function postAnalyticsInsight(
   chartType: string,
   data: Record<string, unknown>,
   question?: string
-): Promise<{ insight: string }> {
-  return api<{ insight: string }>("/api/v1/analytics/insight", {
+): Promise<AnalyticsInsightResponse> {
+  return api<AnalyticsInsightResponse>("/api/v1/analytics/insight", {
     method: "POST",
     body: { chart_type: chartType, data, question: question ?? undefined },
   });

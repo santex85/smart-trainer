@@ -60,7 +60,7 @@ Output format (strict JSON). Always include decision, reason, modified_plan, sug
   "plan_tomorrow": "workout recommendation for tomorrow (only when evening mode or post-workout)" or null
 }
 
-Consider already completed workouts today, today's nutrition, and sleep/wellness in all recommendations.
+Consider already completed workouts today, today's nutrition, and sleep/wellness in all recommendations. When context includes target_race_name and days_to_race, you may mention the approaching race in reason or suggestions_next_days when relevant (e.g. "N days to race").
 
 Example (Go):
 {"decision": "Go", "reason": "Sleep and load OK.", "modified_plan": null, "suggestions_next_days": null, "evening_tips": null, "plan_tomorrow": null}
@@ -316,6 +316,12 @@ async def run_daily_decision(
             athlete_profile["age_years"] = today.year - profile.birth_year
         if profile.ftp is not None:
             athlete_profile["ftp"] = profile.ftp
+        if profile.target_race_date is not None:
+            athlete_profile["target_race_date"] = profile.target_race_date.isoformat()
+        if profile.target_race_name:
+            athlete_profile["target_race_name"] = profile.target_race_name
+        if profile.target_race_date is not None and profile.target_race_date >= today:
+            athlete_profile["days_to_race"] = (profile.target_race_date - today).days
     if not athlete_profile.get("display_name") and email:
         athlete_profile["display_name"] = email
 

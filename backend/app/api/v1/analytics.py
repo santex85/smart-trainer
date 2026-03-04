@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_request_locale, require_premium
+from app.api.deps import get_current_user, get_request_locale
 from app.db.session import get_db
 from app.models.athlete_profile import AthleteProfile
 from app.models.food_log import FoodLog
@@ -424,6 +424,12 @@ def _insight_instruction(chart_type: str, has_question: bool, locale: str = "ru"
     return f"{lang_rule} {base}"
 
 
+def _insight_instruction_teaser(locale: str = "ru") -> str:
+    """One-sentence teaser for free users. Reply in user's language."""
+    lang = _language_for_locale(locale)
+    return f"Reply only in {lang}. Give exactly one short sentence summarizing the main trend or takeaway. No bullet points, no lists."
+
+
 class InsightRequest(BaseModel):
     chart_type: str  # overview | sleep | workouts | nutrition
     question: str | None = None  # optional user question
@@ -441,11 +447,11 @@ class InsightRequest(BaseModel):
 )
 async def post_analytics_insight(
     session: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(require_premium)],
+    user: Annotated[User, Depends(get_current_user)],
     locale: Annotated[str, Depends(get_request_locale)],
     body: InsightRequest,
-) -> dict[str, str]:
-    """Send chart data and optional question to Gemini; return text explanation. Pro only."""
+) -> dict[str, Any]:
+    """Send chart data to Gemini; return text explanation. Free: one-sentence teaser with is_teaser=true; Premium: full insight."""
     from app.config import settings
 
     if not settings.google_gemini_api_key:
@@ -461,8 +467,12 @@ async def post_analytics_insight(
         model = genai.GenerativeModel(settings.gemini_model)
 
         data_str = json.dumps(body.data, default=str, ensure_ascii=False)
-        has_question = bool(body.question and body.question.strip())
-        instruction = _insight_instruction(body.chart_type, has_question, locale)
+        is_teaser = not user.is_premium
+        if is_teaser:
+            instruction = _insight_instruction_teaser(locale)
+        else:
+            has_question = bool(body.question and body.question.strip())
+            instruction = _insight_instruction(body.chart_type, has_question, locale)
 
         prompt = f"""You are a sports and wellness coach. The user is viewing an analytics chart of type "{body.chart_type}".
 
@@ -470,7 +480,7 @@ Data (dates, values, macros, and if present extended_nutrients with vitamins/min
 
 {data_str}
 """
-        if has_question:
+        if not is_teaser and body.question and body.question.strip():
             prompt += f"\nUser question: {body.question.strip()}\n\n{instruction}"
         else:
             prompt += f"\n{instruction}"
@@ -479,6 +489,8 @@ Data (dates, values, macros, and if present extended_nutrients with vitamins/min
         text = (response.text or "").strip()
         if not text:
             text = "No explanation could be generated."
+        if is_teaser:
+            return {"insight": text, "is_teaser": True}
         return {"insight": text}
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"AI insight failed: {e!s}")

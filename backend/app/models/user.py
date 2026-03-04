@@ -50,3 +50,6 @@ class User(Base):
     retention_reminders_sent: Mapped[list["RetentionReminderSent"]] = relationship(
         "RetentionReminderSent", back_populates="user", cascade="all, delete-orphan"
     )
+    weekly_summaries: Mapped[list["UserWeeklySummary"]] = relationship(
+        "UserWeeklySummary", back_populates="user", cascade="all, delete-orphan"
+    )

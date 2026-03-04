@@ -75,6 +75,8 @@ export function AthleteProfileScreen({
   const [proteinGoal, setProteinGoal] = useState("");
   const [fatGoal, setFatGoal] = useState("");
   const [carbsGoal, setCarbsGoal] = useState("");
+  const [targetRaceName, setTargetRaceName] = useState("");
+  const [targetRaceDate, setTargetRaceDate] = useState("");
   const [nutritionInputMode, setNutritionInputMode] = useState<"calories" | "bju">("calories");
   const [premiumToggling, setPremiumToggling] = useState(false);
   const [subscription, setSubscription] = useState<Awaited<ReturnType<typeof getSubscription>> | null>(null);
@@ -98,6 +100,8 @@ export function AthleteProfileScreen({
       setProteinGoal(g?.protein_goal != null ? String(g.protein_goal) : String(DEFAULT_PROTEIN_GOAL));
       setFatGoal(g?.fat_goal != null ? String(g.fat_goal) : String(DEFAULT_FAT_GOAL));
       setCarbsGoal(g?.carbs_goal != null ? String(g.carbs_goal) : String(DEFAULT_CARBS_GOAL));
+      setTargetRaceName(p.target_race_name ?? "");
+      setTargetRaceDate(p.target_race_date ?? "");
     } catch {
       setProfile(null);
     } finally {
@@ -121,6 +125,8 @@ export function AthleteProfileScreen({
         protein_goal?: number;
         fat_goal?: number;
         carbs_goal?: number;
+        target_race_date?: string | null;
+        target_race_name?: string | null;
       } = {};
       if (weight.trim() !== "") {
         const v = parseFloat(weight);
@@ -158,6 +164,25 @@ export function AthleteProfileScreen({
           payload.fat_goal = Math.round(f);
           payload.carbs_goal = Math.round(ca);
         }
+      }
+      if (targetRaceName.trim() !== "") {
+        payload.target_race_name = targetRaceName.trim();
+      } else {
+        payload.target_race_name = null;
+      }
+      if (targetRaceDate.trim() !== "") {
+        const dateMatch = targetRaceDate.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (dateMatch) {
+          const [, y, m, d] = dateMatch;
+          const year = parseInt(y!, 10);
+          const month = parseInt(m!, 10);
+          const day = parseInt(d!, 10);
+          if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            payload.target_race_date = `${y}-${m}-${d}`;
+          }
+        }
+      } else {
+        payload.target_race_date = null;
       }
       const updated = await updateAthleteProfile(payload);
       setProfile(updated);
@@ -317,6 +342,25 @@ export function AthleteProfileScreen({
               placeholderTextColor="#64748b"
               keyboardType="number-pad"
             />
+            <Text style={styles.sectionTitle}>{t("athleteProfile.targetRace")}</Text>
+            <Text style={styles.label}>{t("athleteProfile.targetRaceName")}</Text>
+            <TextInput
+              style={styles.input}
+              value={targetRaceName}
+              onChangeText={setTargetRaceName}
+              placeholder="e.g. Ironman Barcelona"
+              placeholderTextColor="#64748b"
+              autoCapitalize="words"
+            />
+            <Text style={styles.label}>{t("athleteProfile.targetRaceDate")}</Text>
+            <TextInput
+              style={styles.input}
+              value={targetRaceDate}
+              onChangeText={setTargetRaceDate}
+              placeholder={t("athleteProfile.targetRaceDatePlaceholder")}
+              placeholderTextColor="#64748b"
+              keyboardType="numbers-and-punctuation"
+            />
             <Text style={styles.sectionTitle}>{t("athleteProfile.nutritionGoals")}</Text>
             <View style={styles.segmentRow}>
               <TouchableOpacity
@@ -451,6 +495,28 @@ export function AthleteProfileScreen({
                 </View>
               </View>
             </View>
+            {(profile?.target_race_name || profile?.target_race_date) ? (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitleInCard}>{t("athleteProfile.targetRace")}</Text>
+                <View style={[styles.row, styles.rowFirst]}>
+                  <Text style={styles.labelInRow}>{t("athleteProfile.targetRaceName")}</Text>
+                  <View style={styles.rowValue}>
+                    <Text style={styles.value}>{profile?.target_race_name ?? "—"}</Text>
+                  </View>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.labelInRow}>{t("athleteProfile.targetRaceDate")}</Text>
+                  <View style={styles.rowValue}>
+                    <Text style={styles.value}>{profile?.target_race_date ?? "—"}</Text>
+                  </View>
+                </View>
+                {profile?.days_to_race != null && profile.days_to_race >= 0 ? (
+                  <View style={styles.row}>
+                    <Text style={styles.value}>{t("athleteProfile.daysToRace").replace("{days}", String(profile.days_to_race))}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
             <View style={styles.card}>
               <Text style={styles.sectionTitleInCard}>{t("athleteProfile.nutritionGoals")}</Text>
               <View style={[styles.row, styles.rowFirst]}>

@@ -8,19 +8,42 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.chat_message import ChatMessage
+from app.models.food_log import FoodLog
 from app.models.retention_reminder_sent import RetentionReminderSent
 from app.models.user import User
+from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
 from app.services.push_notifications import send_push_to_user
 
 logger = logging.getLogger(__name__)
 
 REMINDER_TYPE_RECOVERY_HEAVY = "recovery_heavy_workout"
+REMINDER_TYPE_CTL_DROP = "ctl_drop"
+REMINDER_TYPE_NUTRITION_AFTER_LONG = "nutrition_after_long"
 
 RECOVERY_PUSH_BY_LOCALE = {
     "ru": ("Восстановление", "Вчера была тяжёлая тренировка. Открой приложение — там советы по восстановлению."),
     "en": ("Recovery", "You had a heavy workout yesterday. Open the app for recovery advice."),
 }
+
+CTL_DROP_PUSH_BY_LOCALE = {
+    "ru": ("Форма", "Твоя форма (CTL) снижается. Пора на станок."),
+    "en": ("Fitness", "Your fitness (CTL) is dropping. Time to get on the bike."),
+}
+
+NUTRITION_AFTER_LONG_PUSH_BY_LOCALE = {
+    "ru": (
+        "Питание",
+        "Длинная база сожгла много калорий. Скинь фото тарелки, чтобы ИИ проверил закрытие углеводного окна.",
+    ),
+    "en": (
+        "Nutrition",
+        "Long base burned a lot of calories. Send a photo of your plate so the AI can check your carb window.",
+    ),
+}
+
+# Consecutive days of CTL drop required to trigger the reminder (e.g. 4 days = 3 drops in a row)
+CTL_DROP_CONSECUTIVE_DAYS = 4
 
 
 async def get_users_for_recovery_reminder(
@@ -139,4 +162,223 @@ async def run_recovery_reminder_job() -> None:
             await session.commit()
         except Exception as e:
             logger.exception("Retention: recovery reminder job failed: %s", e)
+            await session.rollback()
+
+
+def _ctl_dropping_consecutive(rows: list[tuple[date, float]]) -> bool:
+    """True if we have at least CTL_DROP_CONSECUTIVE_DAYS days with CTL strictly decreasing each day."""
+    if len(rows) < CTL_DROP_CONSECUTIVE_DAYS:
+        return False
+    # rows are (date, ctl) - assume sorted by date asc
+    for i in range(len(rows) - CTL_DROP_CONSECUTIVE_DAYS + 1):
+        window = rows[i : i + CTL_DROP_CONSECUTIVE_DAYS]
+        if all(window[j][1] > window[j + 1][1] for j in range(len(window) - 1)):
+            return True
+    return False
+
+
+async def get_users_for_ctl_drop_reminder(
+    session: AsyncSession,
+    today_date: date,
+) -> list[int]:
+    """
+    Return user_ids who: have CTL in WellnessCache for the last 5 days with 4 consecutive days of CTL drop,
+    have push_token, and have not already received this reminder today.
+    """
+    from_date = today_date - timedelta(days=5)
+    r = await session.execute(
+        select(WellnessCache.user_id, WellnessCache.date, WellnessCache.ctl).where(
+            WellnessCache.date >= from_date,
+            WellnessCache.date < today_date,
+            WellnessCache.ctl.isnot(None),
+        ).order_by(WellnessCache.user_id, WellnessCache.date.asc())
+    )
+    rows = r.all()
+    # Group by user_id: list of (date, ctl)
+    by_user: dict[int, list[tuple[date, float]]] = {}
+    for user_id, d, ctl in rows:
+        if ctl is not None:
+            by_user.setdefault(user_id, []).append((d, float(ctl)))
+    candidate_ids = {uid for uid, series in by_user.items() if _ctl_dropping_consecutive(series)}
+    if not candidate_ids:
+        return []
+
+    r_sent = await session.execute(
+        select(RetentionReminderSent.user_id).where(
+            RetentionReminderSent.date == today_date,
+            RetentionReminderSent.reminder_type == REMINDER_TYPE_CTL_DROP,
+        )
+    )
+    already_sent = {row[0] for row in r_sent.all()}
+    candidate_ids -= already_sent
+    if not candidate_ids:
+        return []
+
+    r_users = await session.execute(
+        select(User.id).where(
+            User.id.in_(candidate_ids),
+            User.push_token.isnot(None),
+            User.push_token != "",
+        )
+    )
+    return [row[0] for row in r_users.all()]
+
+
+async def send_ctl_drop_pushes(
+    session: AsyncSession,
+    user_ids: list[int],
+    today_date: date,
+) -> None:
+    """Send CTL drop reminder push and record in retention_reminders_sent."""
+    r = await session.execute(select(User.id, User.locale).where(User.id.in_(user_ids)))
+    user_locales = {row[0]: (row[1] or "ru") for row in r.all()}
+    for user_id in user_ids:
+        locale = user_locales.get(user_id, "ru")
+        if locale not in CTL_DROP_PUSH_BY_LOCALE:
+            locale = "ru"
+        title, body = CTL_DROP_PUSH_BY_LOCALE[locale]
+        try:
+            await send_push_to_user(session, user_id, title, body)
+            session.add(
+                RetentionReminderSent(
+                    user_id=user_id,
+                    date=today_date,
+                    reminder_type=REMINDER_TYPE_CTL_DROP,
+                )
+            )
+            await session.flush()
+            logger.info("Retention: sent CTL drop reminder to user_id=%s", user_id)
+        except Exception as e:
+            logger.warning("Retention: failed to send CTL drop reminder to user_id=%s: %s", user_id, e)
+
+
+async def run_ctl_drop_reminder_job() -> None:
+    """Scheduled job: users with 4 consecutive days of CTL drop get a push."""
+    from app.db.session import async_session_maker
+
+    today_date = date.today()
+    async with async_session_maker() as session:
+        try:
+            user_ids = await get_users_for_ctl_drop_reminder(session, today_date)
+            if not user_ids:
+                logger.debug("Retention: no users eligible for CTL drop reminder today")
+                return
+            await send_ctl_drop_pushes(session, user_ids, today_date)
+            await session.commit()
+        except Exception as e:
+            logger.exception("Retention: CTL drop reminder job failed: %s", e)
+            await session.rollback()
+
+
+# Long workout: duration_sec > this (2 hours)
+NUTRITION_AFTER_LONG_DURATION_SEC = 7200
+
+
+async def get_users_for_nutrition_after_long_reminder(
+    session: AsyncSession,
+    today_date: date,
+) -> list[int]:
+    """
+    Return user_ids who: had a workout with duration_sec > 2 hours yesterday,
+    have no FoodLog entries on that workout day, have push_token, and have not
+    already received this reminder today.
+    """
+    yesterday = today_date - timedelta(days=1)
+    yesterday_start = datetime.combine(yesterday, datetime.min.time()).replace(tzinfo=timezone.utc)
+    today_start = datetime.combine(today_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+    day_end = datetime.combine(yesterday + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
+
+    # User IDs with at least one workout yesterday with duration_sec > 2h
+    r_long = await session.execute(
+        select(Workout.user_id).where(
+            Workout.start_date >= yesterday_start,
+            Workout.start_date < today_start,
+            Workout.duration_sec.isnot(None),
+            Workout.duration_sec > NUTRITION_AFTER_LONG_DURATION_SEC,
+        ).distinct()
+    )
+    long_workout_user_ids = {row[0] for row in r_long.all()}
+    if not long_workout_user_ids:
+        return []
+
+    # Users who have at least one FoodLog entry on yesterday (workout day)
+    r_food = await session.execute(
+        select(FoodLog.user_id).where(
+            FoodLog.timestamp >= yesterday_start,
+            FoodLog.timestamp < day_end,
+        ).distinct()
+    )
+    users_with_food_yesterday = {row[0] for row in r_food.all()}
+    candidate_ids = long_workout_user_ids - users_with_food_yesterday
+    if not candidate_ids:
+        return []
+
+    r_sent = await session.execute(
+        select(RetentionReminderSent.user_id).where(
+            RetentionReminderSent.date == today_date,
+            RetentionReminderSent.reminder_type == REMINDER_TYPE_NUTRITION_AFTER_LONG,
+        )
+    )
+    already_sent = {row[0] for row in r_sent.all()}
+    candidate_ids -= already_sent
+    if not candidate_ids:
+        return []
+
+    r_users = await session.execute(
+        select(User.id).where(
+            User.id.in_(candidate_ids),
+            User.push_token.isnot(None),
+            User.push_token != "",
+        )
+    )
+    return [row[0] for row in r_users.all()]
+
+
+async def send_nutrition_after_long_pushes(
+    session: AsyncSession,
+    user_ids: list[int],
+    today_date: date,
+) -> None:
+    """Send nutrition-after-long-workout reminder and record in retention_reminders_sent."""
+    r = await session.execute(select(User.id, User.locale).where(User.id.in_(user_ids)))
+    user_locales = {row[0]: (row[1] or "ru") for row in r.all()}
+    for user_id in user_ids:
+        locale = user_locales.get(user_id, "ru")
+        if locale not in NUTRITION_AFTER_LONG_PUSH_BY_LOCALE:
+            locale = "ru"
+        title, body = NUTRITION_AFTER_LONG_PUSH_BY_LOCALE[locale]
+        try:
+            await send_push_to_user(session, user_id, title, body)
+            session.add(
+                RetentionReminderSent(
+                    user_id=user_id,
+                    date=today_date,
+                    reminder_type=REMINDER_TYPE_NUTRITION_AFTER_LONG,
+                )
+            )
+            await session.flush()
+            logger.info("Retention: sent nutrition-after-long reminder to user_id=%s", user_id)
+        except Exception as e:
+            logger.warning(
+                "Retention: failed to send nutrition-after-long reminder to user_id=%s: %s",
+                user_id,
+                e,
+            )
+
+
+async def run_nutrition_after_long_reminder_job() -> None:
+    """Scheduled job: users with long workout yesterday and no food log that day get a push."""
+    from app.db.session import async_session_maker
+
+    today_date = date.today()
+    async with async_session_maker() as session:
+        try:
+            user_ids = await get_users_for_nutrition_after_long_reminder(session, today_date)
+            if not user_ids:
+                logger.debug("Retention: no users eligible for nutrition-after-long reminder today")
+                return
+            await send_nutrition_after_long_pushes(session, user_ids, today_date)
+            await session.commit()
+        except Exception as e:
+            logger.exception("Retention: nutrition-after-long reminder job failed: %s", e)
             await session.rollback()

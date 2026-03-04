@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import {
   getAnalyticsSleep,
   getAnalyticsWorkouts,
   getAnalyticsNutrition,
+  getAthleteProfile,
   postAnalyticsInsight,
   type AnalyticsOverview,
   type AnalyticsSleepResponse,
@@ -29,6 +30,8 @@ import {
 import { useTheme } from "../theme";
 import { useTranslation } from "../i18n";
 import { PremiumGateModal } from "../components/PremiumGateModal";
+import { InsightShareCard } from "../components/InsightShareCard";
+import { useCaptureAndShare } from "../hooks/useCaptureAndShare";
 
 const TAB_KEYS = ["overview", "sleep", "training", "nutrition"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
@@ -65,7 +68,11 @@ export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => voi
   const [insightQuestion, setInsightQuestion] = useState("");
   const [insightLoading, setInsightLoading] = useState(false);
   const [insightText, setInsightText] = useState("");
+  const [insightTeaser, setInsightTeaser] = useState(false);
   const [insightPayload, setInsightPayload] = useState<{ chartType: TabKey; data: Record<string, unknown> } | null>(null);
+  const [athleteProfile, setAthleteProfile] = useState<{ display_name: string } | null>(null);
+  const shareCardRef = useRef<View>(null);
+  const { captureAndShare, isSharing } = useCaptureAndShare(shareCardRef);
   const { width: screenWidth, height: windowHeight } = useWindowDimensions();
 
   const loadOverview = useCallback(async () => {
@@ -127,9 +134,11 @@ export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => voi
     async (chartType: TabKey, data: Record<string, unknown>) => {
       setInsightLoading(true);
       setInsightText("");
+      setInsightTeaser(false);
       try {
         const res = await postAnalyticsInsight(chartType, data, insightQuestion || undefined);
         setInsightText(res.insight);
+        setInsightTeaser(res.is_teaser === true);
       } catch (e) {
         const msg = e instanceof Error ? e.message : t("errors.requestError");
         if ((msg.includes("403") || msg.includes("Premium")) && onOpenPricing) {
@@ -147,7 +156,9 @@ export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => voi
   const openInsight = useCallback(() => {
     setInsightModalVisible(true);
     setInsightText("");
+    setInsightTeaser(false);
     setInsightLoading(true);
+    getAthleteProfile().then((p) => setAthleteProfile(p)).catch(() => setAthleteProfile(null));
     const chartTypeForApi = activeTab === "training" ? "workouts" : activeTab;
     if (activeTab === "overview" && overview) {
       setInsightPayload({ chartType: activeTab, data: overview });
@@ -293,18 +304,67 @@ export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => voi
               <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
             ) : (
               insightText !== "" && (
-                <ScrollView
-                  style={{ maxHeight: Platform.OS === "web" ? 320 : windowHeight * 0.35 }}
-                  contentContainerStyle={{ paddingBottom: 16 }}
-                  showsVerticalScrollIndicator
-                >
-                  <Text style={[styles.insightText, { color: colors.text }]}>{insightText}</Text>
-                </ScrollView>
+                <>
+                  <ScrollView
+                    style={{ maxHeight: Platform.OS === "web" ? 320 : windowHeight * 0.35 }}
+                    contentContainerStyle={{ paddingBottom: 16 }}
+                    showsVerticalScrollIndicator
+                  >
+                    <Text style={[styles.insightText, { color: colors.text }]}>{insightText}</Text>
+                    {insightTeaser && (
+                      <View style={[styles.insightTeaserBlock, { backgroundColor: colors.surface + "cc", borderColor: colors.surfaceBorder }]}>
+                        <View style={[styles.insightTeaserPlaceholder, { backgroundColor: colors.surface }]} />
+                        <TouchableOpacity
+                          style={[styles.insightFullCta, { backgroundColor: colors.primary }]}
+                          onPress={() => { setInsightModalVisible(false); setPremiumGateVisible(true); }}
+                        >
+                          <Text style={[styles.insightFullCtaText, { color: colors.primaryText }]}>
+                            {t("analytics.insightFullCta")}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </ScrollView>
+                  <TouchableOpacity
+                    style={[styles.shareBtn, { backgroundColor: colors.surfaceBorder }]}
+                    onPress={captureAndShare}
+                    disabled={isSharing}
+                  >
+                    <Text style={[styles.shareBtnText, { color: colors.text }]}>
+                      {isSharing ? t("analytics.sharing") : t("analytics.share")}
+                    </Text>
+                  </TouchableOpacity>
+                </>
               )
             )}
           </Pressable>
         </Pressable>
       </Modal>
+
+      {insightModalVisible && insightText !== "" && (
+        <View style={styles.shareCardHidden} pointerEvents="none">
+          <InsightShareCard
+            ref={shareCardRef}
+            displayName={athleteProfile?.display_name}
+            metricLabel={
+              insightPayload?.chartType === "overview"
+                ? t("analytics.totalTss")
+                : t("analytics.insightShareMetricLabel")
+            }
+            metricValue={
+              (() => {
+                const raw =
+                  overview?.total_tss ??
+                  (insightPayload?.chartType === "overview"
+                    ? (insightPayload.data as unknown as AnalyticsOverview)?.total_tss
+                    : undefined);
+                return raw != null ? String(raw) : "—";
+              })()
+            }
+            quote={insightText}
+          />
+        </View>
+      )}
 
       <PremiumGateModal
         visible={premiumGateVisible}
@@ -718,6 +778,43 @@ function makeStyles(colors: Record<string, string>) {
       marginBottom: 12,
     },
     insightText: { fontSize: 14, lineHeight: 24, paddingVertical: 4 },
+    insightTeaserBlock: {
+      marginTop: 16,
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      minHeight: 100,
+      justifyContent: "flex-end",
+    },
+    insightTeaserPlaceholder: {
+      position: "absolute",
+      left: 16,
+      right: 16,
+      top: 16,
+      bottom: 60,
+      borderRadius: 8,
+      opacity: 0.6,
+    },
+    shareCardHidden: {
+      position: "absolute",
+      left: -9999,
+      top: 0,
+      opacity: 0,
+      zIndex: -1,
+    },
+    shareBtn: {
+      marginTop: 16,
+      paddingVertical: 12,
+      borderRadius: 12,
+      alignItems: "center",
+    },
+    shareBtnText: { fontSize: 15, fontWeight: "600" },
+    insightFullCta: {
+      paddingVertical: 12,
+      borderRadius: 12,
+      alignItems: "center",
+    },
+    insightFullCtaText: { fontSize: 15, fontWeight: "600" },
     micronutrientsBlock: { marginTop: 12, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.surfaceBorder },
     micronutrientRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 },
     micronutrientLabel: { fontSize: 13, color: colors.textMuted },
