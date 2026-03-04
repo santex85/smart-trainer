@@ -163,7 +163,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 app = FastAPI(
     title="tss.ai API",
     description="AI Trainer backend: nutrition, Intervals.icu, orchestrator",
-    version="0.1.0",
+    version="0.1.0-alpha.1",
     lifespan=lifespan,
 )
 app.state.limiter = limiter

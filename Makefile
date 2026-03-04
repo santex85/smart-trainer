@@ -6,7 +6,10 @@ DEPLOY_HOST ?= 167.71.74.220
 DEPLOY_USER ?= root
 DEPLOY_PATH ?= /root/smart_trainer
 
-.PHONY: build up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test build-prod up-prod migrate-prod deploy deploy-no-push
+# Версия для образов: из Git тега (v0.1.0-alpha.1) или коммита. В проде — только протегированные сборки.
+VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "0.1.0-alpha.1")
+
+.PHONY: build up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test build-prod up-prod migrate-prod build-prod-tagged deploy deploy-no-push
 
 build:
 	docker compose build
@@ -49,6 +52,12 @@ migrate:
 COMPOSE_PROD = docker compose -f docker-compose.yml -f docker-compose.prod.yml
 build-prod:
 	$(COMPOSE_PROD) build
+# Сборка prod-образов с тегом версии (SemVer). В проде крутятся только протегированные сборки. См. docs/VERSIONING.md
+build-prod-tagged:
+	$(COMPOSE_PROD) build
+	docker tag st2-backend:latest st2-backend:$(VERSION)
+	docker tag st2-frontend:latest st2-frontend:$(VERSION)
+	@echo "Образы помечены версией: st2-backend:$(VERSION), st2-frontend:$(VERSION)"
 up-prod:
 	$(COMPOSE_PROD) up -d
 migrate-prod:
