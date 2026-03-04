@@ -1,5 +1,9 @@
-# Local dev: expose frontend on port 80. Not used when running with -f docker-compose.prod.yml.
+# Local dev: expose frontend and MinIO console. Not used when running with -f docker-compose.prod.yml.
 services:
   frontend:
     ports:
       - "80:80"
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"

@@ -5,6 +5,14 @@ services:
   postgres:
     ports: []
 
+  # MinIO: do not expose 9000/9001 to the host in production. Backend/backup use minio:9000 internally.
+  # Require explicit S3_ACCESS_KEY/S3_SECRET_KEY so default minioadmin is never used in prod.
+  minio:
+    ports: []
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in .env for production MinIO}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in .env for production MinIO}
+
   backup:
     build:
       context: ./deploy/backup
