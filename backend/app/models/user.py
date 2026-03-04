@@ -16,6 +16,7 @@ class User(Base):
     push_token: Mapped[str | None] = mapped_column(String(512), nullable=True)
     push_platform: Mapped[str | None] = mapped_column(String(32), nullable=True)
     is_premium: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     locale: Mapped[str | None] = mapped_column(String(10), nullable=True, default="ru")
 

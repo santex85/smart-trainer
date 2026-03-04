@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -227,6 +228,12 @@ app.include_router(wellness.router, prefix="/api/v1")
 app.include_router(workouts.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(billing.router, prefix="/api/v1")
+
+# Admin panel at /admin (session auth, superuser only)
+app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
+from app.admin import setup_admin
+
+setup_admin(app)
 
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)

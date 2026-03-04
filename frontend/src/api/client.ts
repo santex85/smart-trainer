@@ -836,6 +836,21 @@ export async function getSubscription(): Promise<SubscriptionStatus> {
   return api<SubscriptionStatus>("/api/v1/billing/subscription");
 }
 
+/** Billing status with plan, subscription state, and daily usage limits. */
+export interface BillingStatus {
+  plan: "Free" | "Premium";
+  subscription_status: string | null;
+  current_period_end: string | null;
+  photo_analyses_used: number;
+  photo_analyses_limit: number | null;
+  chat_messages_used: number;
+  chat_messages_limit: number | null;
+}
+
+export async function getBillingStatus(): Promise<BillingStatus> {
+  return api<BillingStatus>("/api/v1/billing/status");
+}
+
 export interface ChatThreadItem {
   id: number;
   title: string;

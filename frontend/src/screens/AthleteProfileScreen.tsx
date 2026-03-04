@@ -9,6 +9,8 @@ import {
   Alert,
   TextInput,
   Switch,
+  Platform,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -51,7 +53,15 @@ function getErrorMessage(e: unknown): string {
   return e.message || "Request failed.";
 }
 
-export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () => void; onOpenPricing?: () => void }) {
+export function AthleteProfileScreen({
+  onClose,
+  onOpenPricing,
+  onOpenBilling,
+}: {
+  onClose: () => void;
+  onOpenPricing?: () => void;
+  onOpenBilling?: () => void;
+}) {
   const { t, locale, setLocale } = useTranslation();
   const [profile, setProfile] = useState<AthleteProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -209,10 +219,14 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
           </View>
         ) : null}
 
-        {onOpenPricing ? (
+        {(onOpenPricing || onOpenBilling) ? (
           <View style={styles.subscriptionSection}>
             <Text style={styles.sectionTitle}>{subscription?.is_premium ? t("athleteProfile.subscriptionPro") : t("athleteProfile.subscription")}</Text>
-            {subscription?.has_subscription ? (
+            {onOpenBilling ? (
+              <TouchableOpacity style={styles.subscriptionBtn} onPress={onOpenBilling}>
+                <Text style={styles.subscriptionBtnText}>{t("billing.title")}</Text>
+              </TouchableOpacity>
+            ) : subscription?.has_subscription ? (
               <TouchableOpacity
                 style={styles.subscriptionBtn}
                 onPress={async () => {
@@ -220,7 +234,13 @@ export function AthleteProfileScreen({ onClose, onOpenPricing }: { onClose: () =
                   try {
                     const base = typeof window !== "undefined" && window.location?.origin ? window.location.origin : "https://example.com";
                     const { url } = await createPortalSession(`${base}/?portal=return`);
-                    if (url && typeof window !== "undefined") window.location.href = url;
+                    if (url) {
+                      if (Platform.OS === "web" && typeof window !== "undefined") {
+                        window.location.href = url;
+                      } else {
+                        Linking.openURL(url).catch(() => {});
+                      }
+                    }
                   } catch (e) {
                     Alert.alert(t("common.error"), getErrorMessage(e));
                   } finally {

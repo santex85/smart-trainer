@@ -36,6 +36,7 @@ import { AthleteProfileScreen } from "./src/screens/AthleteProfileScreen";
 import { AnalyticsScreen } from "./src/screens/AnalyticsScreen";
 import { IntervalsLinkScreen } from "./src/screens/IntervalsLinkScreen";
 import { PricingScreen } from "./src/screens/PricingScreen";
+import { BillingScreen } from "./src/screens/BillingScreen";
 import type { AuthUser } from "./src/api/client";
 import { useTranslation, I18nProvider } from "./src/i18n";
 import { Ionicons } from "@expo/vector-icons";
@@ -52,6 +53,7 @@ function AppContent() {
   const [cameraVisible, setCameraVisible] = useState(false);
   const [intervalsVisible, setIntervalsVisible] = useState(false);
   const [pricingVisible, setPricingVisible] = useState(false);
+  const [billingVisible, setBillingVisible] = useState(false);
   const [refreshNutritionTrigger, setRefreshNutritionTrigger] = useState(0);
   const [refreshSleepTrigger, setRefreshSleepTrigger] = useState(0);
   const [refreshWellnessTrigger, setRefreshWellnessTrigger] = useState(0);
@@ -240,7 +242,11 @@ function AppContent() {
               options={{ tabBarLabel: t("tabs.profile") }}
             >
               {({ navigation }) => (
-                <AthleteProfileScreen onClose={() => navigation.navigate("Home")} onOpenPricing={() => setPricingVisible(true)} />
+                <AthleteProfileScreen
+                  onClose={() => navigation.navigate("Home")}
+                  onOpenPricing={() => setPricingVisible(true)}
+                  onOpenBilling={() => setBillingVisible(true)}
+                />
               )}
             </Tab.Screen>
           </Tab.Navigator>
@@ -283,6 +289,18 @@ function AppContent() {
         {pricingVisible && (
           <View style={[styles.modal, { backgroundColor: colors.background }]}>
             <PricingScreen onClose={() => setPricingVisible(false)} />
+          </View>
+        )}
+
+        {billingVisible && (
+          <View style={[styles.modal, { backgroundColor: colors.background }]}>
+            <BillingScreen
+              onClose={() => setBillingVisible(false)}
+              onOpenPricing={() => {
+                setBillingVisible(false);
+                setPricingVisible(true);
+              }}
+            />
           </View>
         )}
 

@@ -68,6 +68,15 @@ async def get_request_locale(
     return _normalize_locale(user.locale)
 
 
+async def get_current_superuser(
+    user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Require superuser. Raises 403 if not admin."""
+    if not user.is_superuser:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return user
+
+
 async def require_premium(
     user: Annotated[User, Depends(get_current_user)],
 ) -> User:

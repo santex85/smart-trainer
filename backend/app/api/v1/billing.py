@@ -1,5 +1,6 @@
 """Billing: Stripe checkout, portal, webhook, subscription status."""
 
+from datetime import date
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -8,7 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.config import settings
 from app.db.session import async_session_maker, get_db
+from app.models.daily_usage import DailyUsage
 from app.models.subscription import Subscription
 from app.models.user import User
 from app.services import stripe_service
@@ -24,6 +27,58 @@ class CheckoutSessionRequest(BaseModel):
 
 class PortalSessionRequest(BaseModel):
     return_url: str
+
+
+@router.get(
+    "/status",
+    summary="Get billing status and daily limits",
+    responses={401: {"description": "Not authenticated"}},
+)
+async def get_billing_status(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Return plan, subscription status, and today's usage limits for the authenticated user."""
+    today = date.today()
+    r_sub = await session.execute(
+        select(Subscription).where(Subscription.user_id == user.id)
+    )
+    sub = r_sub.scalar_one_or_none()
+
+    r_usage = await session.execute(
+        select(DailyUsage).where(
+            DailyUsage.user_id == user.id,
+            DailyUsage.date == today,
+        )
+    )
+    usage = r_usage.scalar_one_or_none()
+    if not usage:
+        usage = DailyUsage(user_id=user.id, date=today, photo_analyses=0, chat_messages=0)
+        session.add(usage)
+        await session.flush()
+
+    plan = "Premium" if user.is_premium else "Free"
+    subscription_status = sub.status if sub else None
+    current_period_end = None
+    if sub and sub.current_period_end:
+        current_period_end = sub.current_period_end.isoformat()
+
+    if user.is_premium:
+        photo_analyses_limit = None
+        chat_messages_limit = None
+    else:
+        photo_analyses_limit = settings.free_daily_photo_limit
+        chat_messages_limit = settings.free_daily_chat_limit
+
+    return {
+        "plan": plan,
+        "subscription_status": subscription_status,
+        "current_period_end": current_period_end,
+        "photo_analyses_used": usage.photo_analyses,
+        "photo_analyses_limit": photo_analyses_limit,
+        "chat_messages_used": usage.chat_messages,
+        "chat_messages_limit": chat_messages_limit,
+    }
 
 
 @router.post(
@@ -58,6 +113,24 @@ async def create_portal_session(
     body: PortalSessionRequest,
 ) -> dict:
     """Create a Stripe Customer Portal session for managing subscription. Redirect user to returned url."""
+    try:
+        url = await stripe_service.create_portal_session(user, body.return_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"url": url}
+
+
+@router.post(
+    "/portal",
+    summary="Create Stripe Customer Portal Session (alias)",
+    responses={401: {"description": "Not authenticated"}, 400: {"description": "No customer"}},
+)
+async def create_portal_session_alias(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    body: PortalSessionRequest,
+) -> dict:
+    """Same as portal-session: create Stripe Customer Portal session. Redirect user to returned url."""
     try:
         url = await stripe_service.create_portal_session(user, body.return_url)
     except ValueError as e:
