@@ -421,12 +421,17 @@ async def get_fitness(
             ctl = row.ctl or 0.0
             atl = row.atl or 0.0
             tsb = row.tsb if row.tsb is not None else (ctl - atl)
-            return {
+            # When no row for target_date, we used latest row; show requested date in UI so "today" is correct
+            date_out = target_date.isoformat() if row.date != target_date else row.date.isoformat()
+            out: dict = {
                 "ctl": round(ctl, 1),
                 "atl": round(atl, 1),
                 "tsb": round(tsb, 1),
-                "date": row.date.isoformat(),
+                "date": date_out,
             }
+            if row.date != target_date:
+                out["data_as_of"] = row.date.isoformat()
+            return out
         # Intervals linked but no wellness row with ctl/atl (e.g. Intervals didn't send load for that day) — use our workouts
         return await compute_fitness_from_workouts(session, uid, as_of=target_date)
     return await compute_fitness_from_workouts(session, uid, as_of=target_date)
