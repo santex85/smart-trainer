@@ -8,7 +8,15 @@ Sentry.init({
 });
 
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Text, ActivityIndicator, Platform, Pressable } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Text,
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  LogBox,
+} from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
@@ -40,16 +48,26 @@ import { BillingScreen } from "./src/screens/BillingScreen";
 import type { AuthUser } from "./src/api/client";
 import { useTranslation, I18nProvider } from "./src/i18n";
 import { Ionicons } from "@expo/vector-icons";
+import * as Font from "expo-font";
+
+const IONICONS_FONT_URL =
+  "https://cdn.jsdelivr.net/npm/react-native-vector-icons@10.0.3/Fonts/Ionicons.ttf";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const navigationRef = createNavigationContainerRef();
 
+if (Platform.OS === "web") {
+  LogBox.ignoreLogs(["useNativeDriver"]);
+}
+
 function AppContent() {
   const { t } = useTranslation();
   const { colors, mode } = useTheme();
+  const isWeb = Platform.OS === "web";
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [fontsLoaded, setFontsLoaded] = useState(!isWeb);
   const [cameraVisible, setCameraVisible] = useState(false);
   const [intervalsVisible, setIntervalsVisible] = useState(false);
   const [pricingVisible, setPricingVisible] = useState(false);
@@ -68,11 +86,19 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    if (!isWeb) return;
+    Font.loadAsync({ Ionicons: IONICONS_FONT_URL })
+      .then(() => setFontsLoaded(true))
+      .catch(() => setFontsLoaded(true));
+  }, [isWeb]);
+
+  useEffect(() => {
     getAccessToken()
       .then((token) => {
         if (token) return getMe().then(setUser).catch(() => setUser(null));
         setUser(null);
       })
+      .catch(() => setUser(null))
       .finally(() => setIsReady(true));
   }, []);
 
@@ -96,7 +122,8 @@ function AppContent() {
     setUser(null);
   };
 
-  if (!isReady) {
+  const ready = isReady && (fontsLoaded || !isWeb);
+  if (!ready) {
     return (
       <SafeAreaProvider>
         <View style={[styles.root, styles.centered, { backgroundColor: colors.background }]}>
