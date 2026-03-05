@@ -9,6 +9,7 @@ import {
   setRefreshToken,
 } from "../storage/authStorage";
 import { devLog } from "../utils/devLog";
+import { getApiLocale } from "./locale";
 
 // When EXPO_PUBLIC_API_URL is explicitly "" (Docker build), use same origin so nginx can proxy /api
 const API_BASE =
@@ -19,16 +20,10 @@ export function setOnUnauthorized(cb: (() => void) | null) {
   onUnauthorized = cb;
 }
 
-let apiLocale = "ru";
-export function setApiLocale(locale: string) {
-  apiLocale = locale === "en" ? "en" : "ru";
-}
-export function getApiLocale(): string {
-  return apiLocale;
-}
+export { getApiLocale } from "./locale";
 
 function languageHeader(): Record<string, string> {
-  return { "X-App-Language": apiLocale };
+  return { "X-App-Language": getApiLocale() };
 }
 
 type OfflineMutation = {

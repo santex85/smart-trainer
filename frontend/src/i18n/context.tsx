@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { setApiLocale } from "../api/client";
+import { setApiLocale } from "../api/locale";
 import { messages } from "./translations";
 import type { Locale } from "./translations";
 
