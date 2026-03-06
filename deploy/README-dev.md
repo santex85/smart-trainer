@@ -1,20 +1,24 @@
 # Dev server (dev.tsspro.tech, 209.38.17.171)
 
+Сервер для тестирования. Обычно работаем в ветке **dev**, выкатываем её сюда, проверяем, затем мержим в **main** и деплоим на production. Полный цикл: [docs/WORKFLOW.md](../docs/WORKFLOW.md).
+
 ## DNS
 
 Create an A record: **dev.tsspro.tech** → **209.38.17.171**.
 
 ## Deploy (first time and later)
 
-From your machine run:
+Из ветки, которую нужно протестировать (обычно `dev`), с локальной машины:
 
 ```bash
 make deploy-dev
 ```
 
-Or without pushing to git first: `make deploy-dev-no-push`.
+Без пуша в git (код уже в origin): `make deploy-dev-no-push`.
 
-**What it does:** `deploy-dev` runs `ensure-dev-server` (idempotent), then `git push`, then deploy on the server. Under the hood, `ensure-dev-server`:
+**Что происходит:** `deploy-dev` вызывает `ensure-dev-server` (идемпотентно), пушит **текущую ветку** в origin, на сервере делает checkout этой ветки, pull, сборку образов, `docker stack deploy`, миграции. На production всегда катится только `main` (`make deploy`).
+
+**ensure-dev-server**:
 
 1. Runs **bootstrap-dev** (Docker + Swarm, create deploy dir) if needed.
 2. **Clones the repo** into `DEV_DEPLOY_PATH` if the directory is not a git repo (uses `git remote get-url origin` as `REPO_URL`; for private repos the server must have git credentials).
@@ -24,5 +28,6 @@ Or without pushing to git first: `make deploy-dev-no-push`.
 
 ## Check after deploy
 
-- Open https://dev.tsspro.tech — frontend should load via Caddy.
-- Logs on server: `docker service logs st2_caddy`, `st2_backend`, `st2_frontend`.
+- Открыть https://dev.tsspro.tech — фронт отдаётся через Caddy.
+- Логи на сервере: `docker service logs st2_caddy`, `st2_backend`, `st2_frontend`.
+- Два окружения и команды: см. [docs/DEPLOY.md](../docs/DEPLOY.md) (таблица в начале).

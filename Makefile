@@ -69,17 +69,26 @@ up-prod:
 migrate-prod:
 	$(COMPOSE_PROD) exec -T backend alembic upgrade head
 
-# Деплой на сервер: пуш в origin main, затем на сервере git pull, build, stack deploy, alembic upgrade.
-# Требует на сервере: docker swarm init (один раз). Лимиты deploy.resources применяются только при stack deploy.
+# Для dev-сервера: какую ветку катить (текущая). Для prod не задаём — на сервере остаётся main.
+DEPLOY_BRANCH ?=
+
+# Деплой на production: пуш main, на сервере git pull (main), build, stack deploy, миграции.
 # Переопределить: make deploy DEPLOY_HOST=1.2.3.4 DEPLOY_PATH=/home/app/smart_trainer
 deploy:
 	git push origin main
 	$(MAKE) deploy-no-push
 
-# Только действия на сервере (без git push). Сборка образов, затем docker stack deploy (Swarm) и миграции.
+# Только действия на сервере. Если задан DEPLOY_BRANCH — на сервере checkout и pull этой ветки; иначе git pull (main).
+# Сборка образов, docker stack deploy (Swarm), alembic upgrade head.
 deploy-no-push:
-	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && git pull && $(COMPOSE_PROD) build && set -a && . ./.env && set +a && docker stack deploy -c docker-compose.yml -c docker-compose.prod.yml st2 && sleep 25 && export DATABASE_URL=\"postgresql+asyncpg://\$${POSTGRES_USER:-smart_trainer}:\$${POSTGRES_PASSWORD}@st2_postgres:5432/\$${POSTGRES_DB:-smart_trainer}\" && docker run --rm --network st2_backend-db -e DATABASE_URL=\"\$$DATABASE_URL\" st2-backend:latest alembic upgrade head"
-	@echo "Деплой завершён: https://tsspro.tech"
+	@BRANCH_CMD=''; \
+	if [ -n '$(DEPLOY_BRANCH)' ]; then \
+		BRANCH_CMD='git fetch origin && git checkout "$(DEPLOY_BRANCH)" && git pull origin "$(DEPLOY_BRANCH)"'; \
+	else \
+		BRANCH_CMD='git pull'; \
+	fi; \
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && $$BRANCH_CMD && $(COMPOSE_PROD) build && set -a && . ./.env && set +a && docker stack deploy -c docker-compose.yml -c docker-compose.prod.yml st2 && sleep 25 && export DATABASE_URL=\"postgresql+asyncpg://\$${POSTGRES_USER:-smart_trainer}:\$${POSTGRES_PASSWORD}@st2_postgres:5432/\$${POSTGRES_DB:-smart_trainer}\" && docker run --rm --network st2_backend-db -e DATABASE_URL=\"\$$DATABASE_URL\" st2-backend:latest alembic upgrade head"
+	@if [ -n '$(DEPLOY_BRANCH)' ]; then echo "Деплой завершён: https://dev.tsspro.tech"; else echo "Деплой завершён: https://tsspro.tech"; fi
 
 # Однократно: снять стек и удалить overlay-сети, чтобы при следующем deploy они создались с attachable: true (для docker run миграций).
 # После выполнения запустите: make deploy
@@ -105,16 +114,14 @@ ensure-dev-server:
 			echo '  ssh $(DEV_DEPLOY_USER)@$(DEV_DEPLOY_HOST)'; echo \"  nano \$$DEPLOY_PATH/.env\"; echo ''; exit 1; \
 		fi"
 
-# Deploy to dev server (dev.tsspro.tech): ensure server ready, push, then deploy on 209.38.17.171.
+# Deploy to dev server (dev.tsspro.tech): пуш текущей ветки (обычно dev), на сервере checkout этой ветки и deploy.
 deploy-dev: ensure-dev-server
-	git push origin main
-	$(MAKE) deploy-no-push DEPLOY_HOST=$(DEV_DEPLOY_HOST) DEPLOY_USER=$(DEV_DEPLOY_USER) DEPLOY_PATH=$(DEV_DEPLOY_PATH)
-	@echo "Деплой завершён: https://dev.tsspro.tech"
+	git push origin $(shell git branch --show-current)
+	$(MAKE) deploy-no-push DEPLOY_HOST=$(DEV_DEPLOY_HOST) DEPLOY_USER=$(DEV_DEPLOY_USER) DEPLOY_PATH=$(DEV_DEPLOY_PATH) DEPLOY_BRANCH=$(shell git branch --show-current)
 
-# Deploy to dev server without git push.
+# Deploy to dev server without git push (на сервере всё равно будет checkout текущей ветки и pull).
 deploy-dev-no-push: ensure-dev-server
-	$(MAKE) deploy-no-push DEPLOY_HOST=$(DEV_DEPLOY_HOST) DEPLOY_USER=$(DEV_DEPLOY_USER) DEPLOY_PATH=$(DEV_DEPLOY_PATH)
-	@echo "Деплой завершён: https://dev.tsspro.tech"
+	$(MAKE) deploy-no-push DEPLOY_HOST=$(DEV_DEPLOY_HOST) DEPLOY_USER=$(DEV_DEPLOY_USER) DEPLOY_PATH=$(DEV_DEPLOY_PATH) DEPLOY_BRANCH=$(shell git branch --show-current)
 
 shell-backend:
 	docker compose exec backend sh
