@@ -1,4 +1,4 @@
-# Smart Trainer (ИИ-Тренер) MVP
+# tssAI (ИИ-Тренер) MVP
 
 Cross-platform AI sports coach: nutrition from plate photos (Gemini), Intervals.icu (wellness, events), manual and FIT workouts, and an AI orchestrator that suggests Go/Modify/Skip for daily training. State and load (CTL/ATL/TSB) are based on Intervals/wellness and local workouts; Strava is no longer used.
 

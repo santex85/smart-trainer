@@ -51,7 +51,7 @@ export const InsightShareCard = forwardRef<View, InsightShareCardProps>(function
         </View>
         <View style={styles.quoteBlock}>
           <Text style={styles.quoteText}>«{quote}»</Text>
-          <Text style={styles.brand}>tsspro.ai</Text>
+          <Text style={styles.brand}>tssAI</Text>
         </View>
       </View>
     </View>

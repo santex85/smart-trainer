@@ -1,1 +1,1 @@
-# Tests for Smart Trainer backend
+# Tests for tssAI backend

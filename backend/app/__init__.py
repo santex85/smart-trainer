@@ -1,1 +1,1 @@
-# Smart Trainer Backend
+# tssAI Backend

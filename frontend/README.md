@@ -1,4 +1,4 @@
-# Smart Trainer Frontend
+# tssAI Frontend
 
 Expo (React Native) app: dashboard, meal camera, AI coach chat.
 

@@ -141,7 +141,7 @@ def setup_admin(app):
     admin = Admin(
         app,
         engine,
-        title="Smart Trainer Admin",
+        title="tssAI Admin",
         base_url="/admin",
         authentication_backend=auth,
     )
