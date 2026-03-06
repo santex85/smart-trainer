@@ -20,16 +20,8 @@ from app.schemas.workout import WorkoutCreate, WorkoutUpdate
 from app.services.fit_parser import parse_fit_session
 from app.services.load_metrics import compute_fitness_from_workouts
 from app.services.workout_merge import merge_raw
+from app.services.workout_processor import estimate_tss_from_fit
 from app.services.audit import log_action
-
-# Default TSS per hour when no power (by sport)
-DEFAULT_TSS_PER_HOUR: dict[str, float] = {
-    "running": 60.0,
-    "cycling": 55.0,
-    "swimming": 65.0,
-    "generic": 50.0,
-}
-DEFAULT_TSS_PER_HOUR_FALLBACK = 50.0
 
 router = APIRouter(prefix="/workouts", tags=["workouts"])
 
@@ -437,33 +429,6 @@ async def get_fitness(
     return await compute_fitness_from_workouts(session, uid, as_of=target_date)
 
 
-def _estimate_tss_from_fit(
-    duration_sec: int,
-    avg_power: float | None,
-    normalized_power: float | None,
-    ftp: float | None,
-    sport: str | None,
-) -> float:
-    """Estimate TSS from FIT session: power-based if FTP and power available, else duration/sport."""
-    if duration_sec <= 0:
-        return 0.0
-    np = normalized_power or avg_power
-    if np is not None and ftp is not None and ftp > 0 and np > 0:
-        # TSS = (t * NP^2) / (FTP^2 * 36), t in seconds
-        return round((duration_sec * np * np) / (ftp * ftp * 36.0), 1)
-    key = (sport or "generic").lower()
-    if "run" in key:
-        key = "running"
-    elif "cycl" in key or "bike" in key:
-        key = "cycling"
-    elif "swim" in key:
-        key = "swimming"
-    else:
-        key = "generic"
-    tss_per_hour = DEFAULT_TSS_PER_HOUR.get(key, DEFAULT_TSS_PER_HOUR_FALLBACK)
-    return round((duration_sec / 3600.0) * tss_per_hour, 1)
-
-
 @router.post(
     "/preview-fit",
     response_model=dict,
@@ -501,7 +466,7 @@ async def preview_fit(
         ftp = float(profile.ftp)
 
     duration_sec = data.get("duration_sec") or 0
-    tss = _estimate_tss_from_fit(
+    tss = estimate_tss_from_fit(
         duration_sec,
         data.get("avg_power"),
         data.get("normalized_power"),
@@ -568,7 +533,7 @@ async def upload_fit(
         ftp = float(profile.ftp)
 
     duration_sec = data.get("duration_sec") or 0
-    tss = _estimate_tss_from_fit(
+    tss = estimate_tss_from_fit(
         duration_sec,
         data.get("avg_power"),
         data.get("normalized_power"),

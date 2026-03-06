@@ -1,7 +1,6 @@
 """Chat with AI coach: history, send message, optional orchestrator run, optional FIT upload."""
 
 import asyncio
-import hashlib
 import json
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated
@@ -24,6 +23,7 @@ from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
 from app.schemas.pagination import PaginatedResponse
 from app.services.fit_parser import parse_fit_session
+from app.services.workout_processor import fit_data_to_summary, save_workout_from_fit
 from app.services.gemini_photo_analyzer import classify_and_analyze_image
 from app.services.image_resize import resize_image_for_ai_async
 from app.services.orchestrator import run_daily_decision
@@ -317,32 +317,6 @@ async def _get_conversation_block(
         lines.append(line)
         total += len(line) + 1
     return "\n".join(lines)
-
-
-def _fit_data_to_summary(data: dict) -> str:
-    """Build a short text summary of parsed FIT session for AI context."""
-    parts = []
-    start = data.get("start_date")
-    if start:
-        parts.append(f"Date/time: {start}")
-    if data.get("duration_sec"):
-        m = data["duration_sec"] // 60
-        parts.append(f"Duration: {m} min")
-    if data.get("distance_m"):
-        parts.append(f"Distance: {data['distance_m'] / 1000:.1f} km")
-    if data.get("sport"):
-        parts.append(f"Sport: {data['sport']}")
-    if data.get("avg_heart_rate") is not None:
-        parts.append(f"Avg HR: {data['avg_heart_rate']} bpm")
-    if data.get("max_heart_rate") is not None:
-        parts.append(f"Max HR: {data['max_heart_rate']} bpm")
-    if data.get("avg_power") is not None:
-        parts.append(f"Avg power: {data['avg_power']} W")
-    if data.get("normalized_power") is not None:
-        parts.append(f"NP: {data['normalized_power']} W")
-    if data.get("total_calories") is not None:
-        parts.append(f"Calories: {data['total_calories']}")
-    return "; ".join(parts) if parts else "No session data"
 
 
 async def _get_fit_monthly_aggregates(
@@ -713,46 +687,12 @@ async def send_message_with_file(
         fit_data = parse_fit_session(content)
         if not fit_data:
             raise HTTPException(status_code=400, detail="Could not parse FIT file or no session found.")
-        fit_summary = _fit_data_to_summary(fit_data)
+        fit_summary = fit_data_to_summary(fit_data)
         if not user_content:
             user_content = f"Приложен FIT-файл тренировки. {fit_summary[:300]}"
 
         if save_w and fit_data:
-            checksum = hashlib.sha256(content).hexdigest()
-            r = await session.execute(select(Workout).where(Workout.user_id == uid, Workout.fit_checksum == checksum))
-            if r.scalar_one_or_none() is None:
-                from app.api.v1.workouts import _estimate_tss_from_fit
-
-                start_date = fit_data["start_date"]
-                if isinstance(start_date, datetime) and start_date.tzinfo is None:
-                    start_date = start_date.replace(tzinfo=timezone.utc)
-                r2 = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
-                profile = r2.scalar_one_or_none()
-                ftp = None
-                if profile and profile.ftp is not None:
-                    ftp = float(profile.ftp)
-                duration_sec = fit_data.get("duration_sec") or 0
-                tss = _estimate_tss_from_fit(
-                    duration_sec,
-                    fit_data.get("avg_power"),
-                    fit_data.get("normalized_power"),
-                    ftp,
-                    fit_data.get("sport"),
-                )
-                sport_name = (fit_data.get("sport") or "Workout").capitalize()
-                w = Workout(
-                    user_id=uid,
-                    start_date=start_date,
-                    name=sport_name,
-                    type=sport_name,
-                    duration_sec=duration_sec or None,
-                    distance_m=fit_data.get("distance_m"),
-                    tss=tss if tss > 0 else None,
-                    source="fit",
-                    fit_checksum=checksum,
-                    raw=fit_data.get("raw"),
-                )
-                session.add(w)
+            await save_workout_from_fit(session, uid, fit_data, content)
 
     session.add(
         ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.user.value, content=user_content or "(сообщение)")
