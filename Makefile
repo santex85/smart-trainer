@@ -22,10 +22,16 @@ endif
 # Версия для образов: из Git тега (v0.1.0-alpha.1) или коммита. В проде — только протегированные сборки.
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "0.1.0-alpha.1")
 
-.PHONY: build up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test build-prod up-prod migrate-prod build-prod-tagged deploy deploy-no-push bootstrap-dev ensure-dev-server deploy-dev deploy-dev-no-push dev-server-set-node-memory restore-dev-from-s3
+.PHONY: build build-backend build-frontend up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test build-prod build-prod-backend build-prod-frontend up-prod migrate-prod build-prod-tagged deploy deploy-no-push deploy-backend deploy-backend-no-push deploy-frontend deploy-frontend-no-push bootstrap-dev ensure-dev-server deploy-dev deploy-dev-no-push deploy-dev-backend-no-push deploy-dev-frontend-no-push dev-server-set-node-memory restore-dev-from-s3
 
 build:
 	docker compose build
+
+build-backend:
+	docker compose build backend
+
+build-frontend:
+	docker compose build frontend
 
 up:
 	docker compose up -d
@@ -39,7 +45,7 @@ run:
 	docker compose build
 	docker compose up -d
 	@echo "Ожидание запуска backend..."
-	@sleep 20
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do curl -sf http://localhost:8000/health >/dev/null 2>&1 && break; sleep 2; done
 	docker compose exec backend alembic upgrade head
 	@echo "Готово. Фронт: http://localhost"
 
@@ -65,6 +71,12 @@ migrate:
 COMPOSE_PROD = docker compose -f docker-compose.yml -f docker-compose.prod.yml
 build-prod:
 	$(COMPOSE_PROD) build
+
+build-prod-backend:
+	$(COMPOSE_PROD) build backend
+
+build-prod-frontend:
+	$(COMPOSE_PROD) build frontend
 # Сборка prod-образов с тегом версии (SemVer). В проде крутятся только протегированные сборки. См. docs/VERSIONING.md
 build-prod-tagged:
 	$(COMPOSE_PROD) build
@@ -79,6 +91,14 @@ migrate-prod:
 # Для dev-сервера: какую ветку катить (текущая). Для prod не задаём — на сервере остаётся main.
 DEPLOY_BRANCH ?=
 
+# Сборка только указанных сервисов при деплое. Пусто = все. Пример: make deploy-no-push BUILD_SERVICES=backend
+BUILD_SERVICES ?=
+
+# Деплой из CI-образов (без сборки на сервере). Требует: USE_CI_IMAGES=1, CI_REGISTRY_OWNER=<ghcr-owner>, CI_IMAGE_TAG=latest или short-sha.
+USE_CI_IMAGES ?=
+CI_REGISTRY_OWNER ?=
+CI_IMAGE_TAG ?= latest
+
 # Деплой на production: пуш main, на сервере git pull (main), build, stack deploy, миграции.
 # Переопределить: make deploy DEPLOY_HOST=1.2.3.4 DEPLOY_PATH=/home/app/smart_trainer
 deploy:
@@ -87,6 +107,8 @@ deploy:
 
 # Только действия на сервере. fetch + reset --hard (локальные правки на сервере сбрасываются).
 # Prod: main; Dev: DEPLOY_BRANCH (текущая ветка).
+# BUILD_SERVICES=backend или frontend — собрать только указанный сервис (ускоряет деплой при изменениях только в одном).
+# USE_CI_IMAGES=1 — pull вместо build (образы из CI, см. .github/workflows/build.yml).
 deploy-no-push:
 	@BRANCH_CMD=''; \
 	if [ -n '$(DEPLOY_BRANCH)' ]; then \
@@ -94,8 +116,31 @@ deploy-no-push:
 	else \
 		BRANCH_CMD='git fetch origin && git checkout main && git reset --hard origin/main'; \
 	fi; \
-	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && $$BRANCH_CMD && $(COMPOSE_PROD) build && set -a && . ./.env && set +a && docker stack deploy $(STACK_DEPLOY_FILES) st2 && sleep 25 && export DATABASE_URL=\"postgresql+asyncpg://\$${POSTGRES_USER:-smart_trainer}:\$${POSTGRES_PASSWORD}@st2_postgres:5432/\$${POSTGRES_DB:-smart_trainer}\" && docker run --rm --network st2_backend-db -e DATABASE_URL=\"\$$DATABASE_URL\" st2-backend:latest alembic upgrade head && docker service update --force st2_frontend && docker service update --force st2_backend"
+	if [ -n '$(USE_CI_IMAGES)' ] && [ -n '$(CI_REGISTRY_OWNER)' ]; then \
+		BUILD_CMD="docker pull ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-backend:$(CI_IMAGE_TAG) && docker tag ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-backend:$(CI_IMAGE_TAG) st2-backend:latest && docker pull ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-frontend:$(CI_IMAGE_TAG) && docker tag ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-frontend:$(CI_IMAGE_TAG) st2-frontend:latest"; \
+	else \
+		BUILD_CMD="$(COMPOSE_PROD) build"; [ -n '$(BUILD_SERVICES)' ] && BUILD_CMD="$(COMPOSE_PROD) build $(BUILD_SERVICES)"; \
+	fi; \
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && $$BRANCH_CMD && $$BUILD_CMD && set -a && . ./.env && set +a && docker stack deploy $(STACK_DEPLOY_FILES) st2 && for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do docker run --rm --network st2_backend-db -e PGPASSWORD=\"\$$POSTGRES_PASSWORD\" postgres:16-alpine pg_isready -h st2_postgres -U \"\$${POSTGRES_USER:-smart_trainer}\" -d \"\$${POSTGRES_DB:-smart_trainer}\" 2>/dev/null && break; sleep 2; done && export DATABASE_URL=\"postgresql+asyncpg://\$${POSTGRES_USER:-smart_trainer}:\$${POSTGRES_PASSWORD}@st2_postgres:5432/\$${POSTGRES_DB:-smart_trainer}\" && docker run --rm --network st2_backend-db -e DATABASE_URL=\"\$$DATABASE_URL\" st2-backend:latest alembic upgrade head && ( [ -z '$(BUILD_SERVICES)' ] || echo '$(BUILD_SERVICES)' | grep -qw backend ) && docker service update --force st2_backend || true && ( [ -z '$(BUILD_SERVICES)' ] || echo '$(BUILD_SERVICES)' | grep -qw frontend ) && docker service update --force st2_frontend || true"
 	@if [ -n '$(DEPLOY_BRANCH)' ]; then echo "Деплой завершён: https://dev.tsspro.tech"; else echo "Деплой завершён: https://tsspro.tech"; fi
+
+# Собрать и задеплоить только backend (без пересборки frontend).
+deploy-backend-no-push:
+	$(MAKE) deploy-no-push BUILD_SERVICES=backend
+
+# Собрать и задеплоить только frontend (без пересборки backend).
+deploy-frontend-no-push:
+	$(MAKE) deploy-no-push BUILD_SERVICES=frontend
+
+# Prod: пуш main и деплой только backend.
+deploy-backend:
+	git push origin main
+	$(MAKE) deploy-no-push BUILD_SERVICES=backend
+
+# Prod: пуш main и деплой только frontend.
+deploy-frontend:
+	git push origin main
+	$(MAKE) deploy-no-push BUILD_SERVICES=frontend
 
 # Однократно: снять стек и удалить overlay-сети, чтобы при следующем deploy они создались с attachable: true (для docker run миграций).
 # После выполнения запустите: make deploy
@@ -130,6 +175,14 @@ deploy-dev: ensure-dev-server
 # Deploy to dev server without git push (на сервере всё равно будет checkout текущей ветки и pull).
 deploy-dev-no-push: ensure-dev-server
 	$(MAKE) deploy-no-push DEPLOY_HOST=$(DEV_DEPLOY_HOST) DEPLOY_USER=$(DEV_DEPLOY_USER) DEPLOY_PATH=$(DEV_DEPLOY_PATH) DEPLOY_BRANCH=$(shell git branch --show-current)
+
+# Dev: деплой только backend. Пример: make deploy-dev-backend-no-push
+deploy-dev-backend-no-push: ensure-dev-server
+	$(MAKE) deploy-no-push DEPLOY_HOST=$(DEV_DEPLOY_HOST) DEPLOY_USER=$(DEV_DEPLOY_USER) DEPLOY_PATH=$(DEV_DEPLOY_PATH) DEPLOY_BRANCH=$(shell git branch --show-current) BUILD_SERVICES=backend
+
+# Dev: деплой только frontend.
+deploy-dev-frontend-no-push: ensure-dev-server
+	$(MAKE) deploy-no-push DEPLOY_HOST=$(DEV_DEPLOY_HOST) DEPLOY_USER=$(DEV_DEPLOY_USER) DEPLOY_PATH=$(DEV_DEPLOY_PATH) DEPLOY_BRANCH=$(shell git branch --show-current) BUILD_SERVICES=frontend
 
 # Add or update NODE_MEMORY_MB=768 in .env on dev server (for 1GB RAM). Run once, then make deploy-dev.
 dev-server-set-node-memory:

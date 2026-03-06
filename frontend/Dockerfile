@@ -7,9 +7,9 @@ ENV NODE_OPTIONS=--max-old-space-size=${NODE_MEMORY_MB}
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm install
+    npm ci
 
 COPY . .
 ARG EXPO_PUBLIC_API_URL=

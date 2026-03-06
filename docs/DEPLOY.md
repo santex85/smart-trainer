@@ -75,7 +75,15 @@ fail2ban-client status caddy-auth   # если включён
 
 Разбан IP при необходимости: `fail2ban-client set sshd unbanip <IP>` (или `caddy-auth` вместо `sshd`).
 
-## 2. Файлы для production (в репозитории)
+## 2. Ускорение сборки (сделано в проекте)
+
+- **Frontend:** `npm ci` вместо `npm install`, BuildKit cache для npm и Expo.
+- **Backend:** BuildKit cache mount для pip.
+- **Selective build:** `make build-prod-backend`, `make build-prod-frontend`, `make deploy-no-push BUILD_SERVICES=backend`.
+- **CI-образы:** workflow `build.yml` собирает и пушит в GHCR; деплой через `USE_CI_IMAGES=1` — без сборки на сервере.
+- **Readiness:** вместо фиксированных sleep — опрос pg_isready и backend /health.
+
+## 3. Файлы для production (в репозитории)
 
 Уже есть:
 
@@ -84,7 +92,36 @@ fail2ban-client status caddy-auth   # если включён
 - `.env.production.example` — шаблон `.env` для сервера.
 - `docker-compose.staging.yml` и `.env.staging.example` — для staging-окружения (см. раздел Staging ниже).
 
-## 3. Деплой на сервере (по git)
+## 4. Деплой на сервере
+
+Есть два режима: **сборка на сервере** (классический) и **pull готовых образов из CI** (быстрее, рекомендуется).
+
+### 4a. Деплой из CI-образов (рекомендуется)
+
+Workflow `.github/workflows/build.yml` при push в `main` или `dev` собирает образы и пушит их в GHCR. Сервер только тянет образы — без сборки.
+
+**Настройка:**
+
+1. В репозитории: Settings → Actions → General → Workflow permissions: Read and write.
+2. В Settings → Secrets and variables → Actions добавьте переменные (Variables):
+   - `EXPO_PUBLIC_API_URL` — для main (по умолчанию https://tsspro.tech)
+   - `EXPO_PUBLIC_API_URL_DEV` — для dev (по умолчанию https://dev.tsspro.tech)
+   - `EXPO_PUBLIC_SENTRY_DSN` — опционально
+3. На сервере залогиньтесь в GHCR (для приватных образов):
+   ```bash
+   echo $GITHUB_TOKEN | docker login ghcr.io -u <github-username> --password-stdin
+   ```
+   Токен с правом `read:packages`. Сохраните логин в скрипте или cron при необходимости.
+
+**Деплой:**
+
+```bash
+make deploy-no-push USE_CI_IMAGES=1 CI_REGISTRY_OWNER=<owner> CI_IMAGE_TAG=latest
+```
+
+`<owner>` — владелец репозитория (org или user). `CI_IMAGE_TAG` — `latest`, short sha или версия.
+
+### 4b. Деплой со сборкой на сервере
 
 Для ускорения сборки используется кэш Docker (слои) и кэш Metro/Expo (BuildKit cache mount в frontend). Сборку выполняйте **без** `--no-cache`, если не менялись зависимости — тогда пересоберутся только изменённые слои.
 
@@ -104,7 +141,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend ale
 
 Использование **`build --no-cache`**: только при смене `package.json`/`package-lock.json` или для принудительной полной пересборки (отладка, подозрение на испорченный кэш). Сборка займёт заметно больше времени.
 
-## 4. Проверка
+## 5. Проверка
 
 Открыть `https://<ваш-домен>`, проверить логин и API.
 
@@ -135,7 +172,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml logs backend --t
 - **Frontend:** при сборке в образ передаётся DSN через build-arg: если в `.env` задан `EXPO_PUBLIC_SENTRY_DSN`, используется он; иначе — значение `SENTRY_DSN`. После деплоя с обновлённым DSN нужно пересобрать фронт: `docker compose -f docker-compose.yml -f docker-compose.prod.yml build frontend && ... up -d`.
 - Проверка на сервере: в `.env` должны быть `SENTRY_DSN=` и `SENTRY_ENVIRONMENT=production` (значения из проекта в sentry.io). Ошибки при редактировании еды и другие исключения на клиенте теперь отправляются во фронтовый проект с тегом `feature: edit_food`.
 
-## 5. Prometheus и Grafana (мониторинг)
+## 6. Prometheus и Grafana (мониторинг)
 
 В production compose поднимаются Prometheus и Grafana. Метрики backend доступны по `GET /metrics`.
 
@@ -144,7 +181,19 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml logs backend --t
 
 **Первый вход в Grafana:** откройте порт через SSH-туннель: `ssh -L 3000:127.0.0.1:3000 user@167.71.74.220`, затем в браузере `http://localhost:3000`. Логин `admin`, пароль из `GRAFANA_PASSWORD`. Добавьте Data source → Prometheus, URL: `http://prometheus:9090`, Save & Test.
 
-## 6. Обновления
+## 7. Обновления
+
+### Деплой из CI (рекомендуется)
+
+После push в `main` workflow `.github/workflows/build.yml` собирает образы и пушит в GHCR. Деплой — pull и stack deploy:
+
+```bash
+make deploy-no-push USE_CI_IMAGES=1 CI_REGISTRY_OWNER=<owner> CI_IMAGE_TAG=latest
+```
+
+Для dev: `make deploy-dev-no-push USE_CI_IMAGES=1 CI_REGISTRY_OWNER=<owner> CI_IMAGE_TAG=latest`.
+
+### Деплой со сборкой на сервере
 
 Вручную (обычное обновление кода — **без** `--no-cache`, чтобы использовать кэш слоёв и кэш Metro/Expo):
 
@@ -158,14 +207,18 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend ale
 
 - Для **рутинного деплоя** используйте `build` без флагов. Кэш npm (слой установки зависимостей) и кэш Metro/Expo (BuildKit cache mount в frontend Dockerfile) ускорят повторные сборки. BuildKit включён по умолчанию в актуальных версиях Docker.
 - **`build --no-cache`** — только если менялись `package.json`/`package-lock.json` или нужна полная пересборка.
-
-Автоматически (при push в `main`): GitHub Actions workflow `.github/workflows/deploy.yml` подключается по SSH и выполняет те же команды. Нужны секреты в Settings → Secrets and variables → Actions: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`. На сервере репозиторий должен быть в `/root/smart_trainer` (или изменить путь в workflow).
+- **Сборка только одного сервиса** (ускоряет деплой): `make deploy-no-push BUILD_SERVICES=backend` или `BUILD_SERVICES=frontend`.
 
 ### Версионирование образов и rollback
 
 При каждом деплое образы backend и frontend помечаются тегом версии: `git describe --tags --always` (например, `v0.1.0` или короткий хеш коммита). Имена образов: `st2-backend:<version>`, `st2-frontend:<version>`.
 
-**Rollback на предыдущую версию:** на сервере выполнить:
+**Rollback при деплое из CI:** указать предыдущий тег:
+```bash
+make deploy-no-push USE_CI_IMAGES=1 CI_REGISTRY_OWNER=<owner> CI_IMAGE_TAG=<previous-sha-or-version>
+```
+
+**Rollback при сборке на сервере:** на сервере выполнить:
 ```bash
 cd /root/smart_trainer
 git log -1 --format=%h   # текущий коммит
@@ -175,7 +228,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T backend alembic upgrade head || true
 ```
 
-## 7. JWT RS256 (опционально, для multi-instance / rollback)
+## 8. JWT RS256 (опционально, для multi-instance / rollback)
 
 Для нескольких реплик API за load balancer рекомендуется RS256: реплики проверяют токены по публичному ключу без доступа к секрету подписи.
 
@@ -191,7 +244,7 @@ openssl rsa -in private.pem -pubout -out public.pem
 
 **Rollback:** при откате деплоя на предыдущую версию образа сохраняйте те же ключи в `.env` (или откатывайте `.env` вместе с образом), иначе старые токены не будут приниматься.
 
-## 8. Staging
+## 9. Staging
 
 Отдельный сервер или тот же сервер с другим каталогом/namespace для тестирования перед production.
 
@@ -210,7 +263,7 @@ openssl rsa -in private.pem -pubout -out public.pem
    Если Caddy один на сервере, добавляют в `Caddyfile` второй виртуальный хост для `staging.yourdomain.com`, проксирующий на staging-frontend.
 5. Различия с production: `APP_ENV=staging`, `DEBUG=true` по умолчанию, отдельная БД и секреты.
 
-## 9. Бэкапы PostgreSQL
+## 10. Бэкапы PostgreSQL
 
 Сервис `backup` в `docker-compose.prod.yml` раз в сутки делает `pg_dump`, сжимает дамп и загружает его в S3-совместимое хранилище (Selectel, AWS или другой S3 API). Потеря базы без бэкапов недопустима — в ней хранятся логи питания и тренировок.
 

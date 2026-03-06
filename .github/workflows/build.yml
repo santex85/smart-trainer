@@ -1,0 +1,80 @@
+# Build backend and frontend images, push to GHCR.
+# Enables deploy via pull instead of on-server build (see docs/DEPLOY.md).
+name: Build images
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata and version
+        id: meta
+        run: |
+          VERSION=$(git describe --tags --always 2>/dev/null || echo "0.1.0-alpha.1")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set frontend build args
+        id: frontend-args
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "api_url=${EXPO_PUBLIC_API_URL:-https://tsspro.tech}" >> $GITHUB_OUTPUT
+          else
+            echo "api_url=${EXPO_PUBLIC_API_URL_DEV:-https://dev.tsspro.tech}" >> $GITHUB_OUTPUT
+          fi
+        env:
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || '' }}
+          EXPO_PUBLIC_API_URL_DEV: ${{ vars.EXPO_PUBLIC_API_URL_DEV || '' }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-backend:${{ steps.meta.outputs.short_sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-backend:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          build-args: |
+            EXPO_PUBLIC_API_URL=${{ steps.frontend-args.outputs.api_url }}
+            EXPO_PUBLIC_SENTRY_DSN=${{ vars.EXPO_PUBLIC_SENTRY_DSN || '' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-frontend:${{ steps.meta.outputs.short_sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-frontend:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
