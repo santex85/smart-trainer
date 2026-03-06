@@ -2499,6 +2499,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: "center",
+    alignSelf: "center",
+    maxWidth: 320,
   },
   analysisBtnDisabled: { opacity: 0.7 },
   analysisBtnText: { fontSize: 16, color: "#0f172a", fontWeight: "600" },
