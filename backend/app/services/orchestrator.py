@@ -14,6 +14,7 @@ from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import language_for_locale
 from app.config import settings
 from app.models.athlete_profile import AthleteProfile
 from app.models.chat_message import ChatMessage, MessageRole
@@ -70,19 +71,12 @@ Example (Skip):
 
 No metaphors, no long text. Output only a single JSON object, no markdown code fences."""
 
-LOCALE_LANGUAGE = {"ru": "Russian", "en": "English"}
-
-
-def _language_for_locale(locale: str) -> str:
-    return LOCALE_LANGUAGE.get((locale or "ru").lower(), "Russian")
-
-
 def _build_system_prompt(
     locale: str,
     had_workout_today: bool,
     is_evening: bool = False,
 ) -> str:
-    lang = _language_for_locale(locale)
+    lang = language_for_locale(locale)
     lang_rule = (
         f"You must respond only in {lang}. All text fields (reason, suggestions_next_days, evening_tips, plan_tomorrow) must be in this language."
     )

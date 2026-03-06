@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import Date, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, get_request_locale
+from app.api.deps import get_current_user, get_request_locale, language_for_locale
 from app.db.session import get_db
 from app.models.athlete_profile import AthleteProfile
 from app.models.food_log import FoodLog
@@ -383,13 +383,9 @@ async def get_analytics_nutrition(
     }
 
 
-def _language_for_locale(locale: str) -> str:
-    return {"ru": "Russian", "en": "English"}.get((locale or "ru").lower(), "Russian")
-
-
 def _insight_instruction(chart_type: str, has_question: bool, locale: str = "ru") -> str:
     """Return chart-type-specific instruction for the AI insight. Reply in user's language."""
-    lang = _language_for_locale(locale)
+    lang = language_for_locale(locale)
     lang_rule = f"Reply only in {lang}."
     if has_question:
         return f"{lang_rule} Answer briefly in 2–5 bullet points. Use only the numbers from the data; do not invent data."
@@ -426,7 +422,7 @@ def _insight_instruction(chart_type: str, has_question: bool, locale: str = "ru"
 
 def _insight_instruction_teaser(locale: str = "ru") -> str:
     """One-sentence teaser for free users. Reply in user's language."""
-    lang = _language_for_locale(locale)
+    lang = language_for_locale(locale)
     return f"Reply only in {lang}. Give exactly one short sentence summarizing the main trend or takeaway. No bullet points, no lists."
 
 

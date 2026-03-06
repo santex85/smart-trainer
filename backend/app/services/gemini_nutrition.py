@@ -7,6 +7,7 @@ import json
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
+from app.api.deps import language_for_locale
 from app.config import settings
 from app.schemas.nutrition import NutritionAnalysisResult
 from app.services.gemini_common import run_generate_content
@@ -32,12 +33,8 @@ SAFETY_SETTINGS = {
     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
 }
 
-def _language_for_locale(locale: str) -> str:
-    return {"ru": "Russian", "en": "English"}.get((locale or "ru").lower(), "Russian")
-
-
 def _nutrition_system_prompt(locale: str, extended: bool) -> str:
-    lang = _language_for_locale(locale)
+    lang = language_for_locale(locale)
     lang_rule = (
         f"You communicate with the user. All text values in your JSON (e.g. dish name in 'name') must be STRICTLY in {lang}. "
         "JSON keys must always be in English (name, portion_grams, calories, protein_g, fat_g, carbs_g); only values may be in the user's language."
@@ -114,7 +111,7 @@ async def analyze_food_from_image(
 
 
 def _text_recalc_prompt(locale: str, extended: bool) -> str:
-    lang = _language_for_locale(locale)
+    lang = language_for_locale(locale)
     lang_rule = (
         f"All text values in JSON (e.g. dish name in 'name') must be in {lang}. "
         "JSON keys must always be in English; only values may be in the user's language."

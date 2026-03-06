@@ -8,6 +8,7 @@ import re
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
+from app.api.deps import language_for_locale
 from app.config import settings
 from app.schemas.sleep_extraction import SleepExtractionResult
 from app.services.gemini_common import run_generate_content
@@ -75,12 +76,8 @@ Blood oxygen ("Кислород в крови"): if the screenshot shows SpO2 / 
 Rules: No rounding. Fill factor_ratings from the factors section; fill phase minutes from graph or text; add sleep_phases timeline if you can estimate segments. Prefer null over guessing. Output ONLY valid JSON, no markdown."""
 
 
-def _language_for_locale(locale: str) -> str:
-    return {"ru": "Russian", "en": "English"}.get((locale or "ru").lower(), "Russian")
-
-
 def _sleep_prompt_with_locale(base_prompt: str, locale: str) -> str:
-    lang = _language_for_locale(locale)
+    lang = language_for_locale(locale)
     lang_rule = (
         f"JSON keys must always be in English (e.g. sleep_hours, factor_ratings, raw_notes). "
         f"Text values (e.g. factor_ratings values, raw_notes) must be in {lang}."

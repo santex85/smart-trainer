@@ -24,11 +24,23 @@ REMINDER_TYPE_NUTRITION_AFTER_LONG = "nutrition_after_long"
 RECOVERY_PUSH_BY_LOCALE = {
     "ru": ("Восстановление", "Вчера была тяжёлая тренировка. Открой приложение — там советы по восстановлению."),
     "en": ("Recovery", "You had a heavy workout yesterday. Open the app for recovery advice."),
+    "de": ("Erholung", "Gestern hattest du ein hartes Training. Öffne die App für Erholungstipps."),
+    "fr": ("Récupération", "Vous avez fait un entraînement intense hier. Ouvrez l'app pour des conseils de récupération."),
+    "es": ("Recuperación", "Ayer tuviste un entrenamiento intenso. Abre la app para consejos de recuperación."),
+    "it": ("Recupero", "Ieri hai fatto un allenamento intenso. Apri l'app per consigli sul recupero."),
+    "pt": ("Recuperação", "Você fez um treino pesado ontem. Abra o app para dicas de recuperação."),
+    "th": ("การฟื้นตัว", "เมื่อวานคุณออกกำลังหนัก เปิดแอปเพื่อดูคำแนะนำการฟื้นตัว"),
 }
 
 CTL_DROP_PUSH_BY_LOCALE = {
     "ru": ("Форма", "Твоя форма (CTL) снижается. Пора на станок."),
     "en": ("Fitness", "Your fitness (CTL) is dropping. Time to get on the bike."),
+    "de": ("Form", "Deine Form (CTL) sinkt. Zeit, aufs Rad zu steigen."),
+    "fr": ("Forme", "Votre forme (CTL) baisse. Il est temps de monter sur le vélo."),
+    "es": ("Forma", "Tu forma (CTL) está bajando. Es hora de subirte a la bici."),
+    "it": ("Forma", "La tua forma (CTL) sta calando. È ora di salire in sella."),
+    "pt": ("Forma", "Sua forma (CTL) está caindo. Hora de subir na bike."),
+    "th": ("ความฟิต", "ความฟิต (CTL) ของคุณกำลังลด ถึงเวลาออกกำลังแล้ว"),
 }
 
 NUTRITION_AFTER_LONG_PUSH_BY_LOCALE = {
@@ -39,6 +51,30 @@ NUTRITION_AFTER_LONG_PUSH_BY_LOCALE = {
     "en": (
         "Nutrition",
         "Long base burned a lot of calories. Send a photo of your plate so the AI can check your carb window.",
+    ),
+    "de": (
+        "Ernährung",
+        "Lange Grundlage hat viele Kalorien verbrannt. Schick ein Foto deines Tellers, damit die KI dein Kohlenhydratfenster prüft.",
+    ),
+    "fr": (
+        "Nutrition",
+        "Une longue sortie a brûlé beaucoup de calories. Envoyez une photo de votre assiette pour que l'IA vérifie votre fenêtre glucidique.",
+    ),
+    "es": (
+        "Nutrición",
+        "La base larga quemó muchas calorías. Envía una foto de tu plato para que la IA revise tu ventana de carbohidratos.",
+    ),
+    "it": (
+        "Nutrizione",
+        "La lunga base ha bruciato molte calorie. Invia una foto del piatto così l'IA può verificare la tua finestra dei carboidrati.",
+    ),
+    "pt": (
+        "Nutrição",
+        "A base longa queimou muitas calorias. Envie uma foto do prato para a IA verificar sua janela de carboidratos.",
+    ),
+    "th": (
+        "โภชนาการ",
+        "การออกกำลังเบานานเผาผลาญแคลอรีมาก ส่งรูปจานอาหารมาให้ AI ตรวจสอบช่วงคาร์บ",
     ),
 }
 

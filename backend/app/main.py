@@ -58,6 +58,12 @@ LOCK_WEEKLY_SUMMARY = "weekly_summary"
 ORCHESTRATOR_PUSH_TITLE_BY_LOCALE = {
     "ru": "Решение на день",
     "en": "Daily decision",
+    "de": "Tagesentscheidung",
+    "fr": "Décision du jour",
+    "es": "Decisión del día",
+    "it": "Decisione del giorno",
+    "pt": "Decisão do dia",
+    "th": "การตัดสินใจประจำวัน",
 }
 
 
@@ -104,6 +110,12 @@ async def scheduled_orchestrator_run():
 SLEEP_REMINDER_BY_LOCALE = {
     "ru": ("Сон", "Укажите данные сна за сегодня или загрузите скриншот."),
     "en": ("Sleep", "Enter today's sleep data or upload a screenshot."),
+    "de": ("Schlaf", "Gib deine Schlafdaten für heute ein oder lade einen Screenshot hoch."),
+    "fr": ("Sommeil", "Entrez vos données de sommeil d'aujourd'hui ou téléchargez une capture d'écran."),
+    "es": ("Sueño", "Introduce los datos de sueño de hoy o sube una captura de pantalla."),
+    "it": ("Sonno", "Inserisci i dati del sonno di oggi o carica uno screenshot."),
+    "pt": ("Sono", "Informe os dados de sono de hoje ou envie uma captura de tela."),
+    "th": ("การนอน", "กรอกข้อมูลการนอนวันนี้หรืออัปโหลดภาพหน้าจอ"),
 }
 
 

@@ -42,7 +42,23 @@ async def get_current_user(
     return user
 
 
-SUPPORTED_LOCALES = frozenset({"ru", "en"})
+SUPPORTED_LOCALES = frozenset({"ru", "en", "de", "fr", "es", "it", "pt", "th"})
+
+LOCALE_TO_LANGUAGE = {
+    "ru": "Russian",
+    "en": "English",
+    "de": "German",
+    "fr": "French",
+    "es": "Spanish",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "th": "Thai",
+}
+
+
+def language_for_locale(locale: str) -> str:
+    """Map locale code to language name for AI prompts. Fallback: Russian."""
+    return LOCALE_TO_LANGUAGE.get((locale or "ru").lower(), "Russian")
 
 
 def _normalize_locale(value: str | None) -> str:

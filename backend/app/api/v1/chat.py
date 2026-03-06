@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import check_chat_usage, get_current_user, get_request_locale, require_premium
+from app.api.deps import check_chat_usage, get_current_user, get_request_locale, language_for_locale, require_premium
 from app.db.session import get_db
 from app.models.athlete_profile import AthleteProfile
 from app.models.chat_message import ChatMessage, MessageRole
@@ -98,11 +98,8 @@ Avoid repetition and rigid structure:
 - Vary your responses: do not use the same template every time (e.g. load then sleep then nutrition then advice). Answer the user's specific question first; add one or two relevant facts only when needed.
 - For short user messages (e.g. "What should I do tomorrow?", "A bit", "No"), give a short, focused reply without re-listing all metrics."""
 
-CHAT_LOCALE_LANGUAGE = {"ru": "Russian", "en": "English"}
-
-
 def _chat_system_with_locale(locale: str, is_premium: bool = False) -> str:
-    lang = CHAT_LOCALE_LANGUAGE.get((locale or "ru").lower(), "Russian")
+    lang = language_for_locale(locale)
     base = CHAT_SYSTEM_PREMIUM if is_premium else CHAT_SYSTEM_REGULAR
     return f"You must respond only in {lang}. All your reply must be in this language.\n\n{base}"
 

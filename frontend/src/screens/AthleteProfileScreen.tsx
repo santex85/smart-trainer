@@ -21,7 +21,19 @@ import {
   createPortalSession,
   type AthleteProfileResponse,
 } from "../api/client";
-import { useTranslation } from "../i18n";
+import { useTranslation, type Locale } from "../i18n";
+
+const LOCALES: Locale[] = ["ru", "en", "de", "fr", "es", "it", "pt", "th"];
+const SETTINGS_LANG_KEYS: Record<Locale, string> = {
+  ru: "settings.langRu",
+  en: "settings.langEn",
+  de: "settings.langDe",
+  fr: "settings.langFr",
+  es: "settings.langEs",
+  it: "settings.langIt",
+  pt: "settings.langPt",
+  th: "settings.langTh",
+};
 
 const DEFAULT_CALORIE_GOAL = 2200;
 const DEFAULT_PROTEIN_GOAL = 120;
@@ -286,22 +298,27 @@ export function AthleteProfileScreen({
 
         <View style={styles.languageSection}>
           <Text style={styles.sectionTitle}>{t("settings.language")}</Text>
-          <TouchableOpacity
-            style={styles.languageRow}
-            onPress={async () => {
-              const next = locale === "ru" ? "en" : "ru";
-              setLocale(next);
-              try {
-                await updateAthleteProfile({ locale: next });
-                setProfile((p) => (p ? { ...p, locale: next } : p));
-              } catch {
-                // locale already updated in UI and API client
-              }
-            }}
-          >
-            <Text style={styles.languageLabel}>{locale === "ru" ? t("settings.langRu") : t("settings.langEn")}</Text>
-            <Text style={styles.languageHint}>{locale === "ru" ? t("settings.langSwitchToEn") : t("settings.langSwitchToRu")}</Text>
-          </TouchableOpacity>
+          {LOCALES.map((loc) => (
+            <TouchableOpacity
+              key={loc}
+              style={styles.languageRow}
+              onPress={async () => {
+                if (loc === locale) return;
+                setLocale(loc);
+                try {
+                  await updateAthleteProfile({ locale: loc });
+                  setProfile((p) => (p ? { ...p, locale: loc } : p));
+                } catch {
+                  // locale already updated in UI and API client
+                }
+              }}
+            >
+              <Text style={styles.languageLabel}>{t(SETTINGS_LANG_KEYS[loc])}</Text>
+              {loc === locale && (
+                <Text style={styles.languageHint}>✓</Text>
+              )}
+            </TouchableOpacity>
+          ))}
         </View>
 
         {editing ? (

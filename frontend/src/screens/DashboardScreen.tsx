@@ -56,7 +56,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../theme";
-import { useTranslation } from "../i18n";
+import { useTranslation, type Locale } from "../i18n";
 import { useLoadingStages } from "../hooks/useLoadingStages";
 import { PremiumGateModal } from "../components/PremiumGateModal";
 
@@ -66,6 +66,18 @@ const PROTEIN_GOAL = 120;
 const FAT_GOAL = 80;
 
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack", "other"] as const;
+
+const LOCALES: Locale[] = ["ru", "en", "de", "fr", "es", "it", "pt", "th"];
+const SETTINGS_LANG_KEYS: Record<Locale, string> = {
+  ru: "settings.langRu",
+  en: "settings.langEn",
+  de: "settings.langDe",
+  fr: "settings.langFr",
+  es: "settings.langEs",
+  it: "settings.langIt",
+  pt: "settings.langPt",
+  th: "settings.langTh",
+};
 
 function getTodayLocal(): string {
   const d = new Date();
@@ -78,9 +90,20 @@ function addDays(isoDate: string, days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatNavDate(isoDate: string, locale: "ru" | "en"): string {
+const LOCALE_BCP47: Record<Locale, string> = {
+  ru: "ru-RU",
+  en: "en-US",
+  de: "de-DE",
+  fr: "fr-FR",
+  es: "es-ES",
+  it: "it-IT",
+  pt: "pt-BR",
+  th: "th-TH",
+};
+
+function formatNavDate(isoDate: string, locale: Locale): string {
   const d = new Date(isoDate + "T12:00:00");
-  const lang = locale === "ru" ? "ru-RU" : "en-US";
+  const lang = LOCALE_BCP47[locale] ?? "en-US";
   return d.toLocaleDateString(lang, { day: "numeric", month: "short" });
 }
 
@@ -1120,6 +1143,7 @@ export function DashboardScreen({
   const [sleepReanalyzeCorrection, setSleepReanalyzeCorrection] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuView, setMenuView] = useState<"main" | "settings">("main");
+  const [languagePickerVisible, setLanguagePickerVisible] = useState(false);
   const [premiumGateVisible, setPremiumGateVisible] = useState(false);
   const { t, locale, setLocale } = useTranslation();
   const { colors, toggleTheme } = useTheme();
@@ -1478,17 +1502,58 @@ export function DashboardScreen({
                   style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                    setLocale(locale === "ru" ? "en" : "ru");
+                    setMenuVisible(false);
+                    setLanguagePickerVisible(true);
                   }}
                 >
                   <Ionicons name="language-outline" size={22} color="#9ca3af" style={styles.menuItemIcon} />
                   <Text style={styles.menuItemText}>{t("settings.language")}</Text>
                   <Text style={[styles.menuItemText, { flex: 0, color: "#94a3b8", fontSize: 14 }]}>
-                    {locale === "ru" ? t("settings.langRu") : t("settings.langEn")}
+                    {t(SETTINGS_LANG_KEYS[locale])}
                   </Text>
                 </Pressable>
               </>
             )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+      <Modal
+        visible={languagePickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLanguagePickerVisible(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setLanguagePickerVisible(false)}
+        >
+          <Pressable style={[styles.languagePickerCard, { backgroundColor: colors?.glassBg ?? "#1e293b", borderColor: colors?.glassBorder ?? "#334155" }]} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.languagePickerTitle}>{t("settings.language")}</Text>
+            {LOCALES.map((loc) => (
+              <TouchableOpacity
+                key={loc}
+                style={[styles.languagePickerRow, loc === locale && styles.languagePickerRowActive]}
+                onPress={async () => {
+                  if (loc === locale) {
+                    setLanguagePickerVisible(false);
+                    return;
+                  }
+                  setLocale(loc);
+                  try {
+                    await updateAthleteProfile({ locale: loc });
+                  } catch {
+                    // locale already updated in UI and API client
+                  }
+                  setLanguagePickerVisible(false);
+                }}
+              >
+                <Text style={styles.languagePickerLabel}>{t(SETTINGS_LANG_KEYS[loc])}</Text>
+                {loc === locale && <Text style={styles.languagePickerCheck}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.languagePickerClose} onPress={() => setLanguagePickerVisible(false)}>
+              <Text style={styles.languagePickerCloseText}>{t("common.close")}</Text>
+            </TouchableOpacity>
           </Pressable>
         </Pressable>
       </Modal>
@@ -2279,6 +2344,28 @@ const styles = StyleSheet.create({
   modalBtnDisabled: { opacity: 0.7 },
   deleteConfirmBox: { marginTop: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#334155" },
   deleteConfirmTitle: { fontSize: 16, fontWeight: "600", color: "#e2e8f0", marginBottom: 4 },
+  languagePickerCard: {
+    borderRadius: 24,
+    padding: 20,
+    maxWidth: 320,
+    width: "100%",
+    borderWidth: 1,
+  },
+  languagePickerTitle: { fontSize: 18, fontWeight: "600", color: "#e2e8f0", marginBottom: 16 },
+  languagePickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  languagePickerRowActive: { backgroundColor: "rgba(56, 189, 248, 0.2)" },
+  languagePickerLabel: { fontSize: 16, color: "#e2e8f0" },
+  languagePickerCheck: { fontSize: 16, color: "#38bdf8", fontWeight: "600" },
+  languagePickerClose: { marginTop: 12, paddingVertical: 10, alignItems: "center" },
+  languagePickerCloseText: { fontSize: 16, color: "#94a3b8" },
   deleteConfirmMessage: { fontSize: 14, color: "#94a3b8", marginBottom: 12 },
   deleteConfirmActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
   calendarRow: { flexDirection: "row", alignItems: "center", marginTop: 10, gap: 12 },

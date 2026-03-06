@@ -3,10 +3,14 @@
  * between api/client and i18n/context.
  */
 
+const SUPPORTED_API_LOCALES = ["ru", "en", "de", "fr", "es", "it", "pt", "th"] as const;
+
 let apiLocale = "ru";
 
 export function setApiLocale(locale: string): void {
-  apiLocale = locale === "en" ? "en" : "ru";
+  apiLocale = SUPPORTED_API_LOCALES.includes(locale as (typeof SUPPORTED_API_LOCALES)[number])
+    ? locale
+    : "ru";
 }
 
 export function getApiLocale(): string {

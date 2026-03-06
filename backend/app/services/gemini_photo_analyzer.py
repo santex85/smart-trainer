@@ -9,6 +9,7 @@ import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from pydantic import ValidationError
 
+from app.api.deps import language_for_locale
 from app.config import settings
 from app.schemas.nutrition import NutritionAnalysisResult
 from app.schemas.photo import WellnessPhotoResult, WorkoutPhotoResult
@@ -71,12 +72,8 @@ When type is "workout", set "workout" to: {
 Output ONLY valid JSON. No markdown."""
 
 
-def _language_for_locale(locale: str) -> str:
-    return {"ru": "Russian", "en": "English"}.get((locale or "ru").lower(), "Russian")
-
-
 def _photo_system_prompt(locale: str, reference_date: str | None = None) -> str:
-    lang = _language_for_locale(locale)
+    lang = language_for_locale(locale)
     lang_rule = (
         f"All text values in your JSON (dish name in food.name, workout name/notes, raw_notes, factor_ratings values) must be STRICTLY in {lang}. "
         "JSON keys must always be in English (e.g. name, type, food, sleep, workout); only string values may be in the user's language."

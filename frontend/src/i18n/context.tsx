@@ -30,8 +30,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(LOCALE_STORAGE_KEY)
       .then((stored) => {
-        if (stored === "ru" || stored === "en") {
-          setLocaleState(stored);
+        const supported = ["ru", "en", "de", "fr", "es", "it", "pt", "th"] as const;
+        if (stored && supported.includes(stored as (typeof supported)[number])) {
+          setLocaleState(stored as Locale);
           setApiLocale(stored);
         }
       })
