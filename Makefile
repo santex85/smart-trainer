@@ -12,6 +12,13 @@ DEV_DEPLOY_USER ?= root
 DEV_DEPLOY_PATH ?= /root/smart_trainer
 REPO_URL ?= $(shell git remote get-url origin 2>/dev/null || true)
 
+# Stack deploy compose files: add low-resources override for dev (1 vCPU) to avoid CPU overload
+ifeq ($(DEPLOY_HOST),$(DEV_DEPLOY_HOST))
+STACK_DEPLOY_FILES = -c docker-compose.yml -c docker-compose.prod.yml -c docker-compose.low-resources.yml
+else
+STACK_DEPLOY_FILES = -c docker-compose.yml -c docker-compose.prod.yml
+endif
+
 # Версия для образов: из Git тега (v0.1.0-alpha.1) или коммита. В проде — только протегированные сборки.
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "0.1.0-alpha.1")
 
@@ -87,7 +94,7 @@ deploy-no-push:
 	else \
 		BRANCH_CMD='git pull'; \
 	fi; \
-	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && $$BRANCH_CMD && $(COMPOSE_PROD) build && set -a && . ./.env && set +a && docker stack deploy -c docker-compose.yml -c docker-compose.prod.yml st2 && sleep 25 && export DATABASE_URL=\"postgresql+asyncpg://\$${POSTGRES_USER:-smart_trainer}:\$${POSTGRES_PASSWORD}@st2_postgres:5432/\$${POSTGRES_DB:-smart_trainer}\" && docker run --rm --network st2_backend-db -e DATABASE_URL=\"\$$DATABASE_URL\" st2-backend:latest alembic upgrade head"
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && $$BRANCH_CMD && $(COMPOSE_PROD) build && set -a && . ./.env && set +a && docker stack deploy $(STACK_DEPLOY_FILES) st2 && sleep 25 && export DATABASE_URL=\"postgresql+asyncpg://\$${POSTGRES_USER:-smart_trainer}:\$${POSTGRES_PASSWORD}@st2_postgres:5432/\$${POSTGRES_DB:-smart_trainer}\" && docker run --rm --network st2_backend-db -e DATABASE_URL=\"\$$DATABASE_URL\" st2-backend:latest alembic upgrade head"
 	@if [ -n '$(DEPLOY_BRANCH)' ]; then echo "Деплой завершён: https://dev.tsspro.tech"; else echo "Деплой завершён: https://tsspro.tech"; fi
 
 # Однократно: снять стек и удалить overlay-сети, чтобы при следующем deploy они создались с attachable: true (для docker run миграций).

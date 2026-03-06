@@ -1,0 +1,37 @@
+# Override for 1 vCPU servers (e.g. dev/test droplet). Use with stack deploy:
+#   docker stack deploy -c docker-compose.yml -c docker-compose.prod.yml -c docker-compose.low-resources.yml st2
+# Total CPU limit ~0.95 to avoid host overload. Do not use for production with more CPUs.
+services:
+  postgres:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+        reservations:
+          cpus: "0.15"
+  redis:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+  minio:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+        reservations:
+          cpus: "0.05"
+  backend:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.35"
+        reservations:
+          cpus: "0.15"
+  frontend:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+        reservations:
+          cpus: "0.05"
