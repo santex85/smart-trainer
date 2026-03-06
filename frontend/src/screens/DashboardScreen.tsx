@@ -25,6 +25,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import {
   getNutritionDay,
   createNutritionEntry,
+  addFoodFromText,
   updateNutritionEntry,
   deleteNutritionEntry,
   reanalyzeNutritionEntry,
@@ -452,6 +453,108 @@ const EditFoodEntryModal = React.memo(function EditFoodEntryModal({
               </TouchableOpacity>
             </View>
           )}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+});
+
+const AddFoodModal = React.memo(function AddFoodModal({
+  targetDate,
+  onClose,
+  onSaved,
+}: {
+  targetDate: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = useTranslation();
+  const [name, setName] = useState("");
+  const [portionGrams, setPortionGrams] = useState("");
+  const [mealType, setMealType] = useState("other");
+  const [adding, setAdding] = useState(false);
+
+  const handleAdd = async () => {
+    const n = name.trim();
+    if (!n) {
+      Alert.alert(t("common.error"), t("dashboard.validationName"));
+      return;
+    }
+    const p = Number(portionGrams);
+    if (Number.isNaN(p) || p < 0) {
+      Alert.alert(t("common.error"), t("dashboard.validationPortion"));
+      return;
+    }
+    setAdding(true);
+    try {
+      await addFoodFromText({
+        name: n,
+        portion_grams: p,
+        meal_type: mealType,
+        date: targetDate,
+      });
+      onSaved();
+      onClose();
+    } catch (e) {
+      Sentry.captureException(e, { tags: { feature: "add_food", action: "add" } });
+      Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.saveFailed"));
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <Modal visible transparent animationType="fade">
+      <Pressable style={[styles.modalBackdrop, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={onClose}>
+        <Pressable style={[styles.modalBox, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={(e) => e.stopPropagation()}>
+          <Text style={styles.modalTitle}>{t("nutrition.addFoodTitle")}</Text>
+          <Text style={[styles.modalLabel, { marginBottom: 12, opacity: 0.9 }]}>{t("nutrition.addFoodHint")}</Text>
+          <ScrollView keyboardShouldPersistTaps="handled" style={styles.modalScroll}>
+            <Text style={styles.modalLabel}>{t("nutrition.entryName")}</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={name}
+              onChangeText={setName}
+              placeholder={t("nutrition.dishNamePlaceholder")}
+              placeholderTextColor="#64748b"
+              autoCapitalize="none"
+            />
+            <Text style={styles.modalLabel}>{t("nutrition.portionG")}</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={portionGrams}
+              onChangeText={setPortionGrams}
+              keyboardType="numeric"
+              placeholder="100"
+              placeholderTextColor="#64748b"
+            />
+            <Text style={styles.modalLabel}>{t("nutrition.mealType")}</Text>
+            <View style={styles.mealTypeRow}>
+              {MEAL_TYPES.map((mealKey) => (
+                <TouchableOpacity
+                  key={mealKey}
+                  onPress={() => setMealType(mealKey)}
+                  style={[styles.mealTypeBtn, mealType === mealKey && styles.mealTypeBtnActive]}
+                >
+                  <Text style={[styles.mealTypeBtnText, mealType === mealKey && styles.mealTypeBtnTextActive]}>
+                    {t(`camera.meal${mealKey.charAt(0).toUpperCase() + mealKey.slice(1)}`)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+          <View style={styles.modalActionsColumn}>
+            <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
+              <Text style={styles.modalBtnCancelText}>{t("common.cancel")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtnSave, adding && styles.modalBtnDisabled]}
+              onPress={handleAdd}
+              disabled={adding}
+            >
+              {adding ? <ActivityIndicator size="small" color="#0f172a" /> : <Text style={styles.modalBtnSaveText}>{t("common.add")}</Text>}
+            </TouchableOpacity>
+          </View>
         </Pressable>
       </Pressable>
     </Modal>
@@ -1098,6 +1201,7 @@ export function DashboardScreen({
   const [wellnessWeek, setWellnessWeek] = useState<WellnessDay[]>([]);
   const [athleteProfile, setAthleteProfile] = useState<AthleteProfileResponse | null>(null);
   const [wellnessEditVisible, setWellnessEditVisible] = useState(false);
+  const [addFoodModalVisible, setAddFoodModalVisible] = useState(false);
   const [workoutAddVisible, setWorkoutAddVisible] = useState(false);
   const [fitUploading, setFitUploading] = useState(false);
   const [fitPreviewData, setFitPreviewData] = useState<{ file: Blob; preview: WorkoutPreviewItem } | null>(null);
@@ -1625,7 +1729,10 @@ export function DashboardScreen({
         <>
           <Text style={styles.sectionTitle}>{t("nutrition.title")}</Text>
           <View style={glassCardStyle}>
-            <View style={[styles.cardTitleRow, { justifyContent: "flex-end" }]}>
+            <View style={[styles.cardTitleRow, { justifyContent: "space-between" }]}>
+              <TouchableOpacity onPress={() => setAddFoodModalVisible(true)} style={styles.outlineButton}>
+                <Text style={styles.outlineButtonText}>{t("nutrition.addManually")}</Text>
+              </TouchableOpacity>
               <View style={styles.cardTitleActions}>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(addDays(nutritionDate, -1))}
@@ -2007,6 +2114,17 @@ export function DashboardScreen({
             />
           ) : null}
 
+          {addFoodModalVisible ? (
+            <AddFoodModal
+              targetDate={nutritionDate}
+              onClose={() => setAddFoodModalVisible(false)}
+              onSaved={() => {
+                setAddFoodModalVisible(false);
+                loadNutritionForDate(nutritionDate);
+              }}
+            />
+          ) : null}
+
           {wellnessEditVisible ? (
             <EditWellnessModal
               date={today}
@@ -2159,12 +2277,16 @@ export function DashboardScreen({
       )}
       </View>
       </ScrollView>
-      <View style={styles.fabWrapper}>
-        <LinearGradient colors={["#3b82f6", "#8b5cf6"]} style={StyleSheet.absoluteFill} />
-        <TouchableOpacity style={styles.fabTouchable} onPress={onOpenCamera} activeOpacity={0.9}>
-          <Text style={styles.fabLabel}>📷</Text>
-          <Text style={styles.fabText}>{t("dashboard.photo")}</Text>
-        </TouchableOpacity>
+      <View style={styles.fabLayer} pointerEvents="box-none">
+        <View style={[styles.fabRail, Platform.OS === "web" && styles.fabRailWeb]} pointerEvents="box-none">
+          <View style={styles.fabWrapper}>
+            <LinearGradient colors={["#3b82f6", "#8b5cf6"]} style={StyleSheet.absoluteFill} />
+            <TouchableOpacity style={styles.fabTouchable} onPress={onOpenCamera} activeOpacity={0.9}>
+              <Text style={styles.fabLabel}>📷</Text>
+              <Text style={styles.fabText}>{t("dashboard.photo")}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -2404,6 +2526,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: "center",
+    alignSelf: "center",
+    maxWidth: 320,
   },
   analysisBtnDisabled: { opacity: 0.7 },
   analysisBtnText: { fontSize: 16, color: "#0f172a", fontWeight: "600" },
@@ -2412,10 +2536,22 @@ const styles = StyleSheet.create({
   orchestratorUpgradeBtnText: { fontSize: 16, fontWeight: "600" },
   chatLink: { marginTop: 16, paddingVertical: 12 },
   chatLinkText: { fontSize: 16, color: "#38bdf8" },
-  fabWrapper: {
+  fabLayer: {
     position: "absolute",
+    left: 0,
+    right: 0,
     bottom: 24,
-    left: 20,
+  },
+  fabRail: {
+    width: "100%",
+    paddingHorizontal: 20,
+    alignItems: "flex-end",
+  },
+  fabRailWeb: {
+    maxWidth: 960,
+    alignSelf: "center",
+  },
+  fabWrapper: {
     borderRadius: 28,
     overflow: "hidden",
     elevation: 8,
