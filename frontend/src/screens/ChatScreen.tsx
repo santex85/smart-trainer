@@ -30,7 +30,7 @@ import {
   type ChatMessage,
   type ChatThreadItem,
 } from "../api/client";
-import { useTheme } from "../theme";
+import { useTheme, contentWrap } from "../theme";
 import { useTranslation } from "../i18n";
 import { useLoadingStages } from "../hooks/useLoadingStages";
 import { Ionicons } from "@expo/vector-icons";
@@ -395,12 +395,13 @@ export function ChatScreen({
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
-    <KeyboardAvoidingView
-      style={styles.flex1}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={80}
-    >
-      <View style={[styles.header, { backgroundColor: colors.glassBg, borderBottomColor: colors.glassBorder }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
+      <View style={[styles.flex1, contentWrap]}>
+        <KeyboardAvoidingView
+          style={styles.flex1}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={80}
+        >
+          <View style={[styles.header, { backgroundColor: colors.glassBg, borderBottomColor: colors.glassBorder }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
         <Text style={[styles.title, { color: colors.text }]}>{t("chat.title")}</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity onPress={onNewChat} style={styles.headerBtn}>
@@ -558,14 +559,15 @@ export function ChatScreen({
           <Ionicons name="send" size={20} color={colors.primaryText ?? "#0f172a"} />
         </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={[styles.orchBtn, loading && styles.sendBtnDisabled]}
-        onPress={() => send(true)}
-        disabled={loading}
-      >
-        <Text style={styles.orchBtnText}>{t("chat.solutionToday")}</Text>
-      </TouchableOpacity>
-    </KeyboardAvoidingView>
+          <TouchableOpacity
+            style={[styles.orchBtn, loading && styles.sendBtnDisabled]}
+            onPress={() => send(true)}
+            disabled={loading}
+          >
+            <Text style={styles.orchBtnText}>{t("chat.solutionToday")}</Text>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </View>
 
       <Modal visible={renameModalOpen} transparent animationType="fade">
         <Pressable style={styles.renameBackdrop} onPress={() => setRenameModalOpen(false)}>

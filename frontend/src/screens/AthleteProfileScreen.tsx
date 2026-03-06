@@ -22,6 +22,7 @@ import {
   type AthleteProfileResponse,
 } from "../api/client";
 import { useTranslation, type Locale } from "../i18n";
+import { contentWrap } from "../theme";
 
 const LOCALES: Locale[] = ["ru", "en", "de", "fr", "es", "it", "pt", "th"];
 const SETTINGS_LANG_KEYS: Record<Locale, string> = {
@@ -224,13 +225,14 @@ export function AthleteProfileScreen({
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onClose}>
-          <Text style={styles.closeText}>{t("common.close")}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{t("athleteProfile.title")}</Text>
-      </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+      <View style={[styles.scroll, contentWrap]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onClose}>
+            <Text style={styles.closeText}>{t("common.close")}</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>{t("athleteProfile.title")}</Text>
+        </View>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.displayName}>{profile?.display_name ?? "—"}</Text>
 
         {profile?.dev_can_toggle_premium ? (
@@ -566,7 +568,8 @@ export function AthleteProfileScreen({
             </TouchableOpacity>
           </>
         )}
-      </ScrollView>
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -640,10 +643,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "#16213e",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "#334155",
     marginTop: 8,
   },
   languageLabel: { fontSize: 16, fontWeight: "600", color: "#e2e8f0" },

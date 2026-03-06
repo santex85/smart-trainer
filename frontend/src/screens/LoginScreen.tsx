@@ -14,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { login, type AuthUser } from "../api/client";
 import { useTranslation } from "../i18n";
 import { setAccessToken, setRefreshToken } from "../storage/authStorage";
-import { useTheme } from "../theme";
+import { useTheme, contentWrap } from "../theme";
 
 function getErrorMessage(e: unknown, t: (key: string) => string): string {
   if (!(e instanceof Error)) return t("auth.requestError");
@@ -68,8 +68,9 @@ export function LoginScreen({
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={20}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={[styles.cardBase, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderWidth: 1, borderRadius: colors.borderRadiusLg, padding: 20 }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
+        <View style={[styles.flex, contentWrap]}>
+          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+            <View style={[styles.cardBase, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderWidth: 1, borderRadius: colors.borderRadiusLg, padding: 20 }, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
             <Text style={[styles.title, { color: colors.text }]}>{t("auth.loginTitle")}</Text>
             <Text style={[styles.hint, { color: colors.textMuted }]}>{t("auth.email")}</Text>
             <TextInput
@@ -109,7 +110,8 @@ export function LoginScreen({
               <Text style={[styles.linkText, { color: colors.primary }]}>{t("auth.createAccount")}</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
+          </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

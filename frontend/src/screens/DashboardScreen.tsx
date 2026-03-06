@@ -55,7 +55,7 @@ import {
 } from "../api/client";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useTheme } from "../theme";
+import { useTheme, contentWrap } from "../theme";
 import { useTranslation, type Locale } from "../i18n";
 import { useLoadingStages } from "../hooks/useLoadingStages";
 import { PremiumGateModal } from "../components/PremiumGateModal";
@@ -1527,7 +1527,7 @@ export function DashboardScreen({
           style={styles.modalBackdrop}
           onPress={() => setLanguagePickerVisible(false)}
         >
-          <Pressable style={[styles.languagePickerCard, { backgroundColor: colors?.glassBg ?? "#1e293b", borderColor: colors?.glassBorder ?? "#334155" }]} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[styles.languagePickerCard, { backgroundColor: colors?.surface ?? "#16213e", borderColor: colors?.glassBorder ?? "#334155" }]} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.languagePickerTitle}>{t("settings.language")}</Text>
             {LOCALES.map((loc) => (
               <TouchableOpacity
@@ -1567,7 +1567,7 @@ export function DashboardScreen({
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-      <View style={styles.contentWrap}>
+      <View style={contentWrap}>
       <View style={styles.topBar}>
         <View>
           <Text style={styles.brandTitle}>{t("app.brandTitle")}</Text>
@@ -2166,7 +2166,6 @@ const styles = StyleSheet.create({
   userEmail: { fontSize: 14, color: "#b8c5d6", flex: 1, marginRight: 12 },
   logoutText: { fontSize: 14, color: "#38bdf8" },
   content: { padding: 20, paddingBottom: 120 },
-  contentWrap: { maxWidth: 960, width: "100%", alignSelf: "center" as const },
   topBar: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12 },
   menuIconBtn: { padding: 8 },
   menuIcon: { fontSize: 24, color: "#38bdf8", fontWeight: "700" },

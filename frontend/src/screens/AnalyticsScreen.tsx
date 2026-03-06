@@ -27,7 +27,7 @@ import {
   type AnalyticsWorkoutsResponse,
   type AnalyticsNutritionResponse,
 } from "../api/client";
-import { useTheme } from "../theme";
+import { useTheme, contentWrap } from "../theme";
 import { useTranslation } from "../i18n";
 import { PremiumGateModal } from "../components/PremiumGateModal";
 import { InsightShareCard } from "../components/InsightShareCard";
@@ -52,12 +52,37 @@ function formatPeriodRange(fromIso: string, toIso: string): string {
   return `${fmt(fromIso)} – ${fmt(toIso)}`;
 }
 
+function getTodayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function parseDateOrNull(s: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
+  if (!match) return null;
+  const [, y, m, day] = match;
+  const d = new Date(parseInt(y!, 10), parseInt(m!, 10) - 1, parseInt(day!, 10));
+  if (isNaN(d.getTime()) || d.getFullYear() !== parseInt(y!, 10) || d.getMonth() !== parseInt(m!, 10) - 1) return null;
+  return `${y}-${m}-${day}`;
+}
+
+function daysAgoIso(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => void; onOpenPricing?: () => void }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [premiumGateVisible, setPremiumGateVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [days, setDays] = useState(DAYS_DEFAULT);
+  const [fromDate, setFromDate] = useState<string | null>(null);
+  const [toDate, setToDate] = useState<string | null>(null);
+  const [dateRangeModalVisible, setDateRangeModalVisible] = useState(false);
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [sleepData, setSleepData] = useState<AnalyticsSleepResponse | null>(null);
   const [workoutsData, setWorkoutsData] = useState<AnalyticsWorkoutsResponse | null>(null);
@@ -77,39 +102,39 @@ export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => voi
 
   const loadOverview = useCallback(async () => {
     try {
-      const res = await getAnalyticsOverview(undefined, undefined, days);
+      const res = await getAnalyticsOverview(fromDate ?? undefined, toDate ?? undefined, days);
       setOverview(res);
     } catch {
       setOverview(null);
     }
-  }, [days]);
+  }, [days, fromDate, toDate]);
 
   const loadSleep = useCallback(async () => {
     try {
-      const res = await getAnalyticsSleep(undefined, undefined, days);
+      const res = await getAnalyticsSleep(fromDate ?? undefined, toDate ?? undefined, days);
       setSleepData(res);
     } catch {
       setSleepData(null);
     }
-  }, [days]);
+  }, [days, fromDate, toDate]);
 
   const loadWorkouts = useCallback(async () => {
     try {
-      const res = await getAnalyticsWorkouts(undefined, undefined, days);
+      const res = await getAnalyticsWorkouts(fromDate ?? undefined, toDate ?? undefined, days);
       setWorkoutsData(res);
     } catch {
       setWorkoutsData(null);
     }
-  }, [days]);
+  }, [days, fromDate, toDate]);
 
   const loadNutrition = useCallback(async () => {
     try {
-      const res = await getAnalyticsNutrition(undefined, undefined, days);
+      const res = await getAnalyticsNutrition(fromDate ?? undefined, toDate ?? undefined, days);
       setNutritionData(res);
     } catch {
       setNutritionData(null);
     }
-  }, [days]);
+  }, [days, fromDate, toDate]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -128,7 +153,7 @@ export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => voi
     else if (activeTab === "sleep") loadSleep().finally(() => setLoading(null));
     else if (activeTab === "training") loadWorkouts().finally(() => setLoading(null));
     else if (activeTab === "nutrition") loadNutrition().finally(() => setLoading(null));
-  }, [activeTab, days, loadOverview, loadSleep, loadWorkouts, loadNutrition]);
+  }, [activeTab, days, fromDate, toDate, loadOverview, loadSleep, loadWorkouts, loadNutrition]);
 
   const requestInsight = useCallback(
     async (chartType: TabKey, data: Record<string, unknown>) => {
@@ -187,39 +212,96 @@ export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => voi
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>{t("analytics.title")}</Text>
-        <TouchableOpacity onPress={onClose} hitSlop={12}>
-          <Text style={[styles.closeBtn, { color: colors.primary }]}>{t("common.close")}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={[styles.tabs, { borderBottomColor: colors.surfaceBorder }]}>
-        {TAB_KEYS.map((key) => (
-          <TouchableOpacity
-            key={key}
-            style={[styles.tab, activeTab === key && styles.tabActive]}
-            onPress={() => setActiveTab(key)}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                { color: activeTab === key ? colors.primary : colors.textMuted },
-              ]}
-            >
-              {t(`analytics.${key}` as "analytics.overview")}
-            </Text>
+      <View style={[styles.container, contentWrap]}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>{t("analytics.title")}</Text>
+          <TouchableOpacity onPress={onClose} hitSlop={12}>
+            <Text style={[styles.closeBtn, { color: colors.primary }]}>{t("common.close")}</Text>
           </TouchableOpacity>
-        ))}
-      </View>
+        </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />
-        }
-      >
+        <View style={[styles.periodRow, { borderBottomColor: colors.surfaceBorder }]}>
+          <Text style={[styles.periodLabel, { color: colors.textMuted }]}>{t("analytics.period")}</Text>
+          <View style={styles.periodButtons}>
+            {([7, 30, 90] as const).map((d) => (
+              <TouchableOpacity
+                key={d}
+                style={[
+                  styles.periodBtn,
+                  { borderColor: colors.surfaceBorder },
+                  days === d && !fromDate && { backgroundColor: colors.primary, borderColor: colors.primary },
+                ]}
+                onPress={() => {
+                  setDays(d);
+                  setFromDate(null);
+                  setToDate(null);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.periodBtnText,
+                    { color: days === d && !fromDate ? colors.primaryText : colors.text },
+                  ]}
+                >
+                  {t(d === 7 ? "analytics.period7" : d === 30 ? "analytics.period30" : "analytics.period90")}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={[
+                styles.periodBtn,
+                { borderColor: colors.surfaceBorder },
+                fromDate && { backgroundColor: colors.primary, borderColor: colors.primary },
+              ]}
+              onPress={() => {
+                if (!fromDate || !toDate) {
+                  setCustomFrom(daysAgoIso(30));
+                  setCustomTo(getTodayIso());
+                } else {
+                  setCustomFrom(fromDate);
+                  setCustomTo(toDate);
+                }
+                setDateRangeModalVisible(true);
+              }}
+            >
+              <Text
+                style={[
+                  styles.periodBtnText,
+                  { color: fromDate ? colors.primaryText : colors.text },
+                ]}
+              >
+                {t("analytics.customRange")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={[styles.tabs, { borderBottomColor: colors.surfaceBorder }]}>
+          {TAB_KEYS.map((key) => (
+            <TouchableOpacity
+              key={key}
+              style={[styles.tab, activeTab === key && styles.tabActive]}
+              onPress={() => setActiveTab(key)}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: activeTab === key ? colors.primary : colors.textMuted },
+                ]}
+              >
+                {t(`analytics.${key}` as "analytics.overview")}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />
+          }
+        >
         {loading === activeTab ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -265,7 +347,59 @@ export function AnalyticsScreen({ onClose, onOpenPricing }: { onClose: () => voi
             </TouchableOpacity>
           </>
         )}
-      </ScrollView>
+        </ScrollView>
+      </View>
+
+      <Modal
+        visible={dateRangeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDateRangeModalVisible(false)}
+      >
+        <Pressable style={[styles.dateRangeModalOverlay, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]} onPress={() => setDateRangeModalVisible(false)}>
+          <Pressable
+            style={[styles.dateRangeModalContent, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{t("analytics.customRange")}</Text>
+            <Text style={[styles.periodLabel, { color: colors.textMuted, marginBottom: 4 }]}>{t("analytics.fromDate")}</Text>
+            <TextInput
+              style={[styles.dateRangeInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.textMuted}
+              value={customFrom}
+              onChangeText={setCustomFrom}
+            />
+            <Text style={[styles.periodLabel, { color: colors.textMuted, marginTop: 12, marginBottom: 4 }]}>{t("analytics.toDate")}</Text>
+            <TextInput
+              style={[styles.dateRangeInput, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.textMuted}
+              value={customTo}
+              onChangeText={setCustomTo}
+            />
+            <View style={styles.dateRangeActions}>
+              <TouchableOpacity style={[styles.dateRangeBtn, { borderColor: colors.surfaceBorder }]} onPress={() => setDateRangeModalVisible(false)}>
+                <Text style={[styles.dateRangeBtnText, { color: colors.text }]}>{t("common.cancel")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.dateRangeBtn, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  const from = parseDateOrNull(customFrom);
+                  const to = parseDateOrNull(customTo);
+                  if (from && to && from <= to) {
+                    setFromDate(from);
+                    setToDate(to);
+                    setDateRangeModalVisible(false);
+                  }
+                }}
+              >
+                <Text style={[styles.dateRangeBtnText, { color: colors.primaryText }]}>{t("common.apply")}</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={insightModalVisible}
@@ -721,6 +855,23 @@ function makeStyles(colors: Record<string, string>) {
     tab: { paddingVertical: 12, paddingHorizontal: 12 },
     tabActive: { borderBottomWidth: 2, borderBottomColor: colors.primary },
     tabText: { fontSize: 14 },
+    periodRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      gap: 12,
+      borderBottomWidth: 1,
+    },
+    periodLabel: { fontSize: 14 },
+    periodButtons: { flexDirection: "row", gap: 8, flex: 1 },
+    periodBtn: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    periodBtnText: { fontSize: 14, fontWeight: "600" },
     scroll: { flex: 1 },
     scrollContent: { padding: 16, paddingBottom: 32 },
     centered: { paddingVertical: 48, alignItems: "center" },
@@ -756,6 +907,34 @@ function makeStyles(colors: Record<string, string>) {
       backgroundColor: "rgba(0,0,0,0.5)",
       justifyContent: "flex-end",
     },
+    dateRangeModalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      justifyContent: "center",
+      alignItems: "center",
+      padding: 20,
+    },
+    dateRangeModalContent: {
+      borderRadius: 16,
+      padding: 20,
+      borderWidth: 1,
+      minWidth: 280,
+      maxWidth: 360,
+    },
+    dateRangeInput: {
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+    },
+    dateRangeActions: { flexDirection: "row", gap: 12, marginTop: 20, justifyContent: "flex-end" },
+    dateRangeBtn: {
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      borderWidth: 1,
+    },
+    dateRangeBtnText: { fontSize: 16, fontWeight: "600" },
     modalContent: {
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
