@@ -67,8 +67,9 @@ ORCHESTRATOR_PUSH_TITLE_BY_LOCALE = {
 }
 
 
-async def scheduled_orchestrator_run():
-    """Run orchestrator (daily decision) for every user at configured hours (parallel with semaphore)."""
+async def scheduled_orchestrator_run(cron_hour: int | None = None):
+    """Run orchestrator (daily decision) for every user at configured hours (parallel with semaphore).
+    cron_hour: when run from cron, the hour that triggered the job (0-23) is passed so orchestrator uses morning/day/evening logic."""
     if not await try_acquire_cron_lock(LOCK_ORCHESTRATOR, ttl_seconds=600):
         logger.info("Scheduler: orchestrator_run skipped (another worker holds the lock)")
         return
@@ -93,7 +94,9 @@ async def scheduled_orchestrator_run():
     async def run_for_user(uid: int, locale: str, is_premium: bool) -> None:
         async with sem:
             async with async_session_maker() as session:
-                result = await run_daily_decision(session, uid, date.today(), locale=locale)
+                result = await run_daily_decision(
+                    session, uid, date.today(), locale=locale, client_local_hour=cron_hour
+                )
                 await session.commit()
                 if is_premium:
                     summary = f"{result.decision.value}: {(result.reason or '')[:80]}"
@@ -206,14 +209,21 @@ async def lifespan(app: FastAPI):
 
     # Scheduled jobs use a Redis distributed lock so that with multiple Uvicorn/Gunicorn
     # workers only one process runs each job (no duplicate push notifications or DB load).
-    # Orchestrator: run at configured hours (e.g. 07:00 and 16:00)
+    # Orchestrator: run at configured hours (e.g. 07:00 and 16:00); pass hour so prompts use morning/day/evening logic
     try:
         hours = [int(h.strip()) for h in settings.orchestrator_cron_hours.split(",") if h.strip()]
     except ValueError:
         hours = [7, 16]
     for hour in hours:
         if 0 <= hour <= 23:
-            scheduler.add_job(scheduled_orchestrator_run, "cron", hour=hour, minute=0)
+
+            def _make_orchestrator_job(h: int):
+                async def _job() -> None:
+                    await scheduled_orchestrator_run(cron_hour=h)
+
+                return _job
+
+            scheduler.add_job(_make_orchestrator_job(hour), "cron", hour=hour, minute=0)
 
     scheduler.add_job(scheduled_sleep_reminder, "cron", hour=9, minute=0)
 

@@ -75,18 +75,34 @@ def _build_system_prompt(
     locale: str,
     had_workout_today: bool,
     is_evening: bool = False,
+    client_local_hour: int | None = None,
 ) -> str:
     lang = language_for_locale(locale)
     lang_rule = (
         f"You must respond only in {lang}. All text fields (reason, suggestions_next_days, evening_tips, plan_tomorrow) must be in this language."
     )
+    morning_until = getattr(settings, "orchestrator_morning_until_hour", 10)
+    evening_from = getattr(settings, "orchestrator_evening_from_hour", 18)
+
+    time_rule = (
+        "Current local hour (0-23) is provided in the context. Adapt your response to time of day. "
+        f"If hour <= {morning_until} (morning): do NOT infer calorie deficit from today's food log — the day just started. "
+        "Output: suggest today's workout and a sample nutrition plan for the day in suggestions_next_days (e.g. breakfast/lunch/dinner targets). Do not say the athlete has a deficit. "
+        f"If {morning_until} < hour < {evening_from} (day): consider intake so far. If the athlete already trained today and calories so far are low (e.g. ~1200), "
+        "in reason state the shortfall briefly; in suggestions_next_days or evening_tips recommend how many kcal to add by end of day to recover for tomorrow; "
+        "in evening_tips give what to eat for the rest of the day; in plan_tomorrow give tomorrow's workout. "
+        f"If hour >= {evening_from} (evening): provide evening_tips (food and sleep for the rest of the evening) and plan_tomorrow (workout for tomorrow). "
+        "If hour is not provided, treat as daytime (do not assume morning)."
+    )
+
     if had_workout_today:
         scenario = (
             "The athlete already had a workout today. Do not suggest Go/Modify/Skip for today's workout. "
             "In 'reason' give a brief assessment of the day and readiness. "
             "In 'suggestions_next_days' give recovery, nutrition and rest recommendations. "
             "In 'plan_tomorrow' give a concrete workout recommendation for tomorrow. "
-            "Optionally in 'evening_tips' give food and sleep advice for the rest of the evening."
+            "Optionally in 'evening_tips' give food and sleep advice for the rest of the evening. "
+            "If it is still daytime and intake so far is low, recommend how many kcal to add by end of day and what to eat."
         )
     elif is_evening:
         scenario = (
@@ -98,9 +114,9 @@ def _build_system_prompt(
         scenario = (
             "The athlete has not trained today. In 'reason' keep the Go/Modify/Skip explanation. "
             "In 'suggestions_next_days' give recommendations for today and for tomorrow. "
-            "Consider today's nutrition, sleep and wellness in your decision."
+            "Consider current time of day and intake so far (see time rule above) — do not treat low calories as deficit in early morning."
         )
-    return f"{SYSTEM_PROMPT}\n\n{lang_rule}\n\n{scenario}"
+    return f"{SYSTEM_PROMPT}\n\n{lang_rule}\n\n{time_rule}\n\n{scenario}"
 
 
 logger = logging.getLogger(__name__)
@@ -169,8 +185,12 @@ def _build_context(
     wellness_history: list[dict] | None = None,
     recent_workouts: list[dict] | None = None,
     had_workout_today: bool | None = None,
+    current_local_hour: int | None = None,
 ) -> str:
+    hour_str = str(current_local_hour) if current_local_hour is not None else "not provided"
     parts = [
+        "## Current local hour (0-23, athlete's local time)",
+        hour_str,
         "## Athlete profile (weight, height, age, FTP, name, sex)",
         json.dumps(athlete_profile or {}, default=str),
         "## Food today (sum)",
@@ -192,6 +212,13 @@ def _build_context(
         parts.append("## Workout already done today (yes/no)")
         parts.append("yes" if had_workout_today else "no")
     return "\n".join(parts)
+
+
+def _is_morning(client_local_hour: int | None) -> bool:
+    """True if client local hour is at or before the configured morning threshold (e.g. <= 10)."""
+    if client_local_hour is None:
+        return False
+    return client_local_hour <= getattr(settings, "orchestrator_morning_until_hour", 10)
 
 
 def _is_evening(client_local_hour: int | None) -> bool:
@@ -376,9 +403,12 @@ async def run_daily_decision(
         wellness_history=wellness_history,
         recent_workouts=recent_workouts,
         had_workout_today=had_workout_today,
+        current_local_hour=client_local_hour,
     )
 
-    system_prompt = _build_system_prompt(locale, had_workout_today, is_evening=is_evening)
+    system_prompt = _build_system_prompt(
+        locale, had_workout_today, is_evening=is_evening, client_local_hour=client_local_hour
+    )
     model = genai.GenerativeModel(
         settings.gemini_model,
         generation_config=GENERATION_CONFIG,
