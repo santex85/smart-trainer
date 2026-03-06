@@ -79,6 +79,9 @@ migrate-prod:
 # Для dev-сервера: какую ветку катить (текущая). Для prod не задаём — на сервере остаётся main.
 DEPLOY_BRANCH ?=
 
+# Dev: set SKIP_RESTORE=1 to skip DB restore after deploy-dev
+SKIP_RESTORE ?= 0
+
 # Деплой на production: пуш main, на сервере git pull (main), build, stack deploy, миграции.
 # Переопределить: make deploy DEPLOY_HOST=1.2.3.4 DEPLOY_PATH=/home/app/smart_trainer
 deploy:
@@ -125,10 +128,12 @@ ensure-dev-server:
 deploy-dev: ensure-dev-server
 	git push origin $(shell git branch --show-current)
 	$(MAKE) deploy-no-push DEPLOY_HOST=$(DEV_DEPLOY_HOST) DEPLOY_USER=$(DEV_DEPLOY_USER) DEPLOY_PATH=$(DEV_DEPLOY_PATH) DEPLOY_BRANCH=$(shell git branch --show-current)
+	@if [ "$(SKIP_RESTORE)" != "1" ]; then $(MAKE) restore-dev-from-s3; else echo "SKIP_RESTORE=1, skipping dev DB restore"; fi
 
 # Deploy to dev server without git push (на сервере всё равно будет checkout текущей ветки и pull).
 deploy-dev-no-push: ensure-dev-server
 	$(MAKE) deploy-no-push DEPLOY_HOST=$(DEV_DEPLOY_HOST) DEPLOY_USER=$(DEV_DEPLOY_USER) DEPLOY_PATH=$(DEV_DEPLOY_PATH) DEPLOY_BRANCH=$(shell git branch --show-current)
+	@if [ "$(SKIP_RESTORE)" != "1" ]; then $(MAKE) restore-dev-from-s3; else echo "SKIP_RESTORE=1, skipping dev DB restore"; fi
 
 # Add or update NODE_MEMORY_MB=768 in .env on dev server (for 1GB RAM). Run once, then make deploy-dev.
 dev-server-set-node-memory:
@@ -136,7 +141,7 @@ dev-server-set-node-memory:
 
 # Restore dev DB from prod backups in S3. Requires S3_BACKUP_* in .env on dev and aws cli on dev. Runs restore-from-s3.sh on dev (stack postgres).
 restore-dev-from-s3:
-	ssh $(DEV_DEPLOY_USER)@$(DEV_DEPLOY_HOST) "cd $(DEV_DEPLOY_PATH) && echo y | ./deploy/restore-from-s3.sh latest"
+	ssh $(DEV_DEPLOY_USER)@$(DEV_DEPLOY_HOST) "cd $(DEV_DEPLOY_PATH) && docker service scale st2_backend=0 && sleep 5 && echo y | ./deploy/restore-from-s3.sh latest && docker service scale st2_backend=1"
 
 shell-backend:
 	docker compose exec backend sh
