@@ -57,36 +57,36 @@ export function HeroSection({ appUrl }: { appUrl: string }) {
               </div>
             </div>
 
-            <div className="absolute top-0 -left-4 lg:-left-12 bg-[#0f0f0f]/95 border border-white/20 rounded-xl p-4 shadow-2xl max-w-[200px] backdrop-blur">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-600/20 flex items-center justify-center">
-                  <Activity size={16} className="text-emerald-500" />
+            <div className="absolute top-2 -left-2 lg:top-4 lg:-left-8 bg-[#0f0f0f]/95 border border-white/20 rounded-lg p-3 shadow-2xl max-w-[160px] backdrop-blur">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-md bg-emerald-600/20 flex items-center justify-center">
+                  <Activity size={12} className="text-emerald-500" />
                 </div>
-                <span className="text-xs font-semibold">Meal Analysis</span>
+                <span className="text-[10px] font-semibold">Meal Analysis</span>
               </div>
-              <div className="text-2xl font-bold mb-1">2,450 kcal</div>
-              <div className="text-xs text-white/60">Logged from photo</div>
+              <div className="text-lg font-bold mb-0.5">2,450 kcal</div>
+              <div className="text-[10px] text-white/60">Logged from photo</div>
             </div>
 
-            <div className="absolute bottom-0 -right-4 lg:-right-12 bg-[#0f0f0f]/95 border border-white/20 rounded-xl p-4 shadow-2xl max-w-[200px] backdrop-blur">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center">
-                  <Brain size={16} className="text-blue-500" />
+            <div className="absolute bottom-2 -right-2 lg:bottom-4 lg:-right-8 bg-[#0f0f0f]/95 border border-white/20 rounded-lg p-3 shadow-2xl max-w-[160px] backdrop-blur">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-md bg-blue-600/20 flex items-center justify-center">
+                  <Brain size={12} className="text-blue-500" />
                 </div>
-                <span className="text-xs font-semibold">Today&apos;s Decision</span>
+                <span className="text-[10px] font-semibold">Today&apos;s Decision</span>
               </div>
-              <div className="text-lg font-bold mb-1 text-emerald-500">GO</div>
-              <div className="text-xs text-white/60">Ready for hard training</div>
+              <div className="text-base font-bold mb-0.5 text-emerald-500">GO</div>
+              <div className="text-[10px] text-white/60">Ready for hard training</div>
             </div>
 
-            <div className="absolute top-1/2 -translate-y-1/2 -right-4 bg-[#0f0f0f]/95 border border-white/20 rounded-xl p-4 shadow-2xl max-w-[180px] backdrop-blur">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-purple-600/20 flex items-center justify-center">
-                  <TrendingUp size={16} className="text-purple-500" />
+            <div className="absolute top-2 right-2 lg:top-4 lg:-right-8 bg-[#0f0f0f]/95 border border-white/20 rounded-lg p-3 shadow-2xl max-w-[150px] backdrop-blur">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-md bg-purple-600/20 flex items-center justify-center">
+                  <TrendingUp size={12} className="text-purple-500" />
                 </div>
-                <span className="text-xs font-semibold">AI Insight</span>
+                <span className="text-[10px] font-semibold">AI Insight</span>
               </div>
-              <div className="text-xs text-white/80">Your recovery trend is improving this week</div>
+              <div className="text-[10px] text-white/80">Your recovery trend is improving this week</div>
             </div>
           </div>
         </div>

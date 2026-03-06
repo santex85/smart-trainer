@@ -1,65 +1,115 @@
 import React from "react";
+import { Utensils } from "lucide-react";
+
+const COLORS = {
+  background: "#0D0D0D",
+  glassBg: "rgba(255, 255, 255, 0.08)",
+  glassBorder: "rgba(255, 255, 255, 0.1)",
+  text: "#e2e8f0",
+  textMuted: "#94a3b8",
+  primary: "#38bdf8",
+  cal: "#22D3EE",
+  protein: "#4ADE80",
+  fat: "#FBBF24",
+  carbs: "#A78BFA",
+  mealIcon: "#9ca3af",
+} as const;
+
+const DEMO_MACROS = [
+  { label: "Cal", current: 1567, goal: 2070, color: COLORS.cal },
+  { label: "Protein", current: 93, goal: 120, color: COLORS.protein },
+  { label: "Fat", current: 45, goal: 69, color: COLORS.fat },
+  { label: "Carbs", current: 180, goal: 215, color: COLORS.carbs },
+];
+
+const DEMO_MEALS = [
+  { name: "Oatmeal with berries", kcal: 312 },
+  { name: "Chicken salad", kcal: 420 },
+  { name: "Protein shake", kcal: 180 },
+  { name: "Rice with vegetables", kcal: 380 },
+  { name: "Greek yogurt", kcal: 112 },
+  { name: "Banana", kcal: 105 },
+];
+
+function ProgressBar({ label, current, goal, color }: { label: string; current: number; goal: number; color: string }) {
+  const percent = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
+  return (
+    <div className="mt-3">
+      <div className="flex justify-between items-center mb-1.5">
+        <span className="text-[13px] font-semibold text-white">{label}</span>
+        <span className="text-[13px] text-[#e2e8f0]">
+          {Math.round(current)} / {Math.round(goal)}
+        </span>
+      </div>
+      <div className="h-2.5 bg-white/10 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${percent}%`, backgroundColor: color }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export function DashboardPreview() {
   return (
-    <div className="dashboard-preview w-full aspect-[4/3] max-h-[360px] min-h-[280px] bg-[#0f0f0f] rounded-xl overflow-hidden flex flex-col">
-      {/* Top bar */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-emerald-600/30" />
-          <span className="text-sm font-semibold text-white/90">tssAI</span>
-        </div>
-        <div className="flex gap-2">
-          <div className="w-8 h-8 rounded-lg bg-white/10" />
-          <div className="w-8 h-8 rounded-full bg-white/10" />
-        </div>
-      </header>
-
-      {/* Main content */}
-      <div className="flex-1 flex gap-3 p-3 overflow-hidden">
-        {/* Left: summary cards */}
-        <div className="flex flex-col gap-2 w-[38%] shrink-0">
-          <div className="rounded-lg bg-white/5 border border-white/10 p-3">
-            <div className="text-[10px] text-white/50 uppercase tracking-wider mb-1">Today</div>
-            <div className="text-lg font-bold text-emerald-400">
-              2,450 <span className="text-xs font-normal text-white/60">kcal</span>
-            </div>
-          </div>
-          <div className="rounded-lg bg-white/5 border border-white/10 p-2">
-            <div className="flex gap-1 mb-1">
-              <div className="h-1 flex-1 rounded-full bg-amber-500/80" style={{ width: "60%" }} />
-              <div className="h-1 flex-1 rounded-full bg-blue-500/80" style={{ width: "25%" }} />
-              <div className="h-1 flex-1 rounded-full bg-emerald-500/80" style={{ width: "45%" }} />
-            </div>
-            <div className="text-[10px] text-white/50">P / F / C</div>
-          </div>
-          <div className="rounded-lg bg-white/5 border border-white/10 p-2">
-            <div className="text-[10px] text-white/50 mb-1">Decision</div>
-            <div className="text-sm font-bold text-emerald-400">GO</div>
-          </div>
-        </div>
-
-        {/* Right: list */}
-        <div className="flex-1 rounded-lg bg-white/[0.03] border border-white/10 overflow-hidden flex flex-col min-w-0">
-          <div className="px-3 py-2 border-b border-white/10 text-xs text-white/50 font-medium">Nutrition</div>
-          <ul className="flex-1 p-2 space-y-1.5">
-            {["Breakfast • 520 kcal", "Lunch • 890 kcal", "Snack • 340 kcal", "Dinner • 700 kcal"].map(
-              (line, i) => (
-                <li key={i} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-white/5">
-                  <div className="w-6 h-6 rounded bg-white/10 shrink-0" />
-                  <span className="text-xs text-white/80 truncate">{line}</span>
-                </li>
-              )
-            )}
-          </ul>
+    <div
+      className="w-full aspect-[4/3] max-h-[360px] min-h-[280px] rounded-[24px] overflow-hidden flex flex-col p-4"
+      style={{
+        backgroundColor: COLORS.background,
+        border: `1px solid ${COLORS.glassBorder}`,
+        boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
+      }}
+    >
+      {/* Header row: title + date pills */}
+      <div className="flex items-center justify-between shrink-0 mb-3">
+        <h3 className="text-sm font-semibold text-white">Nutrition (remaining vs goals)</h3>
+        <div className="flex gap-1.5">
+          {["Mar 5", "Mar 6", "Mar 7"].map((d, i) => (
+            <span
+              key={d}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-medium"
+              style={{
+                backgroundColor: i === 1 ? COLORS.primary : "transparent",
+                color: i === 1 ? "#0f172a" : COLORS.textMuted,
+              }}
+            >
+              {d}
+            </span>
+          ))}
         </div>
       </div>
 
-      {/* Bottom strip */}
-      <div className="shrink-0 h-8 px-3 flex items-center gap-4 border-t border-white/10">
-        <div className="h-1.5 flex-1 max-w-[120px] rounded-full bg-white/10" />
-        <div className="h-1.5 flex-1 max-w-[80px] rounded-full bg-white/10" />
-        <div className="h-1.5 flex-1 max-w-[100px] rounded-full bg-white/10" />
+      {/* Remaining summary */}
+      <p className="text-xs text-[#94a3b8] mb-2 shrink-0">
+        Left: 503 kcal · P 93g · F 0g · C 35g
+      </p>
+
+      {/* Progress bars */}
+      <div className="shrink-0">
+        {DEMO_MACROS.map((m) => (
+          <ProgressBar key={m.label} label={m.label} current={m.current} goal={m.goal} color={m.color} />
+        ))}
+      </div>
+
+      {/* Meal list */}
+      <div
+        className="flex-1 mt-3 rounded-xl overflow-hidden min-h-0"
+        style={{ backgroundColor: COLORS.glassBg, border: `1px solid ${COLORS.glassBorder}` }}
+      >
+        <ul className="divide-y divide-white/[0.06]">
+          {DEMO_MEALS.map((meal, i) => (
+            <li
+              key={i}
+              className="flex items-center gap-2.5 py-2.5 px-3"
+            >
+              <Utensils size={18} className="shrink-0" style={{ color: COLORS.mealIcon }} />
+              <span className="text-sm text-[#e2e8f0] truncate">
+                {meal.name}: {meal.kcal} kcal
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
