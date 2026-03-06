@@ -22,7 +22,7 @@ endif
 # Версия для образов: из Git тега (v0.1.0-alpha.1) или коммита. В проде — только протегированные сборки.
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "0.1.0-alpha.1")
 
-.PHONY: build up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test build-prod up-prod migrate-prod build-prod-tagged deploy deploy-no-push bootstrap-dev ensure-dev-server deploy-dev deploy-dev-no-push dev-server-set-node-memory
+.PHONY: build up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test build-prod up-prod migrate-prod build-prod-tagged deploy deploy-no-push bootstrap-dev ensure-dev-server deploy-dev deploy-dev-no-push dev-server-set-node-memory restore-dev-from-s3
 
 build:
 	docker compose build
@@ -133,6 +133,10 @@ deploy-dev-no-push: ensure-dev-server
 # Add or update NODE_MEMORY_MB=768 in .env on dev server (for 1GB RAM). Run once, then make deploy-dev.
 dev-server-set-node-memory:
 	ssh $(DEV_DEPLOY_USER)@$(DEV_DEPLOY_HOST) "grep -q '^NODE_MEMORY_MB=' $(DEV_DEPLOY_PATH)/.env 2>/dev/null && sed -i 's/^NODE_MEMORY_MB=.*/NODE_MEMORY_MB=768/' $(DEV_DEPLOY_PATH)/.env || echo 'NODE_MEMORY_MB=768' >> $(DEV_DEPLOY_PATH)/.env; echo 'NODE_MEMORY_MB=768 set in .env on dev server.'"
+
+# Restore dev DB from prod backups in S3. Requires S3_BACKUP_* in .env on dev and aws cli on dev. Runs restore-from-s3.sh on dev (stack postgres).
+restore-dev-from-s3:
+	ssh $(DEV_DEPLOY_USER)@$(DEV_DEPLOY_HOST) "cd $(DEV_DEPLOY_PATH) && echo y | ./deploy/restore-from-s3.sh latest"
 
 shell-backend:
 	docker compose exec backend sh

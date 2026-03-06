@@ -3,7 +3,8 @@
 # Usage: ./restore-from-s3.sh [S3_KEY|latest] [--dry-run]
 #   S3_KEY: full key in bucket (e.g. backups/postgres/smart_trainer_20250301_0300.dump.gz), or "latest"
 #   --dry-run: only download and show info, do not restore
-# Requires: .env in project root with POSTGRES_*, S3_BACKUP_* (or S3_*), and docker compose.
+# Requires: .env in project root with POSTGRES_*, S3_BACKUP_* (or S3_*). Uses docker compose (local)
+# or docker stack postgres container (st2_postgres) when running on a server with stack deploy.
 
 set -e
 
@@ -115,11 +116,22 @@ esac
 POSTGRES_USER="${POSTGRES_USER:-smart_trainer}"
 POSTGRES_DB="${POSTGRES_DB:-smart_trainer}"
 
-echo "Copying dump into postgres container..."
-$COMPOSE_CMD cp "$RESTORE_FILE" postgres:/tmp/restore.dump.gz
-
-echo "Restoring (pg_restore --clean --if-exists)..."
-$COMPOSE_CMD exec -T postgres sh -c "gunzip -c /tmp/restore.dump.gz | pg_restore -U $POSTGRES_USER -d $POSTGRES_DB --clean --if-exists --no-owner || true"
-$COMPOSE_CMD exec -T postgres rm -f /tmp/restore.dump.gz
+# Prefer stack postgres container (docker stack deploy st2) when present; else use compose
+POSTGRES_CONTAINER=$(docker ps -q -f name=st2_postgres 2>/dev/null | head -1)
+if [ -n "$POSTGRES_CONTAINER" ]; then
+  echo "Using stack postgres container: $POSTGRES_CONTAINER"
+  echo "Copying dump into postgres container..."
+  docker cp "$RESTORE_FILE" "$POSTGRES_CONTAINER:/tmp/restore.dump.gz"
+  echo "Restoring (pg_restore --clean --if-exists)..."
+  docker exec "$POSTGRES_CONTAINER" sh -c "gunzip -c /tmp/restore.dump.gz | pg_restore -U $POSTGRES_USER -d $POSTGRES_DB --clean --if-exists --no-owner || true"
+  docker exec "$POSTGRES_CONTAINER" rm -f /tmp/restore.dump.gz
+else
+  echo "Using docker compose postgres service..."
+  echo "Copying dump into postgres container..."
+  $COMPOSE_CMD cp "$RESTORE_FILE" postgres:/tmp/restore.dump.gz
+  echo "Restoring (pg_restore --clean --if-exists)..."
+  $COMPOSE_CMD exec -T postgres sh -c "gunzip -c /tmp/restore.dump.gz | pg_restore -U $POSTGRES_USER -d $POSTGRES_DB --clean --if-exists --no-owner || true"
+  $COMPOSE_CMD exec -T postgres rm -f /tmp/restore.dump.gz
+fi
 
 echo "Restore finished. Verify data and restart backend if needed."
