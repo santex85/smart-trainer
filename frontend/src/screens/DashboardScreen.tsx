@@ -1527,7 +1527,7 @@ export function DashboardScreen({
           style={styles.modalBackdrop}
           onPress={() => setLanguagePickerVisible(false)}
         >
-          <Pressable style={[styles.languagePickerCard, { backgroundColor: "rgba(30, 30, 30, 0.7)", borderColor: "rgba(255, 255, 255, 0.1)" }]} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[styles.languagePickerCard, { backgroundColor: "#1c1c20", borderColor: "rgba(255, 255, 255, 0.12)" }]} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.languagePickerTitle}>{t("settings.language")}</Text>
             {LOCALES.map((loc) => (
               <TouchableOpacity
