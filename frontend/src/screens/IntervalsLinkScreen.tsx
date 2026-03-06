@@ -71,7 +71,7 @@ export function IntervalsLinkScreen({ onClose, onSynced }: { onClose: () => void
       setAthleteId("");
       setApiKey("");
       await loadStatus();
-      Alert.alert(t("common.alerts.done"), t("intervals.linkSuccess"));
+      Alert.alert(t("common.alerts.done"), t("intervals.linkSuccess") + " " + t("intervals.linkSuccessHint"));
     } catch (e) {
       Alert.alert(t("common.error"), getErrorMessage(e, t));
     } finally {

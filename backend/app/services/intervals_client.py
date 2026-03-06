@@ -69,6 +69,24 @@ def _log_response_error(method: str, url: str, response: httpx.Response) -> None
     )
 
 
+async def validate_credentials(athlete_id: str, api_key: str) -> bool:
+    """Validate Intervals.icu credentials by making a minimal API call.
+    Returns True if credentials are valid, False if 401/403/4xx/5xx.
+    Raises httpx.RequestError on network/timeout errors (caller should map to 503).
+    """
+    athlete_id = _normalize_athlete_id(athlete_id)
+    client = get_http_client()
+    url = f"{BASE_URL}/athlete/{athlete_id}/wellness"
+    today = date.today()
+    params = {"oldest": today.isoformat(), "newest": today.isoformat()}
+    timeout = 10
+    r = await client.get(url, params=params, auth=_basic_auth(api_key), timeout=timeout)
+    if r.status_code == 200:
+        return True
+    _log_response_error("GET", url, r)
+    return False
+
+
 async def get_wellness(
     athlete_id: str,
     api_key: str,

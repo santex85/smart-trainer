@@ -106,6 +106,8 @@ export function RegisterScreen({
             />
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t("auth.registerCta")}
               style={[styles.buttonPrimary, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
               onPress={handleRegister}
               disabled={loading}
@@ -116,7 +118,13 @@ export function RegisterScreen({
                 <Text style={[styles.buttonPrimaryText, { color: colors.primaryText }]}>{t("auth.registerCta")}</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.link} onPress={onGoToLogin} disabled={loading}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t("auth.haveAccount")}
+              style={styles.link}
+              onPress={onGoToLogin}
+              disabled={loading}
+            >
               <Text style={[styles.linkText, { color: colors.primary }]}>{t("auth.haveAccount")}</Text>
             </TouchableOpacity>
           </View>

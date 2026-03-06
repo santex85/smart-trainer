@@ -151,7 +151,9 @@ const NutritionProgressBar = React.memo(function NutritionProgressBar({
   return (
     <View style={progressBarStyles.container}>
       <View style={progressBarStyles.labelRow}>
-        <Text style={progressBarStyles.label}>{label}</Text>
+        <Text style={progressBarStyles.label} numberOfLines={1} ellipsizeMode="tail">
+          {label}
+        </Text>
         <Text style={progressBarStyles.value}>
           {Math.round(current)} / {Math.round(goal)}
         </Text>
@@ -165,9 +167,9 @@ const NutritionProgressBar = React.memo(function NutritionProgressBar({
 
 const progressBarStyles = StyleSheet.create({
   container: { marginTop: 12 },
-  labelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  label: { fontSize: 13, color: "#FFFFFF", fontWeight: "600" },
-  value: { fontSize: 13, color: "#e2e8f0" },
+  labelRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6, alignItems: "center" },
+  label: { fontSize: 13, color: "#FFFFFF", fontWeight: "600", flex: 1, minWidth: 0, marginRight: 8 },
+  value: { fontSize: 13, color: "#e2e8f0", flexShrink: 0 },
   track: { height: 10, backgroundColor: "rgba(255, 255, 255, 0.1)", borderRadius: 100, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 100 },
 });

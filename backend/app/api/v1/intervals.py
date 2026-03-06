@@ -17,7 +17,7 @@ from app.models.intervals_credentials import IntervalsCredentials
 from app.models.user import User
 from app.services.crypto import decrypt_value, encrypt_value
 from app.services.audit import log_action
-from app.services.intervals_client import get_activities, get_activity_single, get_events
+from app.services.intervals_client import get_activities, get_activity_single, get_events, validate_credentials
 from app.services.intervals_sync import sync_intervals_to_db
 from app.services.push_notifications import send_push_to_user
 
@@ -50,7 +50,11 @@ async def get_intervals_status(
 @router.post(
     "/link",
     summary="Link Intervals.icu account",
-    responses={401: {"description": "Not authenticated"}},
+    responses={
+        400: {"description": "Invalid athlete ID or API key"},
+        401: {"description": "Not authenticated"},
+        503: {"description": "Intervals.icu temporarily unavailable"},
+    },
 )
 async def link_intervals(
     session: Annotated[AsyncSession, Depends(get_db)],
@@ -58,6 +62,19 @@ async def link_intervals(
     user: Annotated[User, Depends(get_current_user)],
 ) -> dict:
     """Store Intervals.icu athlete_id and API key (encrypted)."""
+    try:
+        if not await validate_credentials(body.athlete_id, body.api_key):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid athlete ID or API key",
+            )
+    except httpx.RequestError as e:
+        logging.warning("Intervals.icu validation request failed: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="Intervals.icu temporarily unavailable. Try again later.",
+        ) from e
+
     uid = user.id
     encrypted = encrypt_value(body.api_key)
     r = await session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == uid))

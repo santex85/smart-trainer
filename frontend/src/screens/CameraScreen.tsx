@@ -32,15 +32,35 @@ import * as Sentry from "@sentry/react-native";
 import { devLog, getLogs, clearLogs, subscribe, isDevLogEnabled, type LogEntry } from "../utils/devLog";
 import { PremiumGateModal } from "../components/PremiumGateModal";
 
-function getErrorMessage(e: unknown): string {
-  if (!(e instanceof Error)) return "Failed to analyze photo.";
+function getPhotoErrorMessage(e: unknown, t: (key: string) => string): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  const lower = msg.toLowerCase();
+  const isNetworkError =
+    (e instanceof Error && e.name === "NetworkError") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("network") ||
+    lower.includes("no network");
+  if (isNetworkError) {
+    return t("camera.errorNetwork");
+  }
   try {
-    const parsed = JSON.parse(e.message) as { detail?: string };
-    if (typeof parsed?.detail === "string") return parsed.detail;
+    const parsed = JSON.parse(msg) as { detail?: string };
+    const detail = typeof parsed?.detail === "string" ? parsed.detail : "";
+    const detailLower = detail.toLowerCase();
+    if (detailLower.includes("valid image") || detailLower.includes("jpeg") || detailLower.includes("png")) {
+      return t("camera.errorInvalidFormat");
+    }
+    if (detailLower.includes("too large") || detailLower.includes("10mb") || detailLower.includes("10 mb")) {
+      return t("camera.errorFileTooLarge");
+    }
+    if (detailLower.includes("limit") || detailLower.includes("429")) {
+      return t("camera.errorDailyLimit");
+    }
+    if (detail) return detail;
   } catch {
     /* ignore */
   }
-  return e.message || "Failed to analyze photo.";
+  return msg || t("camera.errorGeneric");
 }
 
 function SleepDataLines({ data }: { data: SleepExtractedData }) {
@@ -133,6 +153,7 @@ export function CameraScreen({
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [premiumGateVisible, setPremiumGateVisible] = useState(false);
   const [reanalyzing, setReanalyzing] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   const isPreview = (): boolean => {
     if (!photoResult) return false;
@@ -146,6 +167,10 @@ export function CameraScreen({
     const unsub = subscribe(() => setLogEntries(getLogs()));
     return unsub;
   }, []);
+
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [selectedPhotoUri]);
 
   const pickImage = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -206,7 +231,7 @@ export function CameraScreen({
       if ((msg.includes("429") || msg.includes("limit") || msg.includes("Daily limit")) && onOpenPricing) {
         setPremiumGateVisible(true);
       } else {
-        Alert.alert(t("common.error"), getErrorMessage(e));
+        Alert.alert(t("common.error"), getPhotoErrorMessage(e, t));
       }
     } finally {
       setLoading(false);
@@ -269,7 +294,7 @@ export function CameraScreen({
       if ((msg.includes("429") || msg.includes("limit") || msg.includes("Daily limit")) && onOpenPricing) {
         setPremiumGateVisible(true);
       } else {
-        Alert.alert(t("common.error"), getErrorMessage(e));
+        Alert.alert(t("common.error"), getPhotoErrorMessage(e, t));
       }
     } finally {
       setLoading(false);
@@ -369,8 +394,8 @@ export function CameraScreen({
         }
       }
       const message = isSleepSave
-        ? `Не удалось сохранить данные сна: ${getErrorMessage(e)}`
-        : getErrorMessage(e);
+        ? `${t("camera.sleepSaveFailed")}: ${getPhotoErrorMessage(e, t)}`
+        : getPhotoErrorMessage(e, t);
       Alert.alert(t("common.error"), message);
       setPhotoResult(null);
       setSelectedPhotoUri(null);
@@ -384,6 +409,50 @@ export function CameraScreen({
     setPhotoResult(null);
     setSelectedPhotoUri(null);
     setEditedFood(null);
+  };
+
+  const loadTestImage = async () => {
+    const TEST_IMAGE_URL = "https://picsum.photos/id/292/800/600";
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setLoading(true);
+    setPhotoResult(null);
+    setSelectedPhotoUri(TEST_IMAGE_URL);
+    try {
+      const res = await uploadPhotoForAnalysis(
+        { uri: TEST_IMAGE_URL, name: "test-meal.jpg", type: "image/jpeg" },
+        undefined,
+        false
+      );
+      devLog("loadTestImage: upload success");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      setPhotoResult(res);
+      if (res?.type === "sleep" && res.sleep?.id != null && res.sleep.id > 0) {
+        onSleepSaved?.(res.sleep);
+      }
+      if (res?.type === "food") {
+        setSelectedMealType("other");
+        setEditedFood({
+          name: res.food.name,
+          portion_grams: res.food.portion_grams,
+          calories: res.food.calories,
+          protein_g: res.food.protein_g,
+          fat_g: res.food.fat_g,
+          carbs_g: res.food.carbs_g,
+        });
+      } else {
+        setEditedFood(null);
+      }
+    } catch (e) {
+      devLog(`loadTestImage: error ${e instanceof Error ? e.message : String(e)}`, "error");
+      const msg = e instanceof Error ? e.message : "";
+      if ((msg.includes("429") || msg.includes("limit") || msg.includes("Daily limit")) && onOpenPricing) {
+        setPremiumGateVisible(true);
+      } else {
+        Alert.alert(t("common.error"), getPhotoErrorMessage(e, t));
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReanalyze = async () => {
@@ -478,7 +547,19 @@ export function CameraScreen({
         {photoResult?.type === "food" && !loading && (
           <View style={[styles.result, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
             {selectedPhotoUri ? (
-              <Image source={{ uri: selectedPhotoUri }} style={styles.photoThumbnail} resizeMode="cover" />
+              <View style={styles.photoThumbnailWrap}>
+                {!imageLoaded && (
+                  <View style={styles.photoPlaceholder}>
+                    <ActivityIndicator size="small" color="#64748b" />
+                  </View>
+                )}
+                <Image
+                  source={{ uri: selectedPhotoUri }}
+                  style={styles.photoThumbnail}
+                  resizeMode="cover"
+                  onLoadEnd={() => setImageLoaded(true)}
+                />
+              </View>
             ) : null}
             {isPreview() && editedFood ? (
               <>
@@ -596,7 +677,19 @@ export function CameraScreen({
         {photoResult?.type === "sleep" && !loading && (
           <View style={[styles.result, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
             {selectedPhotoUri ? (
-              <Image source={{ uri: selectedPhotoUri }} style={styles.photoThumbnail} resizeMode="cover" />
+              <View style={styles.photoThumbnailWrap}>
+                {!imageLoaded && (
+                  <View style={styles.photoPlaceholder}>
+                    <ActivityIndicator size="small" color="#64748b" />
+                  </View>
+                )}
+                <Image
+                  source={{ uri: selectedPhotoUri }}
+                  style={styles.photoThumbnail}
+                  resizeMode="cover"
+                  onLoadEnd={() => setImageLoaded(true)}
+                />
+              </View>
             ) : null}
             <Text style={styles.resultName}>{t("camera.sleepRecognized")}</Text>
             <SleepDataLines data={photoResult.sleep.extracted_data} />
@@ -627,7 +720,19 @@ export function CameraScreen({
         {photoResult?.type === "wellness" && !loading && (
           <View style={[styles.result, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
             {selectedPhotoUri ? (
-              <Image source={{ uri: selectedPhotoUri }} style={styles.photoThumbnail} resizeMode="cover" />
+              <View style={styles.photoThumbnailWrap}>
+                {!imageLoaded && (
+                  <View style={styles.photoPlaceholder}>
+                    <ActivityIndicator size="small" color="#64748b" />
+                  </View>
+                )}
+                <Image
+                  source={{ uri: selectedPhotoUri }}
+                  style={styles.photoThumbnail}
+                  resizeMode="cover"
+                  onLoadEnd={() => setImageLoaded(true)}
+                />
+              </View>
             ) : null}
             <Text style={styles.resultName}>{t("camera.wellnessRecognized")}</Text>
             <View style={styles.sleepLines}>
@@ -671,6 +776,15 @@ export function CameraScreen({
                 <Text style={styles.buttonIcon}>🖼️</Text>
                 <Text style={styles.buttonText}>{t("camera.selectFromGallery")}</Text>
               </TouchableOpacity>
+              {isDevLogEnabled() && (
+                <TouchableOpacity
+                  style={[styles.button, styles.buttonTest, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}
+                  onPress={loadTestImage}
+                >
+                  <Text style={styles.buttonIcon}>🧪</Text>
+                  <Text style={styles.buttonText}>{t("camera.loadTestImage")}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </>
         )}
@@ -705,10 +819,22 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: "center",
   },
+  buttonTest: { borderColor: "rgba(148,163,184,0.3)", borderStyle: "dashed" },
   buttonIcon: { fontSize: 40, marginBottom: 8 },
   buttonText: { fontSize: 18, color: "#e2e8f0", fontWeight: "600" },
   result: { backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", borderRadius: 24, padding: 20 },
-  photoThumbnail: { width: "100%", height: 180, borderRadius: 8, marginBottom: 12 },
+  photoThumbnailWrap: { width: "100%", height: 180, borderRadius: 8, marginBottom: 12, overflow: "hidden" },
+  photoThumbnail: { width: "100%", height: 180, borderRadius: 8 },
+  photoPlaceholder: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   resultName: { fontSize: 20, color: "#e2e8f0", fontWeight: "600", marginBottom: 8 },
   resultMacros: { fontSize: 16, color: "#94a3b8", marginBottom: 4 },
   resultWhere: { fontSize: 12, color: "#64748b", marginTop: 8 },

@@ -16,6 +16,8 @@ import { useTranslation } from "../i18n";
 import { setAccessToken, setRefreshToken } from "../storage/authStorage";
 import { useTheme, contentWrap } from "../theme";
 
+const EMAIL_FORMAT_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
 function getErrorMessage(e: unknown, t: (key: string) => string): string {
   if (!(e instanceof Error)) return t("auth.requestError");
   try {
@@ -45,6 +47,10 @@ export function LoginScreen({
     const e = email.trim().toLowerCase();
     if (!e || !password) {
       setError(t("auth.emailRequired"));
+      return;
+    }
+    if (!EMAIL_FORMAT_RE.test(e)) {
+      setError(t("auth.invalidEmailFormat"));
       return;
     }
     setError(null);
@@ -96,6 +102,8 @@ export function LoginScreen({
             />
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t("auth.login")}
               style={[styles.buttonPrimary, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
               onPress={handleLogin}
               disabled={loading}
@@ -106,7 +114,13 @@ export function LoginScreen({
                 <Text style={[styles.buttonPrimaryText, { color: colors.primaryText }]}>{t("auth.login")}</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.link} onPress={onGoToRegister} disabled={loading}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t("auth.createAccount")}
+              style={styles.link}
+              onPress={onGoToRegister}
+              disabled={loading}
+            >
               <Text style={[styles.linkText, { color: colors.primary }]}>{t("auth.createAccount")}</Text>
             </TouchableOpacity>
           </View>
