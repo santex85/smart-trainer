@@ -18,6 +18,17 @@ async def test_register(client: AsyncClient, clean_db):
 
 
 @pytest.mark.asyncio
+async def test_register_invalid_email(client: AsyncClient, clean_db):
+    """Register with invalid email format returns 400."""
+    resp = await client.post(
+        "/api/v1/auth/register",
+        json={"email": "notanemail", "password": "securepass123"},
+    )
+    assert resp.status_code == 400
+    assert resp.json().get("detail") == "Invalid email format"
+
+
+@pytest.mark.asyncio
 async def test_register_duplicate_email(client: AsyncClient, clean_db):
     """Second register with same email returns 400. Create first user via DB so it persists."""
     from app.core.auth import hash_password

@@ -95,6 +95,7 @@ cp .env.production.example .env
 # Отредактировать .env: POSTGRES_PASSWORD, SECRET_KEY, ENCRYPTION_KEY,
 # APP_ENV=production, GOOGLE_GEMINI_API_KEY,
 # DEBUG=false, DOMAIN=<ваш-домен>. Опционально: JWT_PRIVATE_KEY и JWT_PUBLIC_KEY для RS256 (см. раздел про JWT ниже).
+# Для HTTPS включите HSTS: ENABLE_HSTS=true (добавляет заголовок Strict-Transport-Security в ответы API).
 # Для Sentry: SENTRY_DSN и SENTRY_ENVIRONMENT (см. раздел Sentry ниже); фронт при сборке возьмёт DSN из SENTRY_DSN, если EXPO_PUBLIC_SENTRY_DSN не задан.
 docker compose -f docker-compose.yml -f docker-compose.prod.yml build
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d

@@ -1,6 +1,7 @@
 """Auth: register, login, me, refresh."""
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
@@ -29,6 +30,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 ACCESS_TOKEN_EXPIRE_SECONDS = settings.access_token_expire_minutes * 60
+
+# Simplified email format: local@domain.tld (reject obviously invalid to avoid DB junk)
+EMAIL_FORMAT_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
 def _issue_tokens(session: AsyncSession, user: User) -> tuple[str, str, int]:
@@ -80,7 +84,7 @@ class RefreshBody(BaseModel):
     response_model=TokenResponse,
     summary="Register a new user",
     responses={
-        400: {"description": "Email and password required or email already registered"},
+        400: {"description": "Email and password required, invalid email format, or email already registered"},
         500: {"description": "Registration failed or database error"},
     },
 )
@@ -93,6 +97,8 @@ async def register(
     password = body.password or ""
     if not email or not password:
         raise HTTPException(status_code=400, detail="Email and password required")
+    if not EMAIL_FORMAT_RE.match(email):
+        raise HTTPException(status_code=400, detail="Invalid email format")
     r = await session.execute(select(User).where(User.email == email))
     if r.scalar_one_or_none() is not None:
         raise HTTPException(status_code=400, detail="Email already registered")

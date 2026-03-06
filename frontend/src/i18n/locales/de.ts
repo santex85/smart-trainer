@@ -104,6 +104,7 @@ export const de = {
     passwordHint: "Passwort (mind. 6 Zeichen)",
     passwordMinLength: "Passwort mindestens 6 Zeichen",
     emailRequired: "E-Mail und Passwort eingeben",
+    invalidEmailFormat: "Ungültiges E-Mail-Format",
     haveAccount: "Bereits ein Konto? Anmelden",
     requestError: "Anfragefehler. Bitte erneut versuchen.",
   },

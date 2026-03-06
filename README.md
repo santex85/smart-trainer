@@ -24,6 +24,7 @@ Cross-platform AI sports coach: nutrition from plate photos (Gemini), Intervals.
    ```
 3. Open http://localhost (frontend). API is at http://localhost/api/v1/ (proxied via nginx).
 4. Optional: create a user in the DB (see backend/README.md) so the app has a user for nutrition and chat.
+5. **Production:** When deploying behind HTTPS, set `ENABLE_HSTS=true` in `.env` so the API adds the `Strict-Transport-Security` header (see [docs/DEPLOY.md](docs/DEPLOY.md)).
 
 Make targets: `make build`, `make up`, `make down`, `make logs`, `make migrate`, `make shell-backend`, `make ps`, `make logs-backend`, `make logs-frontend`, `make logs-db`.
 

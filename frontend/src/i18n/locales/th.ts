@@ -104,6 +104,7 @@ export const th = {
     passwordHint: "รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)",
     passwordMinLength: "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",
     emailRequired: "กรอกอีเมลและรหัสผ่าน",
+    invalidEmailFormat: "รูปแบบอีเมลไม่ถูกต้อง",
     haveAccount: "มีบัญชีอยู่แล้ว? เข้าสู่ระบบ",
     requestError: "ข้อผิดพลาดในการร้องขอ กรุณาลองอีกครั้ง",
   },

@@ -104,6 +104,7 @@ export const it = {
     passwordHint: "Password (min. 6 caratteri)",
     passwordMinLength: "La password deve avere almeno 6 caratteri",
     emailRequired: "Inserisci email e password",
+    invalidEmailFormat: "Formato email non valido",
     haveAccount: "Hai già un account? Accedi",
     requestError: "Errore di richiesta. Riprova.",
   },

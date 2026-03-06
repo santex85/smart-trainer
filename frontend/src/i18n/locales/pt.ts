@@ -104,6 +104,7 @@ export const pt = {
     passwordHint: "Palavra-passe (mín. 6 caracteres)",
     passwordMinLength: "A palavra-passe deve ter pelo menos 6 caracteres",
     emailRequired: "Introduza e-mail e palavra-passe",
+    invalidEmailFormat: "Formato de e-mail inválido",
     haveAccount: "Já tem conta? Entrar",
     requestError: "Erro no pedido. Tente novamente.",
   },

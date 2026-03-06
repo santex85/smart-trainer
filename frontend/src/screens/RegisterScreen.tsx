@@ -27,6 +27,8 @@ function getErrorMessage(e: unknown, t: (key: string) => string): string {
   return e.message || t("auth.requestError");
 }
 
+const EMAIL_FORMAT_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
 export function RegisterScreen({
   onSuccess,
   onGoToLogin,
@@ -45,6 +47,10 @@ export function RegisterScreen({
     const e = email.trim().toLowerCase();
     if (!e || !password) {
       setError(t("auth.emailRequired"));
+      return;
+    }
+    if (!EMAIL_FORMAT_RE.test(e)) {
+      setError(t("auth.invalidEmailFormat"));
       return;
     }
     if (password.length < 6) {

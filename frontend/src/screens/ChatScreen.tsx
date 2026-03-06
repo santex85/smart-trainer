@@ -36,6 +36,7 @@ import { useLoadingStages } from "../hooks/useLoadingStages";
 import { Ionicons } from "@expo/vector-icons";
 import { PremiumGateModal } from "../components/PremiumGateModal";
 import type { AuthUser } from "../api/client";
+import { escapeForDisplay } from "../utils/escapeForDisplay";
 
 function formatChatTime(isoOrTimestamp: string): string {
   try {
@@ -258,7 +259,7 @@ export function ChatScreen({
   const onDeleteThread = useCallback(
     (threadId: number, title: string) => {
       const confirmTitle = t("chat.deleteChatConfirmTitle");
-      const confirmMessage = t("chat.deleteChatConfirmMessage").replace("{name}", title);
+      const confirmMessage = t("chat.deleteChatConfirmMessage").replace("{name}", escapeForDisplay(title));
       const runDelete = () => performDeleteThread(threadId);
       if (Platform.OS === "web" && typeof window !== "undefined") {
         if (window.confirm(`${confirmTitle}\n${confirmMessage}`)) {
@@ -280,7 +281,7 @@ export function ChatScreen({
         setThreadMenuThread(thread);
         return;
       }
-      Alert.alert(t("tabs.chat"), `«${thread.title}»`, [
+      Alert.alert(t("tabs.chat"), `«${escapeForDisplay(thread.title)}»`, [
         { text: t("common.cancel"), style: "cancel" },
         {
           text: t("common.rename"),
@@ -431,7 +432,7 @@ export function ChatScreen({
                 onLongPress={() => openThreadMenu(thread)}
               >
                 <Text style={[styles.tabText, thread.id === currentThreadId && styles.tabTextActive]} numberOfLines={1}>
-                  {thread.title}
+                  {escapeForDisplay(thread.title)}
                 </Text>
                 {thread.id === currentThreadId ? (
                   <TouchableOpacity
@@ -460,7 +461,7 @@ export function ChatScreen({
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
           <View style={[styles.bubble, item.role === "user" ? styles.userBubble : styles.assistantBubble]}>
-            <Text style={styles.bubbleText}>{item.content}</Text>
+            <Text style={styles.bubbleText}>{escapeForDisplay(item.content)}</Text>
             {item.timestamp ? (
               <Text style={styles.bubbleTime}>{formatChatTime(item.timestamp)}</Text>
             ) : null}
@@ -597,7 +598,7 @@ export function ChatScreen({
         <Modal visible transparent animationType="fade">
           <Pressable style={styles.renameBackdrop} onPress={() => setThreadMenuThread(null)}>
             <Pressable style={[styles.renameBox, styles.threadMenuBox, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]} onPress={(e) => e.stopPropagation()}>
-              <Text style={[styles.renameTitle, { color: colors.text }]}>{threadMenuThread.title}</Text>
+              <Text style={[styles.renameTitle, { color: colors.text }]}>{escapeForDisplay(threadMenuThread.title)}</Text>
               <View style={styles.threadMenuActions}>
                 <TouchableOpacity style={styles.renameCancel} onPress={() => setThreadMenuThread(null)}>
                   <Text style={[styles.renameCancelText, { color: colors.text }]}>{t("common.cancel")}</Text>
