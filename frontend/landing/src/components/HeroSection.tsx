@@ -1,5 +1,6 @@
 import React from "react";
 import { Activity, Brain, TrendingUp, CheckCircle2 } from "lucide-react";
+import dashboardPreview from "@/assets/dashboard-preview.png";
 
 export function HeroSection({ appUrl }: { appUrl: string }) {
   return (
@@ -51,11 +52,12 @@ export function HeroSection({ appUrl }: { appUrl: string }) {
 
           <div className="relative">
             <div className="relative bg-gradient-to-br from-white/10 to-white/[0.02] border border-white/20 rounded-2xl p-2 backdrop-blur shadow-2xl">
-              <div className="aspect-[4/3] bg-[#0f0f0f] rounded-xl flex items-center justify-center">
-                <div className="text-white/40 text-center p-8">
-                  <div className="text-4xl mb-4">📊</div>
-                  <p className="text-sm">Dashboard preview</p>
-                </div>
+              <div className="aspect-[4/3] bg-[#0f0f0f] rounded-xl overflow-hidden">
+                <img
+                  src={dashboardPreview}
+                  alt="tssAI Dashboard — nutrition, calories, macros"
+                  className="w-full h-full object-cover object-top"
+                />
               </div>
             </div>
 
