@@ -1,6 +1,6 @@
 import React from "react";
 import { Camera, Zap, Beaker } from "lucide-react";
-import photoAnalysisImage from "@/assets/photo-analysis.png";
+import { PhotoAnalysisPreview } from "./PhotoAnalysisPreview";
 
 export function PhotoAnalysisSection() {
   const points = [
@@ -50,11 +50,7 @@ export function PhotoAnalysisSection() {
           <div className="relative">
             <div className="relative bg-gradient-to-br from-white/10 to-white/[0.02] border border-white/20 rounded-2xl p-2 backdrop-blur shadow-2xl">
               <div className="bg-[#0f0f0f] rounded-xl overflow-hidden">
-                <img
-                  src={photoAnalysisImage}
-                  alt="tssAI Photo Analysis — Vegetable & Tofu Fried Rice with nutrition breakdown"
-                  className="w-full h-auto object-contain rounded-xl"
-                />
+                <PhotoAnalysisPreview />
               </div>
             </div>
           </div>
