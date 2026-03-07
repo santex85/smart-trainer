@@ -111,6 +111,7 @@ export const fr = {
     invalidEmailFormat: "Format d'e-mail invalide",
     haveAccount: "Déjà un compte ? Connexion",
     requestError: "Erreur de requête. Veuillez réessayer.",
+    serverError: "Serveur temporairement indisponible. Veuillez réessayer plus tard.",
   },
   nutrition: {
     title: "Nutrition (reste vs objectifs)",

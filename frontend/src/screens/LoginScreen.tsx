@@ -15,19 +15,9 @@ import { login, type AuthUser } from "../api/client";
 import { useTranslation } from "../i18n";
 import { setAccessToken, setRefreshToken } from "../storage/authStorage";
 import { useTheme, contentWrap } from "../theme";
+import { getAuthErrorMessage } from "../utils/authError";
 
 const EMAIL_FORMAT_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-
-function getErrorMessage(e: unknown, t: (key: string) => string): string {
-  if (!(e instanceof Error)) return t("auth.requestError");
-  try {
-    const parsed = JSON.parse(e.message) as { detail?: string };
-    if (typeof parsed?.detail === "string") return parsed.detail;
-  } catch {
-    /* ignore */
-  }
-  return e.message || t("auth.requestError");
-}
 
 export function LoginScreen({
   onSuccess,
@@ -61,7 +51,7 @@ export function LoginScreen({
       await setRefreshToken(res.refresh_token);
       onSuccess(res.user);
     } catch (err) {
-      setError(getErrorMessage(err, t));
+      setError(getAuthErrorMessage(err, t));
     } finally {
       setLoading(false);
     }

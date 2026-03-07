@@ -111,6 +111,7 @@ export const de = {
     invalidEmailFormat: "Ungültiges E-Mail-Format",
     haveAccount: "Bereits ein Konto? Anmelden",
     requestError: "Anfragefehler. Bitte erneut versuchen.",
+    serverError: "Server vorübergehend nicht erreichbar. Bitte später erneut versuchen.",
   },
   nutrition: {
     title: "Ernährung (Rest zu Zielen)",

@@ -120,6 +120,7 @@ export const ru = {
     invalidEmailFormat: "Некорректный формат email",
     haveAccount: "Уже есть аккаунт? Войти",
     requestError: "Ошибка запроса. Повторите позже.",
+    serverError: "Сервер временно недоступен. Попробуйте позже.",
   },
   nutrition: {
     title: "Питание (остаток по целям)",
@@ -574,6 +575,7 @@ export const en = {
     invalidEmailFormat: "Invalid email format",
     haveAccount: "Already have an account? Log in",
     requestError: "Request error. Please try again.",
+    serverError: "Server temporarily unavailable. Please try again later.",
   },
   nutrition: {
     title: "Nutrition (remaining vs goals)",

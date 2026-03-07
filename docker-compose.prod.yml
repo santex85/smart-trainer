@@ -169,6 +169,9 @@ services:
   frontend:
     ports: []
     restart: unless-stopped
+    environment:
+      # Docker Swarm: service name is st2_backend (stack name + service name)
+      BACKEND_UPSTREAM: st2_backend:8000
     deploy:
       resources:
         limits:

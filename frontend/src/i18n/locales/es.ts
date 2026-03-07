@@ -111,6 +111,7 @@ export const es = {
     invalidEmailFormat: "Formato de correo no válido",
     haveAccount: "¿Ya tienes cuenta? Iniciar sesión",
     requestError: "Error de solicitud. Inténtalo de nuevo.",
+    serverError: "Servidor temporalmente no disponible. Inténtalo más tarde.",
   },
   nutrition: {
     title: "Nutrición (resto vs objetivos)",
