@@ -212,44 +212,46 @@ async def lifespan(app: FastAPI):
 
     # Scheduled jobs use a Redis distributed lock so that with multiple Uvicorn/Gunicorn
     # workers only one process runs each job (no duplicate push notifications or DB load).
-    # Orchestrator: run at configured hours (e.g. 07:00 and 16:00); pass hour so prompts use morning/day/evening logic
-    try:
-        hours = [int(h.strip()) for h in settings.orchestrator_cron_hours.split(",") if h.strip()]
-    except ValueError:
-        hours = [7, 16]
-    for hour in hours:
-        if 0 <= hour <= 23:
+    # Set enable_scheduler=False on API workers when cron runs in a separate container.
+    if settings.enable_scheduler:
+        try:
+            hours = [int(h.strip()) for h in settings.orchestrator_cron_hours.split(",") if h.strip()]
+        except ValueError:
+            hours = [7, 16]
+        for hour in hours:
+            if 0 <= hour <= 23:
 
-            def _make_orchestrator_job(h: int):
-                async def _job() -> None:
-                    await scheduled_orchestrator_run(cron_hour=h)
+                def _make_orchestrator_job(h: int):
+                    async def _job() -> None:
+                        await scheduled_orchestrator_run(cron_hour=h)
 
-                return _job
+                    return _job
 
-            scheduler.add_job(_make_orchestrator_job(hour), "cron", hour=hour, minute=0)
+                scheduler.add_job(_make_orchestrator_job(hour), "cron", hour=hour, minute=0)
 
-    scheduler.add_job(scheduled_sleep_reminder, "cron", hour=9, minute=0)
+        scheduler.add_job(scheduled_sleep_reminder, "cron", hour=9, minute=0)
 
-    # Retention: recovery reminder for users with heavy workout yesterday who didn't open chat today
-    retention_hour = getattr(settings, "retention_recovery_reminder_hour", 18)
-    if 0 <= retention_hour <= 23:
-        scheduler.add_job(scheduled_recovery_reminder, "cron", hour=retention_hour, minute=0)
+        # Retention: recovery reminder for users with heavy workout yesterday who didn't open chat today
+        retention_hour = getattr(settings, "retention_recovery_reminder_hour", 18)
+        if 0 <= retention_hour <= 23:
+            scheduler.add_job(scheduled_recovery_reminder, "cron", hour=retention_hour, minute=0)
 
-    # Retention: CTL drop reminder (e.g. 10:00)
-    scheduler.add_job(scheduled_ctl_drop_reminder, "cron", hour=10, minute=0)
+        # Retention: CTL drop reminder (e.g. 10:00)
+        scheduler.add_job(scheduled_ctl_drop_reminder, "cron", hour=10, minute=0)
 
-    # Retention: nutrition after long workout (e.g. 20:00)
-    scheduler.add_job(scheduled_nutrition_after_long_reminder, "cron", hour=20, minute=0)
+        # Retention: nutrition after long workout (e.g. 20:00)
+        scheduler.add_job(scheduled_nutrition_after_long_reminder, "cron", hour=20, minute=0)
 
-    # Weekly summary (RAG): one summary per premium user per week
-    ws_day = getattr(settings, "weekly_summary_cron_day_of_week", 6)
-    ws_hour = getattr(settings, "weekly_summary_cron_hour", 21)
-    if 0 <= ws_day <= 6 and 0 <= ws_hour <= 23:
-        scheduler.add_job(scheduled_weekly_summary, "cron", day_of_week=ws_day, hour=ws_hour, minute=0)
+        # Weekly summary (RAG): one summary per premium user per week
+        ws_day = getattr(settings, "weekly_summary_cron_day_of_week", 6)
+        ws_hour = getattr(settings, "weekly_summary_cron_hour", 21)
+        if 0 <= ws_day <= 6 and 0 <= ws_hour <= 23:
+            scheduler.add_job(scheduled_weekly_summary, "cron", day_of_week=ws_day, hour=ws_hour, minute=0)
 
-    scheduler.start()
+        scheduler.start()
     yield
-    scheduler.shutdown()
+    if settings.enable_scheduler:
+        scheduler.shutdown()
     await close_http_client()
     await close_redis()
 
