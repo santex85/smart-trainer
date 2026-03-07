@@ -1,10 +1,10 @@
 """Chat with AI coach: history, send message, optional orchestrator run, optional FIT upload."""
 
 import asyncio
-import hashlib
 import json
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, time, timezone
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
@@ -12,6 +12,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import check_chat_usage, get_current_user, get_request_locale, language_for_locale, require_premium
+from app.core.upload import read_upload_bounded
 from app.db.session import get_db
 from app.models.athlete_profile import AthleteProfile
 from app.models.chat_message import ChatMessage, MessageRole
@@ -24,6 +25,7 @@ from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
 from app.schemas.pagination import PaginatedResponse
 from app.services.fit_parser import parse_fit_session
+from app.services.workout_processor import fit_data_to_summary, save_workout_from_fit
 from app.services.gemini_photo_analyzer import classify_and_analyze_image
 from app.services.image_resize import resize_image_for_ai_async
 from app.services.orchestrator import run_daily_decision
@@ -113,13 +115,79 @@ CHAT_HISTORY_MESSAGES_LIMIT = 20
 CHAT_HISTORY_MAX_CHARS = 3000
 
 
-async def _build_athlete_context(session: AsyncSession, user_id: int, is_premium: bool = False) -> str:
+def _format_food_entries_text(entries: list[dict]) -> str:
+    if not entries:
+        return "(none)"
+    lines = []
+    for e in entries[:20]:
+        name = e.get("name") or "?"
+        cal = e.get("calories") or 0
+        p = e.get("protein_g") or 0
+        f = e.get("fat_g") or 0
+        c = e.get("carbs_g") or 0
+        lines.append(f"- {name}: {cal:.0f} kcal (P{p:.0f} F{f:.0f} C{c:.0f})")
+    if len(entries) > 20:
+        lines.append(f"... (+{len(entries) - 20} more)")
+    return "\n".join(lines)
+
+
+def _format_wellness_history_text(history: list[dict]) -> str:
+    if not history:
+        return "(none)"
+    lines = []
+    for h in history:
+        d = h.get("date") or "?"
+        sleep = h.get("sleep_hours")
+        hrv = h.get("hrv")
+        rhr = h.get("rhr")
+        parts = []
+        if sleep is not None:
+            parts.append(f"Sleep {sleep}h")
+        if hrv is not None:
+            parts.append(f"HRV {hrv}")
+        if rhr is not None:
+            parts.append(f"RHR {rhr}")
+        lines.append(f"- {d}: {', '.join(parts) or '—'}")
+    return "\n".join(lines)
+
+
+def _format_workouts_text(workouts: list[dict]) -> str:
+    if not workouts:
+        return "(none)"
+    lines = []
+    for w in workouts:
+        d = w.get("date") or "?"
+        name = w.get("name") or "Workout"
+        dist = w.get("distance_km")
+        tss = w.get("tss")
+        dist_str = f", {dist} km" if dist is not None else ""
+        tss_str = f", TSS {tss}" if tss is not None else ""
+        lines.append(f"- {d}: {name}{dist_str}{tss_str}")
+    return "\n".join(lines)
+
+
+def _day_bounds_utc(d: date, tz_name: str) -> tuple[datetime, datetime]:
+    """Return (start_utc, end_utc) for the given date in user's timezone."""
+    try:
+        tz = ZoneInfo(tz_name) if tz_name else timezone.utc
+    except Exception:
+        tz = timezone.utc
+    start_local = datetime.combine(d, time.min, tzinfo=tz)
+    end_local = datetime.combine(d + timedelta(days=1), time.min, tzinfo=tz)
+    return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
+
+
+async def _build_athlete_context(session: AsyncSession, user_id: int, is_premium: bool = False, user_tz: str | None = None) -> str:
     """Build a compressed text summary: profile, food/wellness today + last N days, last M workouts. No passwords/tokens."""
-    today = date.today()
-    sleep_from = today - timedelta(days=CHAT_CONTEXT_DAYS)
-    wellness_from = today - timedelta(days=CHAT_CONTEXT_DAYS)
-    from_dt = datetime.combine(wellness_from, datetime.min.time()).replace(tzinfo=timezone.utc)
-    to_dt = datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(tzinfo=timezone.utc)
+    tz_str = (user_tz or "").strip() or "UTC"
+    try:
+        tz = ZoneInfo(tz_str)
+    except Exception:
+        tz = timezone.utc
+    today_local = datetime.now(tz).date()
+    today_start_utc, today_end_utc = _day_bounds_utc(today_local, tz_str)
+    history_start_utc, _ = _day_bounds_utc(today_local - timedelta(days=CHAT_CONTEXT_DAYS), tz_str)
+    wellness_from = today_local - timedelta(days=CHAT_CONTEXT_DAYS)
 
     (
         r_user,
@@ -135,34 +203,34 @@ async def _build_athlete_context(session: AsyncSession, user_id: int, is_premium
         session.execute(
             select(FoodLog.name, FoodLog.portion_grams, FoodLog.calories, FoodLog.protein_g, FoodLog.fat_g, FoodLog.carbs_g, FoodLog.meal_type, FoodLog.timestamp, FoodLog.extended_nutrients).where(
                 FoodLog.user_id == user_id,
-                FoodLog.timestamp >= datetime.combine(today, datetime.min.time()),
-                FoodLog.timestamp < datetime.combine(today + timedelta(days=1), datetime.min.time()),
+                FoodLog.timestamp >= today_start_utc,
+                FoodLog.timestamp < today_end_utc,
             )
         ),
         session.execute(
             select(WellnessCache).where(
                 WellnessCache.user_id == user_id,
-                WellnessCache.date == today,
+                WellnessCache.date == today_local,
             )
         ),
         session.execute(
             select(SleepExtraction.created_at, SleepExtraction.extracted_data).where(
                 SleepExtraction.user_id == user_id,
-                SleepExtraction.created_at >= from_dt,
+                SleepExtraction.created_at >= history_start_utc,
             ).order_by(SleepExtraction.created_at.desc()).limit(20)
         ),
         session.execute(
             select(WellnessCache.date, WellnessCache.sleep_hours, WellnessCache.rhr, WellnessCache.hrv, WellnessCache.ctl, WellnessCache.atl, WellnessCache.tsb, WellnessCache.weight_kg).where(
                 WellnessCache.user_id == user_id,
                 WellnessCache.date >= wellness_from,
-                WellnessCache.date <= today,
+                WellnessCache.date <= today_local,
             ).order_by(WellnessCache.date.asc())
         ),
         session.execute(
             select(Workout).where(
                 Workout.user_id == user_id,
-                Workout.start_date >= from_dt,
-                Workout.start_date < to_dt,
+                Workout.start_date >= history_start_utc,
+                Workout.start_date < today_end_utc,
             ).order_by(Workout.start_date.desc()).limit(CHAT_WORKOUTS_LIMIT)
         ),
     )
@@ -178,15 +246,15 @@ async def _build_athlete_context(session: AsyncSession, user_id: int, is_premium
             athlete["height_cm"] = float(profile.height_cm)
         if profile.birth_year is not None:
             athlete["birth_year"] = profile.birth_year
-            athlete["age_years"] = today.year - profile.birth_year
+            athlete["age_years"] = today_local.year - profile.birth_year
         if profile.ftp is not None:
             athlete["ftp"] = profile.ftp
         if profile.target_race_date is not None:
             athlete["target_race_date"] = profile.target_race_date.isoformat()
         if profile.target_race_name:
             athlete["target_race_name"] = profile.target_race_name
-        if profile.target_race_date is not None and profile.target_race_date >= today:
-            athlete["days_to_race"] = (profile.target_race_date - today).days
+        if profile.target_race_date is not None and profile.target_race_date >= today_local:
+            athlete["days_to_race"] = (profile.target_race_date - today_local).days
     if not athlete.get("display_name") and email:
         athlete["display_name"] = email
 
@@ -230,7 +298,7 @@ async def _build_athlete_context(session: AsyncSession, user_id: int, is_premium
             "deep_sleep_min": data.get("deep_sleep_min"),
             "rem_min": data.get("rem_min"),
         })
-    sleep_summary = json.dumps(sleep_entries, default=str) if sleep_entries else "No sleep data from photos."
+    sleep_summary = json.dumps(sleep_entries[:5], default=str) if sleep_entries else "No sleep data from photos."
 
     wellness_history = []
     for row in r_well.all():
@@ -258,7 +326,21 @@ async def _build_athlete_context(session: AsyncSession, user_id: int, is_premium
 
     parts = [
         "## Athlete profile (weight, height, age, FTP, name, sex)",
-        _cap(json.dumps(athlete, default=str)),
+        json.dumps(athlete, default=str),
+        "## Food today (sum)",
+        f"Calories: {food_sum['calories']:.0f}, Protein: {food_sum['protein_g']:.0f}g, Fat: {food_sum['fat_g']:.0f}g, Carbs: {food_sum['carbs_g']:.0f}g",
+        "## Food today (entries)",
+        _format_food_entries_text(food_entries),
+        "## Wellness today (sleep, RHR, HRV)",
+        json.dumps(wellness_today or {}),
+        "## Load (CTL/ATL/TSB)",
+        json.dumps(ctl_atl_tsb or {}),
+        "## Wellness history (last %d days)" % CHAT_CONTEXT_DAYS,
+        _format_wellness_history_text(wellness_history),
+        "## Sleep (from photos, last %d days)" % CHAT_CONTEXT_DAYS,
+        sleep_summary,
+        "## Recent workouts (manual/FIT)",
+        _format_workouts_text(workouts),
     ]
     if is_premium:
         r_summary = await session.execute(
@@ -269,23 +351,7 @@ async def _build_athlete_context(session: AsyncSession, user_id: int, is_premium
         )
         row = r_summary.one_or_none()
         if row and row[0]:
-            parts.append("## Coach memory (weekly summary)\n" + _cap(row[0], limit=600))
-    parts.extend([
-        "## Food today (sum)",
-        f"Calories: {food_sum['calories']:.0f}, Protein: {food_sum['protein_g']:.0f}g, Fat: {food_sum['fat_g']:.0f}g, Carbs: {food_sum['carbs_g']:.0f}g",
-        "## Food today (entries)",
-        _cap(json.dumps(food_entries, default=str)),
-        "## Wellness today (sleep, RHR, HRV)",
-        _cap(json.dumps(wellness_today or {})),
-        "## Load (CTL/ATL/TSB)",
-        _cap(json.dumps(ctl_atl_tsb or {})),
-        "## Wellness history (last %d days)" % CHAT_CONTEXT_DAYS,
-        _cap(json.dumps(wellness_history, default=str)),
-        "## Sleep (from photos, last %d days)" % CHAT_CONTEXT_DAYS,
-        _cap(sleep_summary),
-        "## Recent workouts (manual/FIT)",
-        _cap(json.dumps(workouts, default=str)),
-    ])
+            parts.insert(2, "## Coach memory (weekly summary)\n" + _cap(row[0], limit=600))
     return "\n".join(parts)
 
 
@@ -317,32 +383,6 @@ async def _get_conversation_block(
         lines.append(line)
         total += len(line) + 1
     return "\n".join(lines)
-
-
-def _fit_data_to_summary(data: dict) -> str:
-    """Build a short text summary of parsed FIT session for AI context."""
-    parts = []
-    start = data.get("start_date")
-    if start:
-        parts.append(f"Date/time: {start}")
-    if data.get("duration_sec"):
-        m = data["duration_sec"] // 60
-        parts.append(f"Duration: {m} min")
-    if data.get("distance_m"):
-        parts.append(f"Distance: {data['distance_m'] / 1000:.1f} km")
-    if data.get("sport"):
-        parts.append(f"Sport: {data['sport']}")
-    if data.get("avg_heart_rate") is not None:
-        parts.append(f"Avg HR: {data['avg_heart_rate']} bpm")
-    if data.get("max_heart_rate") is not None:
-        parts.append(f"Max HR: {data['max_heart_rate']} bpm")
-    if data.get("avg_power") is not None:
-        parts.append(f"Avg power: {data['avg_power']} W")
-    if data.get("normalized_power") is not None:
-        parts.append(f"NP: {data['normalized_power']} W")
-    if data.get("total_calories") is not None:
-        parts.append(f"Calories: {data['total_calories']}")
-    return "; ".join(parts) if parts else "No session data"
 
 
 async def _get_fit_monthly_aggregates(
@@ -634,31 +674,40 @@ async def send_message(
     session.add(
         ChatMessage(user_id=uid, thread_id=thread_id, role=MessageRole.user.value, content=body.message)
     )
-    await session.flush()
+    await session.commit()
 
+    today_local = datetime.now(ZoneInfo((user.timezone or "UTC").strip() or "UTC")).date()
     reply = ""
-    if body.run_orchestrator:
-        result = await run_daily_decision(session, uid, date.today(), locale=locale)
-        reply = f"Decision: {result.decision.value}. {result.reason}"
-        if result.suggestions_next_days:
-            reply += f"\n\n{result.suggestions_next_days}"
-    else:
-        import google.generativeai as genai
-        from app.config import settings
-        from app.services.gemini_common import run_generate_content
-        context = await _build_athlete_context(session, uid, user.is_premium)
-        model = genai.GenerativeModel(settings.gemini_model)
-        chat_system = _chat_system_with_locale(locale, user.is_premium)
-        conversation_block = await _get_conversation_block(session, uid, thread_id)
-        if conversation_block:
-            prompt = (
-                f"{chat_system}\n\nContext:\n{context}\n\nConversation so far:\n{conversation_block}\n\n"
-                "Reply as the coach to the last user message. Do not repeat numbers or advice you already gave above."
-            )
+    try:
+        if body.run_orchestrator:
+            result = await run_daily_decision(session, uid, today_local, locale=locale)
+            reply = f"Decision: {result.decision.value}. {result.reason}"
+            if result.suggestions_next_days:
+                reply += f"\n\n{result.suggestions_next_days}"
         else:
-            prompt = f"{chat_system}\n\nContext:\n{context}\n\nUser message: {body.message}"
-        response = await run_generate_content(model, prompt)
-        reply = response.text if response and response.text else "No response."
+            import google.generativeai as genai
+            from app.config import settings
+            from app.services.gemini_common import run_generate_content
+            context = await _build_athlete_context(session, uid, user.is_premium, user_tz=user.timezone)
+            model = genai.GenerativeModel(settings.gemini_model)
+            chat_system = _chat_system_with_locale(locale, user.is_premium)
+            conversation_block = await _get_conversation_block(session, uid, thread_id)
+            if conversation_block:
+                prompt = (
+                    f"{chat_system}\n\nContext:\n{context}\n\nConversation so far:\n{conversation_block}\n\n"
+                    "Reply as the coach to the last user message. Do not repeat numbers or advice you already gave above."
+                )
+            else:
+                prompt = f"{chat_system}\n\nContext:\n{context}\n\nUser message: {body.message}"
+            response = await run_generate_content(model, prompt)
+            reply = response.text if response and response.text else "No response."
+    except Exception:
+        reply = "Sorry, the AI service is temporarily unavailable. Please try again."
+        session.add(
+            ChatMessage(user_id=uid, thread_id=thread_id, role=MessageRole.assistant.value, content=reply)
+        )
+        await session.commit()
+        return {"reply": reply}
 
     session.add(
         ChatMessage(user_id=uid, thread_id=thread_id, role=MessageRole.assistant.value, content=reply)
@@ -707,91 +756,66 @@ async def send_message_with_file(
     user_content = (message or "").strip()
 
     if file and file.filename and file.filename.lower().endswith(".fit"):
-        content = await file.read()
+        content = await read_upload_bounded(file)
         if not content:
             raise HTTPException(status_code=400, detail="Empty FIT file.")
         fit_data = parse_fit_session(content)
         if not fit_data:
             raise HTTPException(status_code=400, detail="Could not parse FIT file or no session found.")
-        fit_summary = _fit_data_to_summary(fit_data)
+        fit_summary = fit_data_to_summary(fit_data)
         if not user_content:
             user_content = f"Приложен FIT-файл тренировки. {fit_summary[:300]}"
 
         if save_w and fit_data:
-            checksum = hashlib.sha256(content).hexdigest()
-            r = await session.execute(select(Workout).where(Workout.user_id == uid, Workout.fit_checksum == checksum))
-            if r.scalar_one_or_none() is None:
-                from app.api.v1.workouts import _estimate_tss_from_fit
-
-                start_date = fit_data["start_date"]
-                if isinstance(start_date, datetime) and start_date.tzinfo is None:
-                    start_date = start_date.replace(tzinfo=timezone.utc)
-                r2 = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
-                profile = r2.scalar_one_or_none()
-                ftp = None
-                if profile and profile.ftp is not None:
-                    ftp = float(profile.ftp)
-                duration_sec = fit_data.get("duration_sec") or 0
-                tss = _estimate_tss_from_fit(
-                    duration_sec,
-                    fit_data.get("avg_power"),
-                    fit_data.get("normalized_power"),
-                    ftp,
-                    fit_data.get("sport"),
-                )
-                sport_name = (fit_data.get("sport") or "Workout").capitalize()
-                w = Workout(
-                    user_id=uid,
-                    start_date=start_date,
-                    name=sport_name,
-                    type=sport_name,
-                    duration_sec=duration_sec or None,
-                    distance_m=fit_data.get("distance_m"),
-                    tss=tss if tss > 0 else None,
-                    source="fit",
-                    fit_checksum=checksum,
-                    raw=fit_data.get("raw"),
-                )
-                session.add(w)
+            await save_workout_from_fit(session, uid, fit_data, content)
 
     session.add(
         ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.user.value, content=user_content or "(сообщение)")
     )
-    await session.flush()
+    await session.commit()
 
+    today_local = datetime.now(ZoneInfo((user.timezone or "UTC").strip() or "UTC")).date()
     reply = ""
-    if run_orch:
-        result = await run_daily_decision(session, uid, date.today(), locale=locale)
-        reply = f"Decision: {result.decision.value}. {result.reason}"
-        if result.suggestions_next_days:
-            reply += f"\n\n{result.suggestions_next_days}"
-    else:
-        import google.generativeai as genai
-        from app.config import settings
-        from app.services.gemini_common import run_generate_content
+    try:
+        if run_orch:
+            result = await run_daily_decision(session, uid, today_local, locale=locale)
+            reply = f"Decision: {result.decision.value}. {result.reason}"
+            if result.suggestions_next_days:
+                reply += f"\n\n{result.suggestions_next_days}"
+        else:
+            import google.generativeai as genai
+            from app.config import settings
+            from app.services.gemini_common import run_generate_content
 
-        context = await _build_athlete_context(session, uid, user.is_premium)
-        if fit_summary:
-            context += "\n\n## Uploaded workout (this message)\n" + fit_summary
-        if fit_data:
-            monthly = await _get_fit_monthly_aggregates(session, uid, fit_data)
-            if monthly:
-                context += "\n\n## Monthly averages (similar workouts, last 30 days)\n" + monthly
-        model = genai.GenerativeModel(settings.gemini_model)
-        chat_system = _chat_system_with_locale(locale, user.is_premium)
-        fit_instruction = ""
-        if fit_summary and fit_data:
-            fit_instruction = (
-                "\n\nIf context includes monthly averages for similar workouts, compare the current workout to them "
-                "and comment on progress in power-to-heart-rate efficiency (EF) and decoupling where data allows. "
-                "Respond in the user's language."
+            context = await _build_athlete_context(session, uid, user.is_premium, user_tz=user.timezone)
+            if fit_summary:
+                context += "\n\n## Uploaded workout (this message)\n" + fit_summary
+            if fit_data:
+                monthly = await _get_fit_monthly_aggregates(session, uid, fit_data)
+                if monthly:
+                    context += "\n\n## Monthly averages (similar workouts, last 30 days)\n" + monthly
+            model = genai.GenerativeModel(settings.gemini_model)
+            chat_system = _chat_system_with_locale(locale, user.is_premium)
+            fit_instruction = ""
+            if fit_summary and fit_data:
+                fit_instruction = (
+                    "\n\nIf context includes monthly averages for similar workouts, compare the current workout to them "
+                    "and comment on progress in power-to-heart-rate efficiency (EF) and decoupling where data allows. "
+                    "Respond in the user's language."
+                )
+            prompt = (
+                f"{chat_system}\n\nContext:\n{context}\n\n"
+                f"User message: {user_content or 'Разбери приложенную тренировку.'}{fit_instruction}"
             )
-        prompt = (
-            f"{chat_system}\n\nContext:\n{context}\n\n"
-            f"User message: {user_content or 'Разбери приложенную тренировку.'}{fit_instruction}"
+            response = await run_generate_content(model, prompt)
+            reply = response.text if response and response.text else "No response."
+    except Exception:
+        reply = "Sorry, the AI service is temporarily unavailable. Please try again."
+        session.add(
+            ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.assistant.value, content=reply)
         )
-        response = await run_generate_content(model, prompt)
-        reply = response.text if response and response.text else "No response."
+        await session.commit()
+        return {"reply": reply}
 
     session.add(
         ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.assistant.value, content=reply)
@@ -833,7 +857,7 @@ async def send_message_with_image(
 
     if not file or not file.filename:
         raise HTTPException(status_code=400, detail="No image file")
-    image_bytes = await file.read()
+    image_bytes = await read_upload_bounded(file)
     _validate_chat_image(file, image_bytes)
     image_bytes = await resize_image_for_ai_async(image_bytes)
     image_description = await _describe_image_for_chat(image_bytes, locale)
@@ -842,19 +866,28 @@ async def send_message_with_image(
     session.add(
         ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.user.value, content=user_content)
     )
-    await session.flush()
+    await session.commit()
 
-    import google.generativeai as genai
-    from app.config import settings
-    from app.services.gemini_common import run_generate_content
+    reply = ""
+    try:
+        import google.generativeai as genai
+        from app.config import settings
+        from app.services.gemini_common import run_generate_content
 
-    context = await _build_athlete_context(session, uid, user.is_premium)
-    context += "\n\n## Photo in this message\n" + image_description
-    model = genai.GenerativeModel(settings.gemini_model)
-    chat_system = _chat_system_with_locale(locale, is_premium=True)
-    prompt = f"{chat_system}\n\nContext:\n{context}\n\nUser message: {user_content}"
-    response = await run_generate_content(model, prompt)
-    reply = response.text if response and response.text else "No response."
+        context = await _build_athlete_context(session, uid, user.is_premium, user_tz=user.timezone)
+        context += "\n\n## Photo in this message\n" + image_description
+        model = genai.GenerativeModel(settings.gemini_model)
+        chat_system = _chat_system_with_locale(locale, is_premium=True)
+        prompt = f"{chat_system}\n\nContext:\n{context}\n\nUser message: {user_content}"
+        response = await run_generate_content(model, prompt)
+        reply = response.text if response and response.text else "No response."
+    except Exception:
+        reply = "Sorry, the AI service is temporarily unavailable. Please try again."
+        session.add(
+            ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.assistant.value, content=reply)
+        )
+        await session.commit()
+        return {"reply": reply}
 
     session.add(
         ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.assistant.value, content=reply)

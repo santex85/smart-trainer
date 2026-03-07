@@ -22,7 +22,7 @@ endif
 # Версия для образов: из Git тега (v0.1.0-alpha.1) или коммита. В проде — только протегированные сборки.
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "0.1.0-alpha.1")
 
-.PHONY: build build-backend build-frontend up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test build-prod build-prod-backend build-prod-frontend up-prod migrate-prod build-prod-tagged deploy deploy-no-push deploy-backend deploy-backend-no-push deploy-frontend deploy-frontend-no-push bootstrap-dev ensure-dev-server deploy-dev deploy-dev-no-push deploy-dev-backend-no-push deploy-dev-frontend-no-push dev-server-set-node-memory restore-dev-from-s3
+.PHONY: build build-backend build-frontend build-landing up down run logs logs-backend logs-frontend logs-db ps migrate shell-backend use-localhost use-wifi set-wifi test build-prod build-prod-backend build-prod-frontend up-prod migrate-prod build-prod-tagged deploy deploy-no-push deploy-backend deploy-backend-no-push deploy-frontend deploy-frontend-no-push bootstrap-dev ensure-dev-server deploy-dev deploy-dev-no-push deploy-dev-backend-no-push deploy-dev-frontend-no-push dev-server-set-node-memory restore-dev-from-s3
 
 build:
 	docker compose build
@@ -32,6 +32,9 @@ build-backend:
 
 build-frontend:
 	docker compose build frontend
+
+build-landing:
+	docker compose build landing
 
 up:
 	docker compose up -d
@@ -82,7 +85,8 @@ build-prod-tagged:
 	$(COMPOSE_PROD) build
 	docker tag st2-backend:latest st2-backend:$(VERSION)
 	docker tag st2-frontend:latest st2-frontend:$(VERSION)
-	@echo "Образы помечены версией: st2-backend:$(VERSION), st2-frontend:$(VERSION)"
+	docker tag st2-landing:latest st2-landing:$(VERSION)
+	@echo "Образы помечены версией: st2-backend:$(VERSION), st2-frontend:$(VERSION), st2-landing:$(VERSION)"
 up-prod:
 	$(COMPOSE_PROD) up -d
 migrate-prod:
@@ -117,12 +121,12 @@ deploy-no-push:
 		BRANCH_CMD='git fetch origin && git checkout main && git reset --hard origin/main'; \
 	fi; \
 	if [ -n '$(USE_CI_IMAGES)' ] && [ -n '$(CI_REGISTRY_OWNER)' ]; then \
-		BUILD_CMD="docker pull ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-backend:$(CI_IMAGE_TAG) && docker tag ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-backend:$(CI_IMAGE_TAG) st2-backend:latest && docker pull ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-frontend:$(CI_IMAGE_TAG) && docker tag ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-frontend:$(CI_IMAGE_TAG) st2-frontend:latest"; \
+		BUILD_CMD="docker pull ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-backend:$(CI_IMAGE_TAG) && docker tag ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-backend:$(CI_IMAGE_TAG) st2-backend:latest && docker pull ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-frontend:$(CI_IMAGE_TAG) && docker tag ghcr.io/$(CI_REGISTRY_OWNER)/smart-trainer-frontend:$(CI_IMAGE_TAG) st2-frontend:latest && $(COMPOSE_PROD) build landing"; \
 	else \
 		BUILD_CMD="$(COMPOSE_PROD) build"; [ -n '$(BUILD_SERVICES)' ] && BUILD_CMD="$(COMPOSE_PROD) build $(BUILD_SERVICES)"; \
 	fi; \
-	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && $$BRANCH_CMD && $$BUILD_CMD && set -a && . ./.env && set +a && docker stack deploy $(STACK_DEPLOY_FILES) st2 && for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do docker run --rm --network st2_backend-db -e PGPASSWORD=\"\$$POSTGRES_PASSWORD\" postgres:16-alpine pg_isready -h st2_postgres -U \"\$${POSTGRES_USER:-smart_trainer}\" -d \"\$${POSTGRES_DB:-smart_trainer}\" 2>/dev/null && break; sleep 2; done && export DATABASE_URL=\"postgresql+asyncpg://\$${POSTGRES_USER:-smart_trainer}:\$${POSTGRES_PASSWORD}@st2_postgres:5432/\$${POSTGRES_DB:-smart_trainer}\" && docker run --rm --network st2_backend-db -e DATABASE_URL=\"\$$DATABASE_URL\" st2-backend:latest alembic upgrade head && ( [ -z '$(BUILD_SERVICES)' ] || echo '$(BUILD_SERVICES)' | grep -qw backend ) && docker service update --force st2_backend || true && ( [ -z '$(BUILD_SERVICES)' ] || echo '$(BUILD_SERVICES)' | grep -qw frontend ) && docker service update --force st2_frontend || true"
-	@if [ -n '$(DEPLOY_BRANCH)' ]; then echo "Деплой завершён: https://dev.tsspro.tech"; else echo "Деплой завершён: https://tsspro.tech"; fi
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && $$BRANCH_CMD && $$BUILD_CMD && set -a && . ./.env && set +a && docker stack deploy $(STACK_DEPLOY_FILES) st2 && for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do docker run --rm --network st2_backend-db -e PGPASSWORD=\"\$$POSTGRES_PASSWORD\" postgres:16-alpine pg_isready -h st2_postgres -U \"\$${POSTGRES_USER:-smart_trainer}\" -d \"\$${POSTGRES_DB:-smart_trainer}\" 2>/dev/null && break; sleep 2; done && export DATABASE_URL=\"postgresql+asyncpg://\$${POSTGRES_USER:-smart_trainer}:\$${POSTGRES_PASSWORD}@st2_postgres:5432/\$${POSTGRES_DB:-smart_trainer}\" && docker run --rm --network st2_backend-db -e DATABASE_URL=\"\$$DATABASE_URL\" st2-backend:latest alembic upgrade head && ( [ -z '$(BUILD_SERVICES)' ] || echo '$(BUILD_SERVICES)' | grep -qw landing ) && docker service update --force st2_landing || true && ( [ -z '$(BUILD_SERVICES)' ] || echo '$(BUILD_SERVICES)' | grep -qw frontend ) && docker service update --force st2_frontend || true && ( [ -z '$(BUILD_SERVICES)' ] || echo '$(BUILD_SERVICES)' | grep -qw backend ) && docker service update --force st2_backend || true"
+	@if [ -n '$(DEPLOY_BRANCH)' ]; then echo "Деплой завершён: https://dev.tsspro.tech (landing), https://dev.app.tsspro.tech (app)"; else echo "Деплой завершён: https://tsspro.tech (landing), https://app.tsspro.tech (app)"; fi
 
 # Собрать и задеплоить только backend (без пересборки frontend).
 deploy-backend-no-push:

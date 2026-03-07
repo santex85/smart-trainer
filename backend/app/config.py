@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # Hour (0-23) from which "evening" mode applies: plan for tomorrow + evening tips instead of Skip
     orchestrator_evening_from_hour: int = 18
 
+    # Enable scheduler (set False on API workers when cron runs in a separate container)
+    enable_scheduler: bool = True
+
     # Sentry
     sentry_dsn: str = ""
     sentry_environment: str = "production"
