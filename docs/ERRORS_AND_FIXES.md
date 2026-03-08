@@ -41,3 +41,12 @@
 **Причина:** В endpoints с `Depends(get_db)` вызывался явный `session.commit()`, а при выходе `get_db` делал второй commit и close. Двойной commit и конфликт при close вызывали ошибку.  
 **Решение:** Убрать явные `session.commit()` из chat endpoints; использовать `session.flush()` для промежуточных шагов (чтобы следующие запросы видели данные); финальный commit делает только `get_db` при выходе из generator.  
 **Статус:** Исправлено
+
+### 3. DashboardScreen ReferenceError: Cannot access 'M' before initialization
+
+**Дата:** 2026-03-08  
+**Место:** `frontend/src/screens/DashboardScreen.tsx`, рендер (стек: `_e.DashboardScreen`, AppEntry)  
+**Ошибка:** `ReferenceError: Cannot access 'M' before initialization` (minified)  
+**Причина:** Вероятно порядок инициализации модуля или circular dependency при загрузке `react-native-gifted-charts` (LineChart). Ошибка при старте/рендере DashboardScreen.  
+**Решение:** Вынести LineChart в отдельный компонент `WorkoutChart` с отложенной загрузкой (require при первом рендере), чтобы не инициализировать gifted-charts при загрузке DashboardScreen.  
+**Статус:** Исправлено
