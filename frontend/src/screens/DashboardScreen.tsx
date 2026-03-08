@@ -31,6 +31,7 @@ import {
   runOrchestrator,
   getWellness,
   createOrUpdateWellness,
+  deleteWellness,
   deleteSleepExtraction,
   getSleepExtractions,
   reanalyzeSleepExtraction,
@@ -1200,7 +1201,7 @@ export function DashboardScreen({
   const [wellnessToday, setWellnessToday] = useState<WellnessDay | null>(null);
   const [wellnessWeek, setWellnessWeek] = useState<WellnessDay[]>([]);
   const [athleteProfile, setAthleteProfile] = useState<AthleteProfileResponse | null>(null);
-  const [wellnessEditVisible, setWellnessEditVisible] = useState(false);
+  const [editWellnessDate, setEditWellnessDate] = useState<string | null>(null);
   const [addFoodModalVisible, setAddFoodModalVisible] = useState(false);
   const [workoutAddVisible, setWorkoutAddVisible] = useState(false);
   const [fitUploading, setFitUploading] = useState(false);
@@ -1831,7 +1832,7 @@ export function DashboardScreen({
           <View style={glassCardStyle}>
             <View style={styles.cardTitleRow}>
               <Text style={styles.cardTitle}>{t("wellness.title")}</Text>
-              <TouchableOpacity onPress={() => setWellnessEditVisible(true)} style={styles.outlineButton}>
+              <TouchableOpacity onPress={() => setEditWellnessDate(today)} style={styles.outlineButton}>
                 <Text style={styles.outlineButtonText}>{t("wellness.edit")}</Text>
               </TouchableOpacity>
             </View>
@@ -1839,7 +1840,7 @@ export function DashboardScreen({
               <View style={[styles.sleepReminderBanner, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
                 <Text style={styles.sleepReminderText}>{t("wellness.sleepReminder")}</Text>
                 <View style={styles.sleepReminderButtons}>
-                  <TouchableOpacity style={styles.sleepReminderBtn} onPress={() => setWellnessEditVisible(true)}>
+                  <TouchableOpacity style={styles.sleepReminderBtn} onPress={() => setEditWellnessDate(today)}>
                     <Text style={styles.sleepReminderBtnText}>{t("wellness.enterManually")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.sleepReminderBtn} onPress={onOpenCamera}>
@@ -1928,6 +1929,58 @@ export function DashboardScreen({
                           >
                             <Text style={styles.modalBtnSaveText}>{t("wellness.reanalyze")}</Text>
                           </TouchableOpacity>
+                        ) : null}
+                        {entry.source === "manual" ? (
+                          <>
+                            <TouchableOpacity
+                              style={[styles.modalBtnSave, { paddingHorizontal: 10, paddingVertical: 6 }]}
+                              onPress={() => setEditWellnessDate(entry.date)}
+                            >
+                              <Text style={styles.modalBtnSaveText}>{t("wellness.editEntry")}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.deleteAction, { paddingHorizontal: 10, paddingVertical: 6 }]}
+                              onPress={async () => {
+                                const doDelete = async () => {
+                                  try {
+                                    await deleteWellness(entry.date);
+                                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                                    load();
+                                  } catch (e) {
+                                    const raw = e instanceof Error ? e.message : t("dashboard.deleteFailed");
+                                    let msg = raw;
+                                    try {
+                                      const parsed = JSON.parse(raw);
+                                      if (parsed?.detail === "Wellness record not found") msg = t("common.alerts.recordNotFound");
+                                    } catch {
+                                      if (raw.startsWith("{")) msg = t("common.alerts.serverError");
+                                    }
+                                    if (Platform.OS === "web" && typeof window !== "undefined") {
+                                      window.alert(msg);
+                                    } else {
+                                      Alert.alert(t("common.error"), msg);
+                                    }
+                                  }
+                                };
+                                if (Platform.OS === "web" && typeof window !== "undefined") {
+                                  if (window.confirm(`${t("wellness.deleteWellnessTitle")}\n${t("wellness.deleteWellnessMessage")}`)) {
+                                    await doDelete();
+                                  }
+                                } else {
+                                  Alert.alert(
+                                    t("wellness.deleteWellnessTitle"),
+                                    t("wellness.deleteWellnessMessage"),
+                                    [
+                                      { text: t("common.cancel"), style: "cancel" },
+                                      { text: t("wellness.deleteSleepEntryConfirm"), style: "destructive", onPress: doDelete },
+                                    ]
+                                  );
+                                }
+                              }}
+                            >
+                              <Text style={styles.deleteActionText}>{t("wellness.deleteEntry")}</Text>
+                            </TouchableOpacity>
+                          </>
                         ) : null}
                         {entry.source === "photo" && entry.extraction ? (
                           <TouchableOpacity
@@ -2125,14 +2178,18 @@ export function DashboardScreen({
             />
           ) : null}
 
-          {wellnessEditVisible ? (
+          {editWellnessDate ? (
             <EditWellnessModal
-              date={today}
-              initialWellness={effectiveWellnessToday}
+              date={editWellnessDate}
+              initialWellness={
+                editWellnessDate === today
+                  ? effectiveWellnessToday
+                  : (wellnessWeek.find((w) => w.date === editWellnessDate) ?? null)
+              }
               initialWeight={athleteProfile?.weight_kg ?? null}
-              onClose={() => setWellnessEditVisible(false)}
+              onClose={() => setEditWellnessDate(null)}
               onSaved={() => {
-                setWellnessEditVisible(false);
+                setEditWellnessDate(null);
                 load();
               }}
             />
