@@ -54,6 +54,68 @@ def _strip_unsupported_for_gemini(obj: Any) -> Any:
     return obj
 
 
+def _is_null_schema(obj: Any) -> bool:
+    """True if obj is exactly {"type": "null"}."""
+    return isinstance(obj, dict) and obj.get("type") == "null" and len(obj) == 1
+
+
+def _normalize_nullable_for_gemini(obj: Any) -> Any:
+    """Convert anyOf: [X, {"type":"null"}] to X + nullable: true. Gemini does not support anyOf."""
+    if isinstance(obj, dict):
+        if "anyOf" in obj:
+            variants = obj["anyOf"]
+            if isinstance(variants, list) and len(variants) == 2:
+                a, b = variants
+                if _is_null_schema(a):
+                    base = _normalize_nullable_for_gemini(b)
+                    if isinstance(base, dict):
+                        base = copy.deepcopy(base)
+                        base["nullable"] = True
+                        return base
+                elif _is_null_schema(b):
+                    base = _normalize_nullable_for_gemini(a)
+                    if isinstance(base, dict):
+                        base = copy.deepcopy(base)
+                        base["nullable"] = True
+                        return base
+            raise ValueError(
+                "Schema contains non-nullable anyOf; Gemini protobuf Schema does not support anyOf. "
+                "Only optional (T | None) fields are supported."
+            )
+        return {k: _normalize_nullable_for_gemini(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_normalize_nullable_for_gemini(x) for x in obj]
+    return obj
+
+
+def _strip_additional_properties_for_gemini(obj: Any) -> Any:
+    """Recursively remove additionalProperties. Gemini protobuf Schema does not support it."""
+    if isinstance(obj, dict):
+        result = {k: _strip_additional_properties_for_gemini(v) for k, v in obj.items()}
+        result.pop("additionalProperties", None)
+        return result
+    if isinstance(obj, list):
+        return [_strip_additional_properties_for_gemini(x) for x in obj]
+    return obj
+
+
+def _assert_no_union_keywords(schema: dict, path: str = "root") -> None:
+    """Fail fast if anyOf/oneOf/allOf remain after normalization."""
+    for key in ("anyOf", "oneOf", "allOf"):
+        if key in schema:
+            raise ValueError(
+                f"Schema at {path} still contains '{key}'; Gemini protobuf Schema does not support it. "
+                "Ensure optional fields use T | None and are normalized to nullable: true."
+            )
+    for k, v in schema.items():
+        if isinstance(v, dict):
+            _assert_no_union_keywords(v, f"{path}.{k}")
+        elif isinstance(v, list):
+            for i, item in enumerate(v):
+                if isinstance(item, dict):
+                    _assert_no_union_keywords(item, f"{path}.{k}[{i}]")
+
+
 def _inline_schema_for_gemini(schema: dict) -> dict:
     """Inline $ref from $defs; strip unsupported fields. Gemini API does not support $defs/$ref, maxLength, etc."""
     defs_map = schema.get("$defs", {})
@@ -81,10 +143,14 @@ def _inline_schema_for_gemini(schema: dict) -> dict:
 
 
 def _get_response_schema() -> dict:
-    """Derive JSON schema from Pydantic model to avoid duplication."""
+    """Derive JSON schema from Pydantic model, normalized for Gemini protobuf Schema."""
     schema = OrchestratorResponse.model_json_schema()
     schema.pop("title", None)
-    return _inline_schema_for_gemini(schema)
+    result = _inline_schema_for_gemini(schema)
+    result = _normalize_nullable_for_gemini(result)
+    result = _strip_additional_properties_for_gemini(result)
+    _assert_no_union_keywords(result)
+    return result
 
 
 GENERATION_CONFIG = {

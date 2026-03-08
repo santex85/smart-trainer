@@ -77,3 +77,12 @@
 **Причина:** Gemini API protobuf Schema не поддерживает `maxLength`, `minLength`, `pattern` и др.; Pydantic генерирует их для `Field(max_length=...)`.  
 **Решение:** Рекурсивно удалять unsupported поля (`maxLength`, `minLength`, `pattern`, `example`, `default`, `title`) в `_inline_schema_for_gemini` перед передачей в GenerationConfig.  
 **Статус:** Исправлено
+
+### 7. Orchestrator ValueError: Protocol message Schema has no "anyOf" field
+
+**Дата:** 2026-03-08  
+**Место:** `backend/app/services/orchestrator.py`, `run_daily_decision` (GenerationConfig, response_schema)  
+**Ошибка:** `ValueError: Protocol message Schema has no "anyOf" field.` при вызове Gemini.  
+**Причина:** Optional-поля Pydantic (`str | None`, `ModifiedPlanItem | None`) порождают `anyOf: [X, {"type":"null"}]`; Gemini protobuf Schema не поддерживает `anyOf`. Также `dict[str, Any]` порождает `additionalProperties`, что тоже не поддерживается.  
+**Решение:** Системная нормализация в `_get_response_schema`: (1) преобразование `anyOf` с null в `nullable: true`; (2) рекурсивное удаление `additionalProperties`; (3) fail-fast при оставшихся union-конструкциях.  
+**Статус:** Исправлено
