@@ -31,9 +31,7 @@ import {
   runOrchestrator,
   getWellness,
   createOrUpdateWellness,
-  deleteSleepExtraction,
   getSleepExtractions,
-  reanalyzeSleepExtraction,
   getAthleteProfile,
   updateAthleteProfile,
   getWorkouts,
@@ -61,6 +59,8 @@ import { useTranslation, type Locale } from "../i18n";
 import { useLoadingStages } from "../hooks/useLoadingStages";
 import { PremiumGateModal } from "../components/PremiumGateModal";
 import { WorkoutChart } from "../components/WorkoutChart";
+import { LifestyleView, type SleepHistoryEntry } from "../components/dashboard/LifestyleView";
+import { PerformanceView } from "../components/dashboard/PerformanceView";
 
 const CALORIE_GOAL = 2200;
 const CARBS_GOAL = 250;
@@ -1252,6 +1252,7 @@ export function DashboardScreen({
   const [menuView, setMenuView] = useState<"main" | "settings">("main");
   const [languagePickerVisible, setLanguagePickerVisible] = useState(false);
   const [premiumGateVisible, setPremiumGateVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState<"today" | "analysis">("today");
   const { t, locale, setLocale } = useTranslation();
   const { colors, toggleTheme } = useTheme();
 
@@ -1389,9 +1390,7 @@ export function DashboardScreen({
     return "—/—";
   };
 
-  type SleepHistoryEntry = { date: string; hours: number; source: "photo" | "manual"; extraction?: SleepExtractionSummary };
-
-  const combinedSleepHistory = useMemo(() => {
+  const combinedSleepHistory = useMemo((): SleepHistoryEntry[] => {
     const byDate = new Map<string, SleepHistoryEntry>();
     wellnessWeek.forEach((d) => {
       const h = d?.sleep_hours ?? 0;
@@ -1703,6 +1702,25 @@ export function DashboardScreen({
       </View>
       <Text style={styles.title}>{t("today")}</Text>
 
+      <View style={[styles.tabBar, { borderBottomColor: colors.surfaceBorder }]}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "today" && [styles.tabActive, { borderBottomColor: colors.primary }]]}
+          onPress={() => setActiveTab("today")}
+        >
+          <Text style={[styles.tabText, { color: activeTab === "today" ? colors.primary : colors.textMuted }]}>
+            {t("dashboard.tabToday")}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "analysis" && [styles.tabActive, { borderBottomColor: colors.primary }]]}
+          onPress={() => setActiveTab("analysis")}
+        >
+          <Text style={[styles.tabText, { color: activeTab === "analysis" ? colors.primary : colors.textMuted }]}>
+            {t("dashboard.tabAnalysis")}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <View style={styles.skeletonWrap}>
           <View style={styles.skeletonCard}>
@@ -1727,6 +1745,8 @@ export function DashboardScreen({
         </View>
       ) : (
         <>
+          {activeTab === "today" ? (
+          <>
           <Text style={styles.sectionTitle}>{t("nutrition.title")}</Text>
           <View style={glassCardStyle}>
             <View style={[styles.cardTitleRow, { justifyContent: "space-between" }]}>
@@ -1828,343 +1848,22 @@ export function DashboardScreen({
             ) : null}
           </View>
 
-          <View style={glassCardStyle}>
-            <View style={styles.cardTitleRow}>
-              <Text style={styles.cardTitle}>{t("wellness.title")}</Text>
-              <TouchableOpacity onPress={() => setWellnessEditVisible(true)} style={styles.outlineButton}>
-                <Text style={styles.outlineButtonText}>{t("wellness.edit")}</Text>
-              </TouchableOpacity>
-            </View>
-            {effectiveWellnessToday?.sleep_hours == null ? (
-              <View style={[styles.sleepReminderBanner, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
-                <Text style={styles.sleepReminderText}>{t("wellness.sleepReminder")}</Text>
-                <View style={styles.sleepReminderButtons}>
-                  <TouchableOpacity style={styles.sleepReminderBtn} onPress={() => setWellnessEditVisible(true)}>
-                    <Text style={styles.sleepReminderBtnText}>{t("wellness.enterManually")}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.sleepReminderBtn} onPress={onOpenCamera}>
-                    <Text style={styles.sleepReminderBtnText}>{t("wellness.uploadScreenshot")}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : null}
-            <View style={{ marginBottom: 12 }}>
-              <Text style={styles.hint}>{t("wellness.todayLabel")}</Text>
-              <Text style={[styles.hint, styles.disclaimer]}>{t("wellness.disclaimer")}</Text>
-              {(effectiveWellnessToday || athleteProfile?.weight_kg != null || effectiveWellnessToday?.weight_kg != null) ? (
-                <>
-                  <Text style={[styles.wellnessMetricsLine, { marginTop: 8 }]}>
-                    {effectiveWellnessToday?.sleep_hours != null ? `${t("wellness.sleep")}\u00A0${formatSleepDuration(effectiveWellnessToday.sleep_hours, t)}` : `${t("wellness.sleep")} —`}
-                    {effectiveWellnessToday?.rhr != null ? ` · RHR\u00A0${effectiveWellnessToday.rhr}` : " · RHR —"}
-                    {effectiveWellnessToday?.hrv != null ? ` · HRV\u00A0${effectiveWellnessToday.hrv}` : " · HRV —"}
-                    {(effectiveWellnessToday?.weight_kg ?? athleteProfile?.weight_kg) != null
-                      ? ` · ${t("wellness.weight")}\u00A0${effectiveWellnessToday?.weight_kg ?? athleteProfile?.weight_kg}\u00A0${t("wellness.weightKg")}`
-                      : ` · ${t("wellness.weight")} —`}
-                  </Text>
-                  {effectiveWellnessToday?.sleep_hours == null && (
-                    <Text style={styles.hint}>{t("wellness.manualHint")}</Text>
-                  )}
-                </>
-              ) : (
-                <Text style={[styles.placeholder, { marginTop: 8 }]}>{t("wellness.placeholder")}</Text>
-              )}
-            </View>
-            {combinedSleepHistory.length > 0 ? (
-              <View style={{ marginTop: 4, marginBottom: 12 }}>
-                {combinedSleepHistory.length >= 7 ? (
-                  <Text style={styles.weeklySleepLine}>
-                    {t("wellness.weeklySleep")}: {Math.round(weeklySleepTotal * 10) / 10} {t("wellness.sleepHours")}
-                    {weeklySleepDeficit > 0 ? ` · ${t("wellness.deficit")} ${Math.round(weeklySleepDeficit * 10) / 10} ${t("wellness.sleepHours")}` : null}
-                    {" "}
-                    <Text style={[styles.hint, { marginTop: 0 }]}>({t("wellness.normPerNight")})</Text>
-                  </Text>
-                ) : (
-                  <Text style={[styles.hint, { marginTop: 8 }]}>{t("wellness.insufficientData")}</Text>
-                )}
-              </View>
-            ) : null}
-            <View style={{ marginTop: 4 }}>
-              <View style={styles.cardTitleRow}>
-                <Text style={[styles.modalLabel, { marginBottom: 0 }]}>{t("wellness.history")}</Text>
-                <TouchableOpacity
-                  style={styles.outlineButton}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                    onOpenCamera();
-                  }}
-                >
-                  <Text style={styles.outlineButtonText}>{t("wellness.addByPhoto")}</Text>
-                </TouchableOpacity>
-              </View>
-              {combinedSleepHistory.length === 0 ? (
-                <Text style={[styles.hint, { marginTop: 4 }]}>{t("wellness.uploadSleepPhotoHint")}</Text>
-              ) : null}
-            </View>
-            {combinedSleepHistory.length > 0 ? (
-              <View style={{ marginTop: 6 }}>
-                {combinedSleepHistory.slice(0, 7).map((entry) => (
-                  <View key={entry.source === "photo" && entry.extraction ? `photo-${entry.extraction.id}` : `wellness-${entry.date}`}>
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 6 }}>
-                      <View>
-                        <Text style={styles.sleepHistoryRowText}>
-                          {formatSleepHistoryDate(entry.date)} · {formatSleepDuration(entry.hours, t)}
-                          {entry.source === "manual" ? ` (${t("wellness.historyManual")})` : ""}
-                        </Text>
-                        {entry.source === "photo" && entry.extraction && (entry.extraction.quality_score != null || (entry.extraction.actual_sleep_hours != null && entry.extraction.sleep_hours != null && Math.abs((entry.extraction.actual_sleep_hours ?? 0) - (entry.extraction.sleep_hours ?? 0)) > 0.01)) ? (
-                          <Text style={[styles.hint, { marginTop: 2, fontSize: 12 }]}>
-                            {entry.extraction.sleep_hours != null && entry.extraction.actual_sleep_hours != null && Math.abs((entry.extraction.actual_sleep_hours - entry.extraction.sleep_hours)) > 0.01
-                              ? `Всего: ${formatSleepDuration(entry.extraction.sleep_hours, t)}`
-                              : ""}
-                            {entry.extraction.quality_score != null ? `${entry.extraction.sleep_hours != null && entry.extraction.actual_sleep_hours != null && Math.abs((entry.extraction.actual_sleep_hours - entry.extraction.sleep_hours)) > 0.01 ? " · " : ""}${Math.round(entry.extraction.quality_score)}` : ""}
-                          </Text>
-                        ) : null}
-                      </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                        {entry.source === "photo" && entry.extraction?.can_reanalyze && sleepReanalyzeExtId !== entry.extraction.id ? (
-                          <TouchableOpacity
-                            style={[styles.modalBtnSave, { paddingHorizontal: 10, paddingVertical: 6 }]}
-                            onPress={() => { setSleepReanalyzeExtId(entry.extraction!.id); setSleepReanalyzeCorrection(""); }}
-                            disabled={sleepReanalyzingId != null}
-                          >
-                            <Text style={styles.modalBtnSaveText}>{t("wellness.reanalyze")}</Text>
-                          </TouchableOpacity>
-                        ) : null}
-                        {entry.source === "photo" && entry.extraction ? (
-                          <TouchableOpacity
-                            style={[styles.deleteAction, { paddingHorizontal: 10, paddingVertical: 6 }]}
-                            onPress={async () => {
-                              const doDelete = async () => {
-                                if (!entry.extraction) return;
-                                try {
-                                  await deleteSleepExtraction(entry.extraction.id);
-                                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-                                  load();
-                                  const fresh = await getSleepExtractions(addDays(today, -14), today).catch(() => []);
-                                  setSleepExtractions(fresh ?? []);
-                                } catch (e) {
-                                  const raw = e instanceof Error ? e.message : t("dashboard.deleteFailed");
-                                  let msg = raw;
-                                  try {
-                                    const parsed = JSON.parse(raw);
-                                    if (parsed?.detail === "Not Found" || parsed?.detail === "Extraction not found")
-                                      msg = t("common.alerts.recordNotFound");
-                                  } catch {
-                                    if (raw.startsWith("{")) msg = t("common.alerts.serverError");
-                                  }
-                                  if (Platform.OS === "web" && typeof window !== "undefined") {
-                                    window.alert(msg);
-                                  } else {
-                                    Alert.alert(t("common.error"), msg);
-                                  }
-                                }
-                              };
-                              if (Platform.OS === "web" && typeof window !== "undefined") {
-                                if (window.confirm(`${t("wellness.deleteSleepEntryTitle")}\n${t("wellness.deleteSleepEntryMessage")}`)) {
-                                  await doDelete();
-                                }
-                              } else {
-                                Alert.alert(
-                                  t("wellness.deleteSleepEntryTitle"),
-                                  t("wellness.deleteSleepEntryMessage"),
-                                  [
-                                    { text: t("common.cancel"), style: "cancel" },
-                                    { text: t("wellness.deleteSleepEntryConfirm"), style: "destructive", onPress: doDelete },
-                                  ]
-                                );
-                              }
-                            }}
-                          >
-                            <Text style={styles.deleteActionText}>{t("wellness.deleteEntry")}</Text>
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
-                    </View>
-                    {entry.source === "photo" && entry.extraction && sleepReanalyzeExtId === entry.extraction.id ? (
-                      <View style={{ marginTop: 6, marginBottom: 8 }}>
-                        <TextInput
-                          style={styles.modalInput}
-                          value={sleepReanalyzeCorrection}
-                          onChangeText={setSleepReanalyzeCorrection}
-                          placeholder={t("wellness.reanalyzePlaceholder")}
-                          placeholderTextColor="#64748b"
-                          editable={sleepReanalyzingId === null}
-                        />
-                        <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
-                          <TouchableOpacity
-                            style={styles.modalBtnCancel}
-                            onPress={() => { setSleepReanalyzeExtId(null); setSleepReanalyzeCorrection(""); }}
-                            disabled={sleepReanalyzingId !== null}
-                          >
-                            <Text style={styles.modalBtnCancelText}>{t("common.cancel")}</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.modalBtnSave, (sleepReanalyzingId !== null || !sleepReanalyzeCorrection.trim()) && styles.modalBtnDisabled]}
-                            onPress={async () => {
-                              const correction = sleepReanalyzeCorrection.trim();
-                              if (!correction || !entry.extraction) return;
-                              setSleepReanalyzingId(entry.extraction.id);
-                              try {
-                                await reanalyzeSleepExtraction(entry.extraction.id, correction);
-                                setSleepReanalyzeExtId(null);
-                                setSleepReanalyzeCorrection("");
-                                load();
-                                const fresh = await getSleepExtractions(addDays(today, -14), today).catch(() => []);
-                                setSleepExtractions(fresh ?? []);
-                              } catch (e) {
-                                Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.reanalyzeFailed"));
-                              } finally {
-                                setSleepReanalyzingId(null);
-                              }
-                            }}
-                            disabled={sleepReanalyzingId !== null || !sleepReanalyzeCorrection.trim()}
-                          >
-                            {sleepReanalyzingId === entry.extraction.id ? (
-                              <ActivityIndicator size="small" color="#0f172a" />
-                            ) : (
-                              <Text style={styles.modalBtnSaveText}>{t("wellness.sendToAnalysis")}</Text>
-                            )}
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ) : null}
-                  </View>
-                ))}
-              </View>
-            ) : null}
-          </View>
-
-          <View style={glassCardStyle}>
-            {workoutFitness ? (
-              <>
-                <Text style={[styles.fitnessMetricsLine, { color: colors.text, marginBottom: 4 }]}>
-                  CTL {workoutFitness.ctl.toFixed(1)} · ATL {workoutFitness.atl.toFixed(1)} · TSB {workoutFitness.tsb.toFixed(1)}
-                </Text>
-                <Text style={[styles.fitnessCaption, { color: colors.textMuted, marginBottom: 12 }]}>{t("fitness.dateLabel")} {workoutFitness.date}</Text>
-              </>
-            ) : (effectiveWellnessToday?.ctl != null || effectiveWellnessToday?.atl != null || effectiveWellnessToday?.tsb != null) ? (
-              <>
-                <Text style={[styles.fitnessMetricsLine, { color: colors.text, marginBottom: 4 }]}>
-                  CTL {effectiveWellnessToday?.ctl?.toFixed(1) ?? "—"} · ATL {effectiveWellnessToday?.atl?.toFixed(1) ?? "—"} · TSB {effectiveWellnessToday?.tsb?.toFixed(1) ?? "—"}
-                </Text>
-                <Text style={[styles.fitnessCaption, styles.fitnessCaptionMuted, { color: colors.textMuted, marginBottom: 12 }]}>{t("fitness.fromWellness")}</Text>
-              </>
-            ) : (
-              <Text style={[styles.placeholder, styles.fitnessPlaceholder, { color: colors.textMuted, marginBottom: 12 }]}>{t("fitness.placeholder")}</Text>
-            )}
-            <View style={styles.fitnessFooter}>
-              <Text style={[styles.fitnessHint, { color: colors.textMuted, marginBottom: 10 }]}>{t("fitness.hint")}</Text>
-              <View style={styles.fitnessButtonsRow}>
-                {onOpenIntervals ? (
-                  <TouchableOpacity
-                    onPress={onOpenIntervals}
-                    style={[styles.fitnessBtnBase, styles.fitnessBtnOutline]}
-                    accessibilityRole="button"
-                  >
-                    <Text style={[styles.fitnessBtnOutlineText, { color: colors.primary }]}>Intervals.icu</Text>
-                  </TouchableOpacity>
-                ) : null}
-                {onSyncIntervals ? (
-                  <TouchableOpacity
-                    onPress={async () => {
-                      setIntervalsSyncLoading(true);
-                      try {
-                        const result = await onSyncIntervals();
-                        await load();
-                        const activities = result?.activities_synced ?? 0;
-                        const wellness = result?.wellness_days_synced ?? 0;
-                        const message =
-                          activities > 0 || wellness > 0
-                            ? `Синхронизировано: ${activities} тренировок, ${wellness} дн. wellness.`
-                            : t("dashboard.syncDoneNoData");
-                        Alert.alert(t("dashboard.syncIntervalsTitle"), message);
-                      } catch (e) {
-                        Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.syncFailed"));
-                      } finally {
-                        setIntervalsSyncLoading(false);
-                      }
-                    }}
-                    disabled={intervalsSyncLoading}
-                    style={[styles.fitnessBtnBase, styles.fitnessBtnPrimary, intervalsSyncLoading && styles.fitnessBtnDisabled]}
-                    accessibilityRole="button"
-                  >
-                    {intervalsSyncLoading ? (
-                      <ActivityIndicator size="small" color="#0f172a" />
-                    ) : (
-                      <Text style={styles.fitnessBtnPrimaryText}>{t("fitness.sync")}</Text>
-                    )}
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            </View>
-          </View>
-
-          {entryToEdit ? (
-            <EditFoodEntryModal
-              entry={entryToEdit}
-              copyTargetDate={nutritionDate}
-              onClose={() => setEntryToEdit(null)}
-              onSaved={() => {
-                setEntryToEdit(null);
-                loadNutritionForDate(nutritionDate);
-              }}
-              onDeleted={() => {
-                setEntryToEdit(null);
-                loadNutritionForDate(nutritionDate);
-              }}
+            <LifestyleView
+              effectiveWellnessToday={effectiveWellnessToday}
+              athleteProfile={athleteProfile}
+              combinedSleepHistory={combinedSleepHistory}
+              weeklySleepTotal={weeklySleepTotal}
+              weeklySleepDeficit={weeklySleepDeficit}
+              today={today}
+              onEditPress={() => setWellnessEditVisible(true)}
+              onOpenCamera={onOpenCamera}
+              onLoad={load}
+              sleepReanalyzeExtId={sleepReanalyzeExtId}
+              setSleepReanalyzeExtId={setSleepReanalyzeExtId}
+              sleepReanalyzeCorrection={sleepReanalyzeCorrection}
+              setSleepReanalyzeCorrection={setSleepReanalyzeCorrection}
+              sleepReanalyzingId={sleepReanalyzingId}
             />
-          ) : null}
-
-          {addFoodModalVisible ? (
-            <AddFoodModal
-              targetDate={nutritionDate}
-              onClose={() => setAddFoodModalVisible(false)}
-              onSaved={() => {
-                setAddFoodModalVisible(false);
-                loadNutritionForDate(nutritionDate);
-              }}
-            />
-          ) : null}
-
-          {wellnessEditVisible ? (
-            <EditWellnessModal
-              date={today}
-              initialWellness={effectiveWellnessToday}
-              initialWeight={athleteProfile?.weight_kg ?? null}
-              onClose={() => setWellnessEditVisible(false)}
-              onSaved={() => {
-                setWellnessEditVisible(false);
-                load();
-              }}
-            />
-          ) : null}
-
-          {workoutAddVisible ? (
-            <AddWorkoutModal
-              defaultDate={today}
-              onClose={() => setWorkoutAddVisible(false)}
-              onSaved={() => {
-                setWorkoutAddVisible(false);
-                load();
-              }}
-            />
-          ) : null}
-
-          {fitPreviewData ? (
-            <WorkoutPreviewModal
-              file={fitPreviewData.file}
-              preview={fitPreviewData.preview}
-              onClose={() => setFitPreviewData(null)}
-              onSave={onSaveFitFromPreview}
-            />
-          ) : null}
-
-          {selectedWorkout ? (
-            <WorkoutDetailModal
-              workout={selectedWorkout}
-              onClose={() => setSelectedWorkout(null)}
-              onDeleted={load}
-            />
-          ) : null}
 
           <View style={glassCardStyle}>
             <View style={styles.cardTitleRow}>
@@ -2272,6 +1971,107 @@ export function DashboardScreen({
                 )}
               </TouchableOpacity>
           </>
+          </>
+          ) : null}
+
+          {activeTab === "analysis" ? (
+            <PerformanceView
+              workoutFitness={workoutFitness}
+              effectiveWellnessToday={effectiveWellnessToday}
+              onOpenIntervals={onOpenIntervals}
+              onSyncClick={
+                onSyncIntervals
+                  ? async () => {
+                      setIntervalsSyncLoading(true);
+                      try {
+                        const result = await onSyncIntervals();
+                        await load();
+                        const activities = result?.activities_synced ?? 0;
+                        const wellness = result?.wellness_days_synced ?? 0;
+                        const message =
+                          activities > 0 || wellness > 0
+                            ? `Синхронизировано: ${activities} тренировок, ${wellness} дн. wellness.`
+                            : t("dashboard.syncDoneNoData");
+                        Alert.alert(t("dashboard.syncIntervalsTitle"), message);
+                      } catch (e) {
+                        Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.syncFailed"));
+                      } finally {
+                        setIntervalsSyncLoading(false);
+                      }
+                    }
+                  : undefined
+              }
+              syncLoading={intervalsSyncLoading}
+            />
+          ) : null}
+
+          {entryToEdit ? (
+            <EditFoodEntryModal
+              entry={entryToEdit}
+              copyTargetDate={nutritionDate}
+              onClose={() => setEntryToEdit(null)}
+              onSaved={() => {
+                setEntryToEdit(null);
+                loadNutritionForDate(nutritionDate);
+              }}
+              onDeleted={() => {
+                setEntryToEdit(null);
+                loadNutritionForDate(nutritionDate);
+              }}
+            />
+          ) : null}
+
+          {addFoodModalVisible ? (
+            <AddFoodModal
+              targetDate={nutritionDate}
+              onClose={() => setAddFoodModalVisible(false)}
+              onSaved={() => {
+                setAddFoodModalVisible(false);
+                loadNutritionForDate(nutritionDate);
+              }}
+            />
+          ) : null}
+
+          {wellnessEditVisible ? (
+            <EditWellnessModal
+              date={today}
+              initialWellness={effectiveWellnessToday}
+              initialWeight={athleteProfile?.weight_kg ?? null}
+              onClose={() => setWellnessEditVisible(false)}
+              onSaved={() => {
+                setWellnessEditVisible(false);
+                load();
+              }}
+            />
+          ) : null}
+
+          {workoutAddVisible ? (
+            <AddWorkoutModal
+              defaultDate={today}
+              onClose={() => setWorkoutAddVisible(false)}
+              onSaved={() => {
+                setWorkoutAddVisible(false);
+                load();
+              }}
+            />
+          ) : null}
+
+          {fitPreviewData ? (
+            <WorkoutPreviewModal
+              file={fitPreviewData.file}
+              preview={fitPreviewData.preview}
+              onClose={() => setFitPreviewData(null)}
+              onSave={onSaveFitFromPreview}
+            />
+          ) : null}
+
+          {selectedWorkout ? (
+            <WorkoutDetailModal
+              workout={selectedWorkout}
+              onClose={() => setSelectedWorkout(null)}
+              onDeleted={load}
+            />
+          ) : null}
 
         </>
       )}
@@ -2309,7 +2109,11 @@ const styles = StyleSheet.create({
   brandAlpha: { fontSize: 10, color: "#94a3b8", marginTop: 2 },
   brandVersion: { fontSize: 9, color: "#64748b", marginTop: 1 },
   brandSubtitle: { fontSize: 13, color: "#94a3b8" },
-  title: { fontSize: 24, fontWeight: "700", color: "#eee", marginBottom: 20 },
+  title: { fontSize: 24, fontWeight: "700", color: "#eee", marginBottom: 12 },
+  tabBar: { flexDirection: "row", borderBottomWidth: 1, marginBottom: 16 },
+  tab: { flex: 1, paddingVertical: 12, alignItems: "center" },
+  tabActive: { borderBottomWidth: 2 },
+  tabText: { fontSize: 15, fontWeight: "600" },
   sectionTitle: { fontSize: 20, fontWeight: "700", color: "#eee", marginTop: 8, marginBottom: 12 },
   menuBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 50, paddingRight: 16, paddingHorizontal: 20 },
   menuBox: {

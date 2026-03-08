@@ -304,6 +304,8 @@ export const ru = {
     addWorkoutDistanceKm: "Дистанция (км)",
     addWorkoutNotes: "Заметки",
     scanPhoto: "Скан фото",
+    tabToday: "Сегодня",
+    tabAnalysis: "Анализ",
   },
   intervals: {
     titleLink: "Подключить Intervals.icu",
@@ -759,6 +761,8 @@ export const en = {
     addWorkoutDistanceKm: "Distance (km)",
     addWorkoutNotes: "Notes",
     scanPhoto: "Scan photo",
+    tabToday: "Today",
+    tabAnalysis: "Analysis",
   },
   intervals: {
     titleLink: "Connect Intervals.icu",

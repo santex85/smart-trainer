@@ -1,0 +1,507 @@
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Platform,
+} from "react-native";
+import * as Haptics from "expo-haptics";
+import {
+  deleteSleepExtraction,
+  reanalyzeSleepExtraction,
+  type AthleteProfileResponse,
+  type WellnessDay,
+  type SleepExtractionSummary,
+} from "../../api/client";
+import { useTheme } from "../../theme";
+import { useTranslation } from "../../i18n";
+
+export type SleepHistoryEntry = {
+  date: string;
+  hours: number;
+  source: "photo" | "manual";
+  extraction?: SleepExtractionSummary;
+};
+
+function formatSleepDuration(hours: number, t: (key: string) => string): string {
+  const hUnit = t("units.hourShort");
+  const mUnit = t("units.minuteShort");
+  if (hours <= 0) return `0 ${hUnit}`;
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (m <= 0) return `${h} ${hUnit}`;
+  return `${h} ${hUnit} ${m} ${mUnit}`;
+}
+
+function formatSleepHistoryDate(dateKey: string): string {
+  if (dateKey.length >= 10 && /^\d{4}-\d{2}-\d{2}$/.test(dateKey.slice(0, 10)))
+    return `${dateKey.slice(8, 10)}/${dateKey.slice(5, 7)}`;
+  return "—/—";
+}
+
+const LIFESTYLE_CARD_RADIUS = 16;
+const LIFESTYLE_BG_SOFT = "rgba(203, 213, 225, 0.08)";
+const LIFESTYLE_BG_SOFT_DARK = "rgba(148, 163, 184, 0.06)";
+const LIFESTYLE_BORDER_SOFT = "rgba(148, 163, 184, 0.15)";
+
+export function LifestyleView({
+  effectiveWellnessToday,
+  athleteProfile,
+  combinedSleepHistory,
+  weeklySleepTotal,
+  weeklySleepDeficit,
+  today,
+  onEditPress,
+  onOpenCamera,
+  onLoad,
+  sleepReanalyzeExtId,
+  setSleepReanalyzeExtId,
+  sleepReanalyzeCorrection,
+  setSleepReanalyzeCorrection,
+  sleepReanalyzingId,
+}: {
+  effectiveWellnessToday: WellnessDay | null;
+  athleteProfile: AthleteProfileResponse | null;
+  combinedSleepHistory: SleepHistoryEntry[];
+  weeklySleepTotal: number;
+  weeklySleepDeficit: number;
+  today: string;
+  onEditPress: () => void;
+  onOpenCamera: () => void;
+  onLoad: () => void;
+  sleepReanalyzeExtId: number | null;
+  setSleepReanalyzeExtId: (id: number | null) => void;
+  sleepReanalyzeCorrection: string;
+  setSleepReanalyzeCorrection: (s: string) => void;
+  sleepReanalyzingId: number | null;
+}) {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+
+  const isDark = colors.background === "#0D0D0D" || colors.background === "#1a1a2e";
+  const cardBg = isDark ? LIFESTYLE_BG_SOFT_DARK : LIFESTYLE_BG_SOFT;
+  const cardBorder = LIFESTYLE_BORDER_SOFT;
+
+  const handleDeleteSleepEntry = async (extractionId: number) => {
+    try {
+      await deleteSleepExtraction(extractionId);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      onLoad();
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : t("dashboard.deleteFailed");
+      let msg = raw;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed?.detail === "Not Found" || parsed?.detail === "Extraction not found")
+          msg = t("common.alerts.recordNotFound");
+      } catch {
+        if (raw.startsWith("{")) msg = t("common.alerts.serverError");
+      }
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.alert(msg);
+      } else {
+        Alert.alert(t("common.error"), msg);
+      }
+    }
+  };
+
+  const handleReanalyze = async (extractionId: number, correction: string) => {
+    if (!correction.trim()) return;
+    setSleepReanalyzingId(extractionId);
+    try {
+      await reanalyzeSleepExtraction(extractionId, correction);
+      setSleepReanalyzeExtId(null);
+      setSleepReanalyzeCorrection("");
+      onLoad();
+    } catch (e) {
+      Alert.alert(t("common.error"), e instanceof Error ? e.message : t("dashboard.reanalyzeFailed"));
+    } finally {
+      setSleepReanalyzingId(null);
+    }
+  };
+
+  const confirmDelete = (entry: SleepHistoryEntry) => {
+    if (!entry.extraction) return;
+    const doDelete = () => handleDeleteSleepEntry(entry.extraction!.id);
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      if (window.confirm(`${t("wellness.deleteSleepEntryTitle")}\n${t("wellness.deleteSleepEntryMessage")}`)) {
+        doDelete();
+      }
+    } else {
+      Alert.alert(
+        t("wellness.deleteSleepEntryTitle"),
+        t("wellness.deleteSleepEntryMessage"),
+        [
+          { text: t("common.cancel"), style: "cancel" },
+          { text: t("wellness.deleteSleepEntryConfirm"), style: "destructive", onPress: doDelete },
+        ]
+      );
+    }
+  };
+
+  return (
+    <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder, borderRadius: LIFESTYLE_CARD_RADIUS }]}>
+      <View style={styles.cardHeader}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>{t("wellness.title")}</Text>
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            onEditPress();
+          }}
+          style={styles.editBtn}
+        >
+          <Text style={[styles.editBtnText, { color: colors.primary }]}>{t("wellness.edit")}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {effectiveWellnessToday?.sleep_hours == null ? (
+        <View style={[styles.sleepReminder, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+          <Text style={[styles.sleepReminderText, { color: colors.textMuted }]}>{t("wellness.sleepReminder")}</Text>
+          <View style={styles.sleepReminderButtons}>
+            <TouchableOpacity style={styles.sleepReminderBtn} onPress={onEditPress}>
+              <Text style={[styles.sleepReminderBtnText, { color: colors.primary }]}>{t("wellness.enterManually")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sleepReminderBtn} onPress={onOpenCamera}>
+              <Text style={[styles.sleepReminderBtnText, { color: colors.primary }]}>{t("wellness.uploadScreenshot")}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
+      <View style={styles.metricsBlock}>
+        <Text style={[styles.hint, { color: colors.textMuted }]}>{t("wellness.todayLabel")}</Text>
+        <Text style={[styles.hint, styles.disclaimer, { color: colors.textMuted }]}>{t("wellness.disclaimer")}</Text>
+        {(effectiveWellnessToday || athleteProfile?.weight_kg != null || effectiveWellnessToday?.weight_kg != null) ? (
+          <>
+            <Text style={[styles.wellnessMetricsLine, { color: colors.text, marginTop: 8 }]}>
+              {effectiveWellnessToday?.sleep_hours != null
+                ? `${t("wellness.sleep")}\u00A0${formatSleepDuration(effectiveWellnessToday.sleep_hours, t)}`
+                : `${t("wellness.sleep")} —`}
+              {effectiveWellnessToday?.rhr != null ? ` · RHR\u00A0${effectiveWellnessToday.rhr}` : " · RHR —"}
+              {effectiveWellnessToday?.hrv != null ? ` · HRV\u00A0${effectiveWellnessToday.hrv}` : " · HRV —"}
+              {(effectiveWellnessToday?.weight_kg ?? athleteProfile?.weight_kg) != null
+                ? ` · ${t("wellness.weight")}\u00A0${effectiveWellnessToday?.weight_kg ?? athleteProfile?.weight_kg}\u00A0${t("wellness.weightKg")}`
+                : ` · ${t("wellness.weight")} —`}
+            </Text>
+            {effectiveWellnessToday?.sleep_hours == null && (
+              <Text style={[styles.hint, { color: colors.textMuted }]}>{t("wellness.manualHint")}</Text>
+            )}
+          </>
+        ) : (
+          <Text style={[styles.placeholder, { color: colors.textMuted, marginTop: 8 }]}>{t("wellness.placeholder")}</Text>
+        )}
+      </View>
+
+      {combinedSleepHistory.length > 0 ? (
+        <View style={styles.weeklyBlock}>
+          {combinedSleepHistory.length >= 7 ? (
+            <Text style={[styles.weeklySleepLine, { color: colors.text }]}>
+              {t("wellness.weeklySleep")}: {Math.round(weeklySleepTotal * 10) / 10} {t("wellness.sleepHours")}
+              {weeklySleepDeficit > 0
+                ? ` · ${t("wellness.deficit")} ${Math.round(weeklySleepDeficit * 10) / 10} ${t("wellness.sleepHours")}`
+                : null}{" "}
+              <Text style={[styles.hint, { color: colors.textMuted }]}>({t("wellness.normPerNight")})</Text>
+            </Text>
+          ) : (
+            <Text style={[styles.hint, { color: colors.textMuted }]}>{t("wellness.insufficientData")}</Text>
+          )}
+        </View>
+      ) : null}
+
+      <View style={styles.historyHeader}>
+        <Text style={[styles.historyLabel, { color: colors.textMuted }]}>{t("wellness.history")}</Text>
+        <TouchableOpacity
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            onOpenCamera();
+          }}
+          style={styles.addByPhotoBtn}
+        >
+          <Text style={[styles.addByPhotoText, { color: colors.primary }]}>{t("wellness.addByPhoto")}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {combinedSleepHistory.length === 0 ? (
+        <Text style={[styles.hint, { color: colors.textMuted }]}>{t("wellness.uploadSleepPhotoHint")}</Text>
+      ) : null}
+
+      {combinedSleepHistory.length > 0 ? (
+        <View style={styles.historyList}>
+          {combinedSleepHistory.slice(0, 7).map((entry) => (
+            <View key={entry.source === "photo" && entry.extraction ? `photo-${entry.extraction.id}` : `wellness-${entry.date}`}>
+              <View style={styles.historyRow}>
+                <View>
+                  <Text style={[styles.sleepHistoryRowText, { color: colors.text }]}>
+                    {formatSleepHistoryDate(entry.date)} · {formatSleepDuration(entry.hours, t)}
+                    {entry.source === "manual" ? ` (${t("wellness.historyManual")})` : ""}
+                  </Text>
+                  {entry.source === "photo" &&
+                    entry.extraction &&
+                    (entry.extraction.quality_score != null ||
+                      (entry.extraction.actual_sleep_hours != null &&
+                        entry.extraction.sleep_hours != null &&
+                        Math.abs((entry.extraction.actual_sleep_hours ?? 0) - (entry.extraction.sleep_hours ?? 0)) > 0.01)) ? (
+                    <Text style={[styles.hint, { color: colors.textMuted, marginTop: 2, fontSize: 12 }]}>
+                      {entry.extraction.sleep_hours != null &&
+                      entry.extraction.actual_sleep_hours != null &&
+                      Math.abs(entry.extraction.actual_sleep_hours - entry.extraction.sleep_hours) > 0.01
+                        ? `Всего: ${formatSleepDuration(entry.extraction.sleep_hours, t)}`
+                        : ""}
+                      {entry.extraction.quality_score != null
+                        ? `${
+                            entry.extraction.sleep_hours != null &&
+                            entry.extraction.actual_sleep_hours != null &&
+                            Math.abs(entry.extraction.actual_sleep_hours - entry.extraction.sleep_hours) > 0.01
+                              ? " · "
+                              : ""
+                          }${Math.round(entry.extraction.quality_score)}`
+                        : ""}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={styles.historyActions}>
+                  {entry.source === "photo" && entry.extraction?.can_reanalyze && sleepReanalyzeExtId !== entry.extraction.id ? (
+                    <TouchableOpacity
+                      style={[styles.smallBtn, styles.reanalyzeBtn]}
+                      onPress={() => {
+                        setSleepReanalyzeExtId(entry.extraction!.id);
+                        setSleepReanalyzeCorrection("");
+                      }}
+                      disabled={sleepReanalyzingId != null}
+                    >
+                      <Text style={styles.smallBtnText}>{t("wellness.reanalyze")}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  {entry.source === "photo" && entry.extraction ? (
+                    <TouchableOpacity style={[styles.smallBtn, styles.deleteBtn]} onPress={() => confirmDelete(entry)}>
+                      <Text style={styles.deleteBtnText}>{t("wellness.deleteEntry")}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </View>
+              {entry.source === "photo" && entry.extraction && sleepReanalyzeExtId === entry.extraction.id ? (
+                <View style={styles.reanalyzeForm}>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.text }]}
+                    value={sleepReanalyzeCorrection}
+                    onChangeText={setSleepReanalyzeCorrection}
+                    placeholder={t("wellness.reanalyzePlaceholder")}
+                    placeholderTextColor="#64748b"
+                    editable={sleepReanalyzingId === null}
+                  />
+                  <View style={styles.reanalyzeActions}>
+                    <TouchableOpacity
+                      style={styles.cancelBtn}
+                      onPress={() => {
+                        setSleepReanalyzeExtId(null);
+                        setSleepReanalyzeCorrection("");
+                      }}
+                      disabled={sleepReanalyzingId !== null}
+                    >
+                      <Text style={[styles.cancelBtnText, { color: colors.text }]}>{t("common.cancel")}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.submitBtn,
+                        { backgroundColor: colors.primary },
+                        (sleepReanalyzingId !== null || !sleepReanalyzeCorrection.trim()) && styles.btnDisabled,
+                      ]}
+                      onPress={() => handleReanalyze(entry.extraction!.id, sleepReanalyzeCorrection)}
+                      disabled={sleepReanalyzingId !== null || !sleepReanalyzeCorrection.trim()}
+                    >
+                      {sleepReanalyzingId === entry.extraction.id ? (
+                        <ActivityIndicator size="small" color="#0f172a" />
+                      ) : (
+                        <Text style={[styles.submitBtnText, { color: colors.primaryText }]}>{t("wellness.sendToAnalysis")}</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    marginBottom: 16,
+    padding: 20,
+    borderWidth: 1,
+    ...(Platform.OS === "web" ? { backdropFilter: "blur(20px)" } : {}),
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  editBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  editBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  sleepReminder: {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  sleepReminderText: {
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  sleepReminderButtons: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  sleepReminderBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: "#334155",
+  },
+  sleepReminderBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  metricsBlock: {
+    marginBottom: 12,
+  },
+  hint: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  disclaimer: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  placeholder: {
+    fontSize: 16,
+  },
+  wellnessMetricsLine: {
+    fontSize: 20,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  weeklyBlock: {
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  weeklySleepLine: {
+    fontSize: 14,
+    marginTop: 8,
+  },
+  historyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
+  },
+  historyLabel: {
+    fontSize: 12,
+    marginBottom: 0,
+  },
+  addByPhotoBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  addByPhotoText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  historyList: {
+    marginTop: 6,
+  },
+  historyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+  },
+  sleepHistoryRowText: {
+    fontSize: 14,
+    marginTop: 0,
+  },
+  historyActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  smallBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  reanalyzeBtn: {
+    backgroundColor: "#38bdf8",
+  },
+  smallBtnText: {
+    fontSize: 12,
+    color: "#0f172a",
+    fontWeight: "600",
+  },
+  deleteBtn: {
+    backgroundColor: "#dc2626",
+  },
+  deleteBtnText: {
+    fontSize: 12,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  reanalyzeForm: {
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  input: {
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  reanalyzeActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 6,
+  },
+  cancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  cancelBtnText: {
+    fontSize: 16,
+  },
+  submitBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  submitBtnText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  btnDisabled: {
+    opacity: 0.7,
+  },
+});
