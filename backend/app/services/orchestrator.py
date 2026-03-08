@@ -320,6 +320,9 @@ async def run_daily_decision(
     When client_local_hour is evening (e.g. >= 18), prompt asks for plan_tomorrow and evening_tips instead of Skip.
     """
     today = today or date.today()
+    if not settings.google_gemini_api_key or not settings.google_gemini_api_key.strip():
+        logger.warning("Orchestrator skipped for user_id=%s: GOOGLE_GEMINI_API_KEY not set", user_id)
+        return OrchestratorResponse(decision=Decision.SKIP, reason="AI unavailable; defaulting to Skip.")
     is_evening = _is_evening(client_local_hour)
     wellness_from = today - timedelta(days=7)
     from_date = today - timedelta(days=14)
@@ -503,8 +506,11 @@ async def run_daily_decision(
         response = await run_generate_content(model, [system_prompt, "\n\nContext:\n" + context])
         if not response or not response.text:
             return OrchestratorResponse(decision=Decision.SKIP, reason="No AI response; defaulting to Skip.")
-    except Exception:
-        logger.exception("Orchestrator Gemini call failed for user_id=%s", user_id)
+    except Exception as e:
+        logger.exception(
+            "Orchestrator Gemini call failed for user_id=%s: %s",
+            user_id, str(e),
+        )
         return OrchestratorResponse(decision=Decision.SKIP, reason="AI unavailable; defaulting to Skip.")
     try:
         result = _parse_llm_response(response.text)
