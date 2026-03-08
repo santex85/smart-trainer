@@ -528,7 +528,7 @@ async def create_thread(
     title = title.strip() or "Новый чат"
     thread = ChatThread(user_id=uid, title=title)
     session.add(thread)
-    await session.commit()
+    await session.flush()
     await session.refresh(thread)
     return {"id": thread.id, "title": thread.title, "created_at": thread.created_at.isoformat() if thread.created_at else None}
 
@@ -557,7 +557,7 @@ async def update_thread(
         raise HTTPException(status_code=404, detail="Thread not found")
     title = (body.title or "").strip() or "Чат"
     thread.title = title[:128]
-    await session.commit()
+    await session.flush()
     await session.refresh(thread)
     return {"id": thread.id, "title": thread.title, "created_at": thread.created_at.isoformat() if thread.created_at else None}
 
@@ -579,7 +579,6 @@ async def delete_thread(
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
     await session.delete(thread)
-    await session.commit()
 
 
 @router.post(
@@ -599,7 +598,6 @@ async def clear_thread(
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
     await session.execute(delete(ChatMessage).where(ChatMessage.thread_id == thread_id))
-    await session.commit()
     return {"ok": True}
 
 
@@ -663,7 +661,7 @@ async def send_message(
     session.add(
         ChatMessage(user_id=uid, thread_id=thread_id, role=MessageRole.user.value, content=body.message)
     )
-    await session.commit()
+    await session.flush()
 
     today_local = datetime.now(ZoneInfo((user.timezone or "UTC").strip() or "UTC")).date()
     reply = ""
@@ -695,13 +693,11 @@ async def send_message(
         session.add(
             ChatMessage(user_id=uid, thread_id=thread_id, role=MessageRole.assistant.value, content=reply)
         )
-        await session.commit()
         return {"reply": reply}
 
     session.add(
         ChatMessage(user_id=uid, thread_id=thread_id, role=MessageRole.assistant.value, content=reply)
     )
-    await session.commit()
     return {"reply": reply}
 
 
@@ -761,7 +757,7 @@ async def send_message_with_file(
     session.add(
         ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.user.value, content=user_content or "(сообщение)")
     )
-    await session.commit()
+    await session.flush()
 
     today_local = datetime.now(ZoneInfo((user.timezone or "UTC").strip() or "UTC")).date()
     reply = ""
@@ -803,13 +799,11 @@ async def send_message_with_file(
         session.add(
             ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.assistant.value, content=reply)
         )
-        await session.commit()
         return {"reply": reply}
 
     session.add(
         ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.assistant.value, content=reply)
     )
-    await session.commit()
     return {"reply": reply}
 
 
@@ -855,7 +849,7 @@ async def send_message_with_image(
     session.add(
         ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.user.value, content=user_content)
     )
-    await session.commit()
+    await session.flush()
 
     reply = ""
     try:
@@ -875,13 +869,11 @@ async def send_message_with_image(
         session.add(
             ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.assistant.value, content=reply)
         )
-        await session.commit()
         return {"reply": reply}
 
     session.add(
         ChatMessage(user_id=uid, thread_id=tid, role=MessageRole.assistant.value, content=reply)
     )
-    await session.commit()
     return {"reply": reply}
 
 
@@ -905,7 +897,6 @@ async def run_orchestrator(
     result = await run_daily_decision(
         session, uid, today=for_date, locale=locale, client_local_hour=client_local_hour
     )
-    await session.commit()
     if user.is_premium:
         return {
             "decision": result.decision.value,
