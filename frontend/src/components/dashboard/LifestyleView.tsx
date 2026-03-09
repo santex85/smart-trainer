@@ -403,11 +403,11 @@ export function LifestyleView({
       {Platform.OS === "web" && webMenuEntry ? (
         <Modal visible transparent animationType="fade">
           <Pressable
-            style={[styles.webMenuBackdrop, Platform.OS === "web" && { backdropFilter: "blur(4px)" }]}
+            style={[styles.webMenuBackdrop, { backgroundColor: "rgba(0,0,0,0.6)" }, Platform.OS === "web" && { backdropFilter: "blur(8px)" }]}
             onPress={() => setWebMenuEntry(null)}
           >
             <Pressable
-              style={[styles.webMenuBox, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}
+              style={[styles.webMenuBox, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
               onPress={(e) => e.stopPropagation()}
             >
               <TouchableOpacity
