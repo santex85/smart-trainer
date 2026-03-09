@@ -111,6 +111,11 @@ function formatNavDate(isoDate: string, locale: Locale): string {
   return d.toLocaleDateString(lang, { day: "numeric", month: "short" });
 }
 
+function formatNavDateShort(isoDate: string): string {
+  const d = new Date(isoDate + "T12:00:00");
+  return `${d.getDate()}/${d.getMonth() + 1}`;
+}
+
 function formatEventDate(isoDate: string | undefined): string {
   if (!isoDate) return "";
   const d = new Date(isoDate);
@@ -1181,7 +1186,7 @@ export function DashboardScreen({
   onOpenAthleteProfile?: () => void;
   onOpenIntervals?: () => void;
   onOpenPricing?: () => void;
-  onSyncIntervals?: () => Promise<{ activities_synced?: number; wellness_days_synced?: number } | void>;
+  onSyncIntervals?: (clientToday?: string) => Promise<{ activities_synced?: number; wellness_days_synced?: number } | void>;
   refreshNutritionTrigger?: number;
   refreshSleepTrigger?: number;
   refreshWellnessTrigger?: number;
@@ -1258,6 +1263,8 @@ export function DashboardScreen({
   const [activeTab, setActiveTab] = useState<"today" | "analysis">("today");
   const { t, locale, setLocale } = useTranslation();
   const { colors, toggleTheme } = useTheme();
+  const { width: screenWidth } = useWindowDimensions();
+  const useShortDate = screenWidth < 420;
 
   const glassCardStyle = useMemo(() => [
     styles.cardBase,
@@ -1752,28 +1759,28 @@ export function DashboardScreen({
           <>
           <Text style={styles.sectionTitle}>{t("nutrition.title")}</Text>
           <View style={glassCardStyle}>
-            <View style={[styles.cardTitleRow, { justifyContent: "space-between" }]}>
-              <TouchableOpacity onPress={() => setAddFoodModalVisible(true)} style={styles.outlineButton}>
-                <Text style={styles.outlineButtonText}>{t("nutrition.addManually")}</Text>
+            <View style={[styles.cardTitleRow, styles.nutritionDateRow]}>
+              <TouchableOpacity onPress={() => setAddFoodModalVisible(true)} style={[styles.outlineButton, styles.nutritionAddBtn]}>
+                <Text style={styles.outlineButtonText} numberOfLines={1} ellipsizeMode="tail">{t("nutrition.addManually")}</Text>
               </TouchableOpacity>
-              <View style={styles.cardTitleActions}>
+              <View style={[styles.cardTitleActions, styles.dateNavWrap]}>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(addDays(nutritionDate, -1))}
                   style={styles.dateNavBtn}
                 >
-                  <Text style={styles.dateNavText}>{formatNavDate(addDays(nutritionDate, -1), locale)}</Text>
+                  <Text style={styles.dateNavText} numberOfLines={1} ellipsizeMode="tail">{useShortDate ? formatNavDateShort(addDays(nutritionDate, -1)) : formatNavDate(addDays(nutritionDate, -1), locale)}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(today)}
                   style={[styles.dateNavBtn, styles.dateNavBtnActive]}
                 >
-                  <Text style={[styles.dateNavText, styles.dateNavTextActive]}>{formatNavDate(nutritionDate, locale)}</Text>
+                  <Text style={[styles.dateNavText, styles.dateNavTextActive]} numberOfLines={1} ellipsizeMode="tail">{useShortDate ? formatNavDateShort(nutritionDate) : formatNavDate(nutritionDate, locale)}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setNutritionDateAndLoad(addDays(nutritionDate, 1))}
                   style={styles.dateNavBtn}
                 >
-                  <Text style={styles.dateNavText}>{formatNavDate(addDays(nutritionDate, 1), locale)}</Text>
+                  <Text style={styles.dateNavText} numberOfLines={1} ellipsizeMode="tail">{useShortDate ? formatNavDateShort(addDays(nutritionDate, 1)) : formatNavDate(addDays(nutritionDate, 1), locale)}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1934,7 +1941,7 @@ export function DashboardScreen({
                   ? async () => {
                       setIntervalsSyncLoading(true);
                       try {
-                        const result = await onSyncIntervals();
+                        const result = await onSyncIntervals(today);
                         await load();
                         const activities = result?.activities_synced ?? 0;
                         const wellness = result?.wellness_days_synced ?? 0;
@@ -2168,6 +2175,9 @@ const styles = StyleSheet.create({
   cardBase: { marginBottom: 16 },
   cardTitle: { fontSize: 16, color: "#b8c5d6", marginBottom: 6 },
   cardTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 0 },
+  nutritionDateRow: {},
+  nutritionAddBtn: { flexShrink: 0 },
+  dateNavWrap: { flexShrink: 1, minWidth: 0, gap: 6 },
   cardTitleActions: { flexDirection: "row", alignItems: "center", gap: 12 },
   cardTitleLink: { paddingVertical: 4, paddingLeft: 8 },
   syncBtn: {
@@ -2261,7 +2271,7 @@ const styles = StyleSheet.create({
   fitnessCaptionMuted: { fontStyle: "italic" },
   fitnessPlaceholder: { marginTop: 4 },
   errorHint: { fontSize: 12, color: "#f87171", marginBottom: 4 },
-  dateNavBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
+  dateNavBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, flexShrink: 1, minWidth: 0 },
   dateNavBtnActive: { backgroundColor: "#38bdf8" },
   dateNavText: { fontSize: 12, color: "#b8c5d6" },
   dateNavTextActive: { color: "#0f172a", fontWeight: "600" },

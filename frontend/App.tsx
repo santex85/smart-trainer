@@ -238,8 +238,8 @@ function AppContent() {
                   onOpenAthleteProfile={() => navigation.navigate("Profile")}
                   onOpenIntervals={() => setIntervalsVisible(true)}
                   onOpenPricing={() => setPricingVisible(true)}
-                  onSyncIntervals={async () => {
-                    const result = await syncIntervals();
+                  onSyncIntervals={async (clientToday?: string) => {
+                    const result = await syncIntervals(clientToday);
                     setRefreshWellnessTrigger((t) => t + 1);
                     return result;
                   }}

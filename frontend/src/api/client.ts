@@ -762,8 +762,9 @@ export interface SyncIntervalsResponse {
   wellness_days_synced?: number;
 }
 
-export async function syncIntervals(): Promise<SyncIntervalsResponse> {
-  return api<SyncIntervalsResponse>("/api/v1/intervals/sync", { method: "POST" });
+export async function syncIntervals(clientToday?: string): Promise<SyncIntervalsResponse> {
+  const body = clientToday ? { client_today: clientToday } : {};
+  return api<SyncIntervalsResponse>("/api/v1/intervals/sync", { method: "POST", body });
 }
 
 export interface NutritionGoals {

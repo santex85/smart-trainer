@@ -15,6 +15,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { getIntervalsStatus, linkIntervals, syncIntervals, unlinkIntervals } from "../api/client";
 import { useTranslation } from "../i18n";
 
+function getTodayLocal(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function getErrorMessage(e: unknown, t: (key: string) => string): string {
   if (!(e instanceof Error)) return t("auth.requestError");
   try {
@@ -82,7 +87,7 @@ export function IntervalsLinkScreen({ onClose, onSynced }: { onClose: () => void
   const handleSync = async () => {
     setSyncLoading(true);
     try {
-      await syncIntervals();
+      await syncIntervals(getTodayLocal());
       onSynced?.();
       Alert.alert(t("common.alerts.done"), t("intervals.syncSuccess"));
     } catch (e) {

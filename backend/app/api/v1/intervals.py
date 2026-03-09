@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from typing import Annotated, Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +27,12 @@ router = APIRouter(prefix="/intervals", tags=["intervals"])
 class LinkIntervalsBody(BaseModel):
     athlete_id: str
     api_key: str
+
+
+class SyncIntervalsBody(BaseModel):
+    """Optional body for POST /sync. client_today: user's local date (YYYY-MM-DD) for TZ-aware fetch."""
+
+    client_today: str | None = None
 
 
 @router.get(
@@ -178,7 +184,7 @@ async def unlink_intervals(
     "/sync",
     summary="Trigger Intervals.icu sync",
     responses={
-        400: {"description": "Intervals.icu not linked"},
+        400: {"description": "Intervals.icu not linked or invalid client_today"},
         401: {"description": "Not authenticated"},
         503: {"description": "Sync failed or timed out"},
     },
@@ -186,8 +192,10 @@ async def unlink_intervals(
 async def trigger_sync(
     session: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(get_current_user)],
+    body: SyncIntervalsBody | None = Body(default=None),
 ) -> dict:
-    """Fetch activities and wellness from Intervals.icu and save to our DB."""
+    """Fetch activities and wellness from Intervals.icu and save to our DB.
+    Pass client_today (YYYY-MM-DD) to use the user's local date for the fetch range."""
     uid = user.id
     r = await session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == uid))
     creds = r.scalar_one_or_none()
@@ -197,9 +205,21 @@ async def trigger_sync(
     if not api_key:
         logging.warning("Intervals.icu: API key decryption failed for user_id=%s", uid)
         raise HTTPException(status_code=500, detail="Invalid stored credentials.")
+    client_today: date | None = None
+    if body and body.client_today and body.client_today.strip():
+        try:
+            client_today = date.fromisoformat(body.client_today.strip()[:10])
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid client_today format. Use YYYY-MM-DD.")
+        server_today = date.today()
+        if client_today < server_today - timedelta(days=1) or client_today > server_today + timedelta(days=1):
+            raise HTTPException(
+                status_code=400,
+                detail="client_today must be within yesterday and tomorrow (server UTC).",
+            )
     try:
         activities_count, wellness_count = await sync_intervals_to_db(
-            session, uid, creds.athlete_id, api_key
+            session, uid, creds.athlete_id, api_key, client_today=client_today
         )
     except httpx.TimeoutException as e:
         logging.exception("Intervals sync failed for user_id=%s: %s", uid, e)

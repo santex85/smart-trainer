@@ -138,12 +138,19 @@ async def sync_intervals_to_db(
     user_id: int,
     athlete_id: str,
     api_key: str,
+    *,
+    client_today: date | None = None,
 ) -> tuple[int, int]:
     """
     Fetch activities and wellness from Intervals.icu and upsert into workouts and wellness_cache.
     Returns (activities_upserted, wellness_days_upserted).
+
+    When client_today is provided (user's local date), the fetch range extends to include that date,
+    so sync at 4–5 AM in Thailand (UTC+7) fetches data for the user's "today" instead of server UTC yesterday.
     """
-    newest = date.today() + timedelta(days=1)  # include "tomorrow" so athlete's "today" in any TZ is fetched
+    server_today = date.today()
+    anchor = max(server_today, client_today) if client_today else server_today
+    newest = anchor + timedelta(days=1)  # include "tomorrow" so athlete's "today" in any TZ is fetched
     oldest = newest - timedelta(days=SYNC_DAYS)
     activities = await get_activities(athlete_id, api_key, oldest, newest, limit=500)
     wellness_days = await get_wellness(athlete_id, api_key, oldest, newest)
