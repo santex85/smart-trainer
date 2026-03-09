@@ -2,7 +2,7 @@
   "expo": {
     "name": "tssAI",
     "slug": "tss-ai",
-    "version": "0.1.0-alpha.2",
+    "version": "0.2.1-alpha2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",

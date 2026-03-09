@@ -1697,7 +1697,7 @@ export function DashboardScreen({
         <View>
           <Text style={styles.brandTitle}>{t("app.brandTitle")}</Text>
           <Text style={styles.brandAlpha}>{t("app.brandAlpha")}</Text>
-          <Text style={styles.brandVersion}>{Constants.expoConfig?.version ?? "0.1.0-alpha.1"}</Text>
+          <Text style={styles.brandVersion}>{Constants.expoConfig?.version ?? "0.2.1-alpha2"}</Text>
         </View>
         <TouchableOpacity
           onPress={() => {
