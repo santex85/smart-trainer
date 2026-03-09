@@ -87,8 +87,22 @@ export function LifestyleView({
   const cardBg = isDark ? LIFESTYLE_BG_SOFT_DARK : LIFESTYLE_BG_SOFT;
   const cardBorder = LIFESTYLE_BORDER_SOFT;
 
-  const showRhrInfo = () => Alert.alert("RHR", t("wellness.rhrTooltip"));
-  const showHrvInfo = () => Alert.alert("HRV", t("wellness.hrvTooltip"));
+  const showRhrInfo = () => {
+    const msg = t("wellness.rhrTooltip");
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.alert(`RHR\n\n${msg}`);
+    } else {
+      Alert.alert("RHR", msg);
+    }
+  };
+  const showHrvInfo = () => {
+    const msg = t("wellness.hrvTooltip");
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.alert(`HRV\n\n${msg}`);
+    } else {
+      Alert.alert("HRV", msg);
+    }
+  };
 
   const handleDeleteSleepEntry = async (extractionId: number) => {
     try {
@@ -191,7 +205,7 @@ export function LifestyleView({
                 <Text style={[styles.wellnessMetricsLine, { color: colors.text }]}>
                   {effectiveWellnessToday?.rhr != null ? ` · RHR\u00A0${effectiveWellnessToday.rhr}` : " · RHR —"}
                 </Text>
-                <TouchableOpacity onPress={showRhrInfo} hitSlop={8} style={styles.infoBtn}>
+                <TouchableOpacity onPress={showRhrInfo} hitSlop={12} style={styles.infoBtn} accessibilityRole="button" accessibilityLabel={t("common.alerts.info")}>
                   <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -199,7 +213,7 @@ export function LifestyleView({
                 <Text style={[styles.wellnessMetricsLine, { color: colors.text }]}>
                   {effectiveWellnessToday?.hrv != null ? ` · HRV\u00A0${effectiveWellnessToday.hrv}` : " · HRV —"}
                 </Text>
-                <TouchableOpacity onPress={showHrvInfo} hitSlop={8} style={styles.infoBtn}>
+                <TouchableOpacity onPress={showHrvInfo} hitSlop={12} style={styles.infoBtn} accessibilityRole="button" accessibilityLabel={t("common.alerts.info")}>
                   <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -435,6 +449,7 @@ const styles = StyleSheet.create({
   infoBtn: {
     padding: 4,
     marginLeft: 2,
+    ...(Platform.OS === "web" ? { cursor: "pointer" as const, minWidth: 28, minHeight: 28 } : {}),
   },
   weeklyBlock: {
     marginTop: 4,

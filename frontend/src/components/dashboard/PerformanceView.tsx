@@ -157,7 +157,7 @@ export function PerformanceView({
             <View style={styles.metricRow}>
               <View style={styles.metricLabelRow}>
                 <Text style={[styles.metricLabel, { color: colors.textMuted }]}>CTL</Text>
-                <TouchableOpacity onPress={showCtlInfo} hitSlop={8} style={styles.infoBtn}>
+                <TouchableOpacity onPress={showCtlInfo} hitSlop={12} style={styles.infoBtn} accessibilityRole="button" accessibilityLabel={t("common.alerts.info")}>
                   <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -190,7 +190,7 @@ export function PerformanceView({
             <View style={styles.metricRow}>
               <View style={styles.metricLabelRow}>
                 <Text style={[styles.metricLabel, { color: colors.textMuted }]}>ATL</Text>
-                <TouchableOpacity onPress={showAtlInfo} hitSlop={8} style={styles.infoBtn}>
+                <TouchableOpacity onPress={showAtlInfo} hitSlop={12} style={styles.infoBtn} accessibilityRole="button" accessibilityLabel={t("common.alerts.info")}>
                   <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -223,7 +223,7 @@ export function PerformanceView({
             <View style={styles.metricRow}>
               <View style={styles.metricLabelRow}>
                 <Text style={[styles.metricLabel, { color: colors.textMuted }]}>TSB</Text>
-                <TouchableOpacity onPress={showTsbInfo} hitSlop={8} style={styles.infoBtn}>
+                <TouchableOpacity onPress={showTsbInfo} hitSlop={12} style={styles.infoBtn} accessibilityRole="button" accessibilityLabel={t("common.alerts.info")}>
                   <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -334,6 +334,7 @@ const styles = StyleSheet.create({
   },
   infoBtn: {
     padding: 4,
+    ...(Platform.OS === "web" ? { cursor: "pointer" as const, minWidth: 28, minHeight: 28 } : {}),
   },
   metricValueRow: {
     flexDirection: "row",
