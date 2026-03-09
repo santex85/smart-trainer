@@ -691,6 +691,10 @@ export async function createOrUpdateWellness(payload: WellnessUpsertPayload): Pr
   return api<WellnessDay>("/api/v1/wellness", { method: "PUT", body: payload });
 }
 
+export async function deleteWellness(date: string): Promise<void> {
+  await api<void>(`/api/v1/wellness/${date}`, { method: "DELETE" });
+}
+
 export interface SleepExtractionSummary {
   id: number;
   created_at: string;

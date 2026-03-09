@@ -3,7 +3,7 @@
 from datetime import date, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -121,3 +121,31 @@ async def upsert_wellness(
     )
     saved = r2.scalar_one()
     return _row_to_response(saved)
+
+
+@router.delete(
+    "/{wellness_date}",
+    status_code=204,
+    summary="Delete wellness record for date",
+    responses={
+        401: {"description": "Not authenticated"},
+        404: {"description": "Wellness record not found"},
+    },
+)
+async def delete_wellness(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    wellness_date: Annotated[date, Path(description="Date YYYY-MM-DD")],
+) -> None:
+    """Delete wellness row for date. Own records only."""
+    result = await session.execute(
+        select(WellnessCache).where(
+            WellnessCache.user_id == user.id,
+            WellnessCache.date == wellness_date,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=404, detail="Wellness record not found.")
+    await session.delete(row)
+    await session.commit()

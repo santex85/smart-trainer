@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar } from "react-native-calendars";
-import { getWellness, createOrUpdateWellness, type WellnessDay } from "../api/client";
+import { getWellness, createOrUpdateWellness, deleteWellness, type WellnessDay } from "../api/client";
 import { useTranslation } from "../i18n";
 
 function getTodayLocal(): string {
@@ -54,6 +54,7 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
   const [loaded, setLoaded] = useState<WellnessDay | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [trendData, setTrendData] = useState<WellnessDay[]>([]);
 
   const loadDay = useCallback(async (dateStr: string) => {
@@ -115,6 +116,39 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
       Alert.alert(t("common.error"), e instanceof Error ? e.message : t("wellnessScreen.saveFailed"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const hasWellnessData = loaded && (loaded.sleep_hours != null || loaded.rhr != null || loaded.hrv != null || loaded.weight_kg != null);
+
+  const handleDelete = () => {
+    if (!hasWellnessData) return;
+    const doDelete = async () => {
+      setDeleting(true);
+      try {
+        await deleteWellness(selectedDay);
+        await loadDay(selectedDay);
+        const from = addDays(today, -6);
+        getWellness(from, today).then((res) => setTrendData(res?.items ?? [])).catch(() => setTrendData([]));
+      } catch (e) {
+        Alert.alert(t("common.error"), e instanceof Error ? e.message : t("wellnessScreen.saveFailed"));
+      } finally {
+        setDeleting(false);
+      }
+    };
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      if (window.confirm(`${t("wellness.deleteWellnessTitle")}\n${t("wellness.deleteWellnessMessage")}`)) {
+        doDelete();
+      }
+    } else {
+      Alert.alert(
+        t("wellness.deleteWellnessTitle"),
+        t("wellness.deleteWellnessMessage"),
+        [
+          { text: t("common.cancel"), style: "cancel" },
+          { text: t("wellness.deleteSleepEntryConfirm"), style: "destructive", onPress: doDelete },
+        ]
+      );
     }
   };
 
@@ -218,6 +252,19 @@ export function WellnessScreen({ onClose }: { onClose: () => void }) {
                   <Text style={styles.saveBtnText}>{t("common.save")}</Text>
                 )}
               </TouchableOpacity>
+              {hasWellnessData ? (
+                <TouchableOpacity
+                  style={[styles.deleteBtn, deleting && styles.saveBtnDisabled]}
+                  onPress={handleDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.deleteBtnText}>{t("common.delete")}</Text>
+                  )}
+                </TouchableOpacity>
+              ) : null}
             </>
           )}
         </ScrollView>
@@ -276,4 +323,12 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { opacity: 0.7 },
   saveBtnText: { fontSize: 16, fontWeight: "600", color: "#0f172a" },
+  deleteBtn: {
+    backgroundColor: "#dc2626",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  deleteBtnText: { fontSize: 16, fontWeight: "600", color: "#fff" },
 });

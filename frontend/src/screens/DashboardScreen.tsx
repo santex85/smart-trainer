@@ -31,6 +31,8 @@ import {
   runOrchestrator,
   getWellness,
   createOrUpdateWellness,
+  deleteWellness,
+  deleteSleepExtraction,
   getSleepExtractions,
   getAthleteProfile,
   updateAthleteProfile,
@@ -1200,7 +1202,8 @@ export function DashboardScreen({
   const [wellnessToday, setWellnessToday] = useState<WellnessDay | null>(null);
   const [wellnessWeek, setWellnessWeek] = useState<WellnessDay[]>([]);
   const [athleteProfile, setAthleteProfile] = useState<AthleteProfileResponse | null>(null);
-  const [wellnessEditVisible, setWellnessEditVisible] = useState(false);
+  const [editWellnessDate, setEditWellnessDate] = useState<string | null>(null);
+  const [editWellnessExtractionId, setEditWellnessExtractionId] = useState<number | null>(null);
   const [addFoodModalVisible, setAddFoodModalVisible] = useState(false);
   const [workoutAddVisible, setWorkoutAddVisible] = useState(false);
   const [fitUploading, setFitUploading] = useState(false);
@@ -1855,7 +1858,7 @@ export function DashboardScreen({
               weeklySleepTotal={weeklySleepTotal}
               weeklySleepDeficit={weeklySleepDeficit}
               today={today}
-              onEditPress={() => setWellnessEditVisible(true)}
+              onEditPress={() => { setEditWellnessDate(today); setEditWellnessExtractionId(null); }}
               onOpenCamera={onOpenCamera}
               onLoad={load}
               sleepReanalyzeExtId={sleepReanalyzeExtId}
@@ -2034,15 +2037,33 @@ export function DashboardScreen({
             />
           ) : null}
 
-          {wellnessEditVisible ? (
+          {editWellnessDate ? (
             <EditWellnessModal
-              date={today}
-              initialWellness={effectiveWellnessToday}
+              date={editWellnessDate}
+              initialWellness={
+                editWellnessDate === today
+                  ? effectiveWellnessToday
+                  : (wellnessWeek.find((w) => w.date === editWellnessDate) ?? null)
+              }
               initialWeight={athleteProfile?.weight_kg ?? null}
-              onClose={() => setWellnessEditVisible(false)}
-              onSaved={() => {
-                setWellnessEditVisible(false);
-                load();
+              onClose={() => {
+                setEditWellnessDate(null);
+                setEditWellnessExtractionId(null);
+              }}
+              onSaved={async () => {
+                const extId = editWellnessExtractionId;
+                setEditWellnessDate(null);
+                setEditWellnessExtractionId(null);
+                await load();
+                if (extId != null) {
+                  try {
+                    await deleteSleepExtraction(extId);
+                    const fresh = await getSleepExtractions(addDays(today, -14), today).catch(() => []);
+                    setSleepExtractions(fresh ?? []);
+                  } catch {
+                    await load();
+                  }
+                }
               }}
             />
           ) : null}
@@ -2165,6 +2186,22 @@ const styles = StyleSheet.create({
   hintRemaining: { fontSize: 12, color: "#94a3b8", marginTop: 8 },
   weeklySleepLine: { fontSize: 14, color: "#e2e8f0", marginTop: 8 },
   sleepHistoryRowText: { fontSize: 14, color: "#e2e8f0", marginTop: 0 },
+  sleepHistoryDropdown: {
+    marginTop: 4,
+    marginBottom: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 2,
+  },
+  sleepHistoryDropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  sleepHistoryDropdownItemText: { fontSize: 15 },
+  sleepHistoryDropdownItemTextDestructive: { fontSize: 15, color: "#ef4444", fontWeight: "600" },
   calendarLink: { marginBottom: 8, paddingVertical: 4 },
   intervalsActionsRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   intervalsLinkText: { fontSize: 14, color: "#38bdf8" },
