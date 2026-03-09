@@ -121,7 +121,7 @@ export function PerformanceView({
   const atlData = loadArr.filter((l) => l.atl != null).map((l) => ({ value: l.atl!, label: formatShortDate(l.date) }));
   const tsbData = loadArr.filter((l) => l.tsb != null).map((l) => ({ value: l.tsb!, label: formatShortDate(l.date) }));
 
-  const chartWidth = Math.max(SPARKLINE_WIDTH, Math.min(screenWidth - 80, (ctlData.length || 1) * 12));
+  const chartWidth = Math.max(SPARKLINE_WIDTH, Math.min(screenWidth - 200, (ctlData.length || 1) * 12));
 
   return (
     <View style={[styles.card, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder, borderRadius: 16 }]}>
@@ -166,7 +166,7 @@ export function PerformanceView({
                 {loadDataLoading ? (
                   <View style={[styles.sparklinePlaceholder, { width: chartWidth }]} />
                 ) : ctlData.length > 0 ? (
-                  <View style={styles.sparklineWrap}>
+                  <View style={[styles.sparklineWrap, { width: chartWidth, maxWidth: "100%" }]}>
                     <LineChart
                       data={ctlData}
                       width={chartWidth}
@@ -199,7 +199,7 @@ export function PerformanceView({
                 {loadDataLoading ? (
                   <View style={[styles.sparklinePlaceholder, { width: chartWidth }]} />
                 ) : atlData.length > 0 ? (
-                  <View style={styles.sparklineWrap}>
+                  <View style={[styles.sparklineWrap, { width: chartWidth, maxWidth: "100%" }]}>
                     <LineChart
                       data={atlData}
                       width={chartWidth}
@@ -232,7 +232,7 @@ export function PerformanceView({
                 {loadDataLoading ? (
                   <View style={[styles.sparklinePlaceholder, { width: chartWidth }]} />
                 ) : tsbData.length > 0 ? (
-                  <View style={styles.sparklineWrap}>
+                  <View style={[styles.sparklineWrap, { width: chartWidth, maxWidth: "100%" }]}>
                     <LineChart
                       data={tsbData}
                       width={chartWidth}
@@ -340,6 +340,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    flexShrink: 1,
+    minWidth: 0,
   },
   metricValue: {
     fontSize: 18,
@@ -350,6 +352,7 @@ const styles = StyleSheet.create({
   sparklineWrap: {
     height: SPARKLINE_HEIGHT,
     overflow: "hidden",
+    maxWidth: "100%",
   },
   sparklinePlaceholder: {
     height: SPARKLINE_HEIGHT - 8,
