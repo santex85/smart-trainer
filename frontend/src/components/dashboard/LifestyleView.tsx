@@ -181,10 +181,14 @@ export function LifestyleView({
           <Text style={[styles.sleepReminderText, { color: colors.textMuted }]}>{t("wellness.sleepReminder")}</Text>
           <View style={styles.sleepReminderButtons}>
             <TouchableOpacity style={styles.sleepReminderBtn} onPress={onEditPress}>
-              <Text style={[styles.sleepReminderBtnText, { color: colors.primary }]}>{t("wellness.enterManually")}</Text>
+              <Text style={[styles.sleepReminderBtnText, { color: colors.primary }]} numberOfLines={1} ellipsizeMode="tail">
+                {t("wellness.enterManually")}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.sleepReminderBtn} onPress={onOpenCamera}>
-              <Text style={[styles.sleepReminderBtnText, { color: colors.primary }]}>{t("wellness.uploadScreenshot")}</Text>
+              <Text style={[styles.sleepReminderBtnText, { color: colors.primary }]} numberOfLines={1} ellipsizeMode="tail">
+                {t("wellness.uploadScreenshot")}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -409,6 +413,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sleepReminderBtn: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 8,
