@@ -307,7 +307,7 @@ export const ru = {
     addWorkoutNotes: "Заметки",
     scanPhoto: "Скан фото",
     tabToday: "Сегодня",
-    tabAnalysis: "Про атлеты",
+    tabAnalysis: "Для атлетов",
   },
   intervals: {
     titleLink: "Подключить Intervals.icu",
