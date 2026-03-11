@@ -33,7 +33,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
-              <div className="text-2xl font-bold mb-4">tssAI</div>
+              <div className="text-2xl font-bold mb-4">tssproAI</div>
               <p className="text-white/60 text-sm">
                 AI coach for endurance athletes
               </p>
@@ -64,7 +64,7 @@ export default function App() {
             </div>
           </div>
           <div className="pt-8 border-t border-white/10 text-center text-sm text-white/40">
-            © 2026 tssAI. All rights reserved.
+            © 2026 tssproAI. All rights reserved.
           </div>
         </div>
       </footer>

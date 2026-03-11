@@ -19,7 +19,7 @@ const queryClient = new QueryClient({
 
 const persister = createAsyncStoragePersister({
   storage: AsyncStorage,
-  key: "@smart_trainer/react_query_cache",
+  key: "@tsspro_ai/react_query_cache",
 });
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {

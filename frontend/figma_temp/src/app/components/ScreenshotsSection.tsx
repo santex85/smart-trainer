@@ -45,10 +45,10 @@ export function ScreenshotsSection() {
           className="text-center mb-16"
         >
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            See tssAI in action
+            See tssproAI in action
           </h2>
           <p className="text-xl text-white/60 max-w-3xl mx-auto">
-            Real product screenshots showing how tssAI helps you train smarter
+            Real product screenshots showing how tssproAI helps you train smarter
           </p>
         </motion.div>
 

@@ -74,7 +74,7 @@ export function HeroSection() {
                 <div className="aspect-[4/3] bg-[#0a0a0a] rounded-xl overflow-hidden">
                   <img
                     src={dashboardImage}
-                    alt="tssAI Dashboard"
+                    alt="tssproAI Dashboard"
                     className="w-full h-full object-cover"
                   />
                 </div>

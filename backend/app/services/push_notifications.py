@@ -17,7 +17,7 @@ async def send_expo_push(token: str, title: str, body: str) -> None:
     if not token or not token.strip():
         return
     token = token.strip()
-    title = (title or "tssAI").strip() or "tssAI"
+    title = (title or "tssproAI").strip() or "tssproAI"
     body = (body or "").strip()[:200]
     try:
         client = get_http_client()

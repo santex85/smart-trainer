@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "tssAI",
-    "slug": "tss-ai",
+    "name": "tssproAI",
+    "slug": "tsspro-ai",
     "version": "0.2.1-alpha3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -9,8 +9,8 @@
     "web": { "favicon": "./assets/icon.png" },
     "splash": { "image": "./assets/splash.png", "resizeMode": "contain", "backgroundColor": "#1a1a2e" },
     "assetBundlePatterns": ["**/*"],
-    "ios": { "supportsTablet": true, "bundleIdentifier": "com.smarttrainer.app", "infoPlist": { "NSCameraUsageDescription": "Photo your meals for nutrition tracking.", "NSMicrophoneUsageDescription": "Optional for voice messages." } },
-    "android": { "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#1a1a2e" }, "package": "com.smarttrainer.app", "permissions": ["android.permission.CAMERA"] },
-    "plugins": ["expo-camera", "expo-image-picker", ["@sentry/react-native/expo", {"url": "https://sentry.io/", "organization": "tss.ai", "project": "tss-ai"}]]
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.tssproai.app", "infoPlist": { "NSCameraUsageDescription": "Photo your meals for nutrition tracking.", "NSMicrophoneUsageDescription": "Optional for voice messages." } },
+    "android": { "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#1a1a2e" }, "package": "com.tssproai.app", "permissions": ["android.permission.CAMERA"] },
+    "plugins": ["expo-camera", "expo-image-picker", ["@sentry/react-native/expo", {"url": "https://sentry.io/", "organization": "tssproai", "project": "tsspro-ai"}]]
   }
 }

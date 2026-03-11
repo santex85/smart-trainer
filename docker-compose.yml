@@ -5,15 +5,15 @@ services:
     networks:
       - backend-db
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-smart_trainer}
+      POSTGRES_USER: ${POSTGRES_USER:-tssproai}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-smart_trainer}
+      POSTGRES_DB: ${POSTGRES_DB:-tssproai}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-smart_trainer} -d ${POSTGRES_DB:-smart_trainer}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tssproai} -d ${POSTGRES_DB:-tssproai}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -81,7 +81,7 @@ services:
       - backend-db
       - frontend-backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-smart_trainer}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-smart_trainer}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tssproai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tssproai}
       GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
       INTERVALS_ICU_BASE_URL: ${INTERVALS_ICU_BASE_URL:-https://intervals.icu/api/v1}
@@ -170,5 +170,5 @@ networks:
 
 volumes:
   postgres_data:
-    name: smart_trainer_postgres_data_v2
+    name: tssproai_postgres_data_v2
   minio_data:

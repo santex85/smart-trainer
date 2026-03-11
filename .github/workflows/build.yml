@@ -57,9 +57,9 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-backend:${{ steps.meta.outputs.short_sha }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-backend:${{ steps.meta.outputs.version }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-backend:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/tssproai-backend:${{ steps.meta.outputs.short_sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/tssproai-backend:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/tssproai-backend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -73,8 +73,8 @@ jobs:
             EXPO_PUBLIC_API_URL=${{ steps.frontend-args.outputs.api_url }}
             EXPO_PUBLIC_SENTRY_DSN=${{ vars.EXPO_PUBLIC_SENTRY_DSN || '' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-frontend:${{ steps.meta.outputs.short_sha }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-frontend:${{ steps.meta.outputs.version }}
-            ${{ env.REGISTRY }}/${{ github.repository_owner }}/smart-trainer-frontend:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/tssproai-frontend:${{ steps.meta.outputs.short_sha }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/tssproai-frontend:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/tssproai-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

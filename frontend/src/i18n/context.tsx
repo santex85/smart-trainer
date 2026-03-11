@@ -4,7 +4,7 @@ import { setApiLocale } from "../api/locale";
 import { messages } from "./translations";
 import type { Locale } from "./translations";
 
-const LOCALE_STORAGE_KEY = "@smart_trainer/locale";
+const LOCALE_STORAGE_KEY = "@tsspro_ai/locale";
 
 function get(obj: Record<string, unknown>, path: string): string | undefined {
   const parts = path.split(".");

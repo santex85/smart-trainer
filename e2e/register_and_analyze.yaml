@@ -1,4 +1,4 @@
-appId: com.smarttrainer.app
+appId: com.tssproai.app
 ---
 - launchApp
 - tapOn: "Создать аккаунт"

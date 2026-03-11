@@ -48,7 +48,7 @@ export function Header({ appUrl }: { appUrl: string }) {
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="text-2xl font-bold tracking-tight">
-            tss<span className="text-emerald-500">AI</span>
+            tsspro<span className="text-emerald-500">AI</span>
           </div>
 
           <nav className="hidden md:flex items-center gap-8">

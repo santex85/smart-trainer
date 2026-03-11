@@ -40,7 +40,7 @@ export function ProductShowcase() {
                 Visual macro tracking that makes sense
               </h3>
               <p className="text-white/70 leading-relaxed mb-6">
-                See your daily nutrition at a glance with color-coded macros. Track calories, protein, fats, and carbs against your goals. Log meals with photos or manual entry—tssAI makes it simple to stay on top of your fueling strategy.
+                See your daily nutrition at a glance with color-coded macros. Track calories, protein, fats, and carbs against your goals. Log meals with photos or manual entry—tssproAI makes it simple to stay on top of your fueling strategy.
               </p>
               <ul className="space-y-3">
                 <li className="flex items-start gap-3">

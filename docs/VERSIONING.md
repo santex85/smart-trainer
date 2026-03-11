@@ -31,7 +31,7 @@
 3. Закоммитить изменения версии.
 4. Поставить аннотированный тег:
    ```bash
-   git tag -a v0.1.0-alpha.1 -m "Release Alpha 1: базовый функционал tssAI"
+   git tag -a v0.1.0-alpha.1 -m "Release Alpha 1: базовый функционал tssproAI"
    ```
 5. Отправить тег на сервер:
    ```bash

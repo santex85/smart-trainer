@@ -1,4 +1,4 @@
-# tssAI Backend
+# tssproAI Backend
 
 FastAPI backend for the AI Trainer MVP: nutrition (Gemini), Intervals.icu integration, orchestrator.
 

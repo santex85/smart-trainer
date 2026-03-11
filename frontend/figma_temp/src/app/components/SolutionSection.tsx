@@ -36,7 +36,7 @@ export function SolutionSection() {
             <span className="text-sm font-medium text-emerald-400">The Solution</span>
           </div>
           <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            tssAI brings everything together
+            tssproAI brings everything together
           </h2>
           <p className="text-xl text-white/60 max-w-3xl mx-auto">
             A single AI coach that understands your complete training picture
@@ -77,7 +77,7 @@ export function SolutionSection() {
               Not just an AI chatbot—a complete training intelligence system
             </p>
             <p className="text-white/60">
-              tssAI is designed specifically for endurance athletes who need real decisions, not just more data
+              tssproAI is designed specifically for endurance athletes who need real decisions, not just more data
             </p>
           </div>
         </motion.div>

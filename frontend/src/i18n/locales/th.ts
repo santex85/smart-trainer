@@ -6,7 +6,7 @@ export const th = {
     loading: "กำลังโหลด…",
     errorBoundary: "เกิดข้อผิดพลาด",
     errorBoundaryBack: "กลับ",
-    brandTitle: "tssAI",
+    brandTitle: "tssproAI",
     brandAlpha: "alpha",
     brandSubtitle: "โภชนาการ การนอน และการฝึกในที่เดียว",
     logout: "ออกจากระบบ",

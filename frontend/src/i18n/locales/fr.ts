@@ -6,7 +6,7 @@ export const fr = {
     loading: "Chargement…",
     errorBoundary: "Une erreur s'est produite",
     errorBoundaryBack: "Retour",
-    brandTitle: "tssAI",
+    brandTitle: "tssproAI",
     brandAlpha: "alpha",
     brandSubtitle: "Nutrition, sommeil et entraînement en un seul endroit",
     logout: "Déconnexion",

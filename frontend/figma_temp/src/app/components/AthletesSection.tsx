@@ -35,7 +35,7 @@ export function AthletesSection() {
             Built for endurance athletes
           </h2>
           <p className="text-xl text-white/60 max-w-3xl mx-auto">
-            Whether you run, ride, or do all three, tssAI helps you make smarter training decisions
+            Whether you run, ride, or do all three, tssproAI helps you make smarter training decisions
           </p>
         </motion.div>
 

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     s3_endpoint_url: str = "http://minio:9000"
     s3_access_key: str = "minioadmin"
     s3_secret_key: str = "minioadmin"
-    s3_bucket: str = "smart-trainer"
+    s3_bucket: str = "tssproai"
     encryption_key: str = ""
     secret_key: str = "change-me-in-production"
     app_env: str = "development"  # "production" enables strict checks (ENCRYPTION_KEY, etc.)

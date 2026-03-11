@@ -6,7 +6,7 @@ export const it = {
     loading: "Caricamento…",
     errorBoundary: "Qualcosa è andato storto",
     errorBoundaryBack: "Indietro",
-    brandTitle: "tssAI",
+    brandTitle: "tssproAI",
     brandAlpha: "alpha",
     brandSubtitle: "Nutrizione, sonno e allenamento in un unico posto",
     logout: "Esci",

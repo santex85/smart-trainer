@@ -33,7 +33,7 @@ type OfflineMutation = {
   created_at: string;
 };
 
-const OFFLINE_QUEUE_KEY = "@smart_trainer/offline_mutations";
+const OFFLINE_QUEUE_KEY = "@tsspro_ai/offline_mutations";
 
 async function enqueueOfflineMutation(path: string, method: string, body?: unknown): Promise<void> {
   try {

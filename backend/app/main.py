@@ -264,7 +264,7 @@ async def lifespan(app: FastAPI):
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 
 app = FastAPI(
-    title="tss.ai API",
+    title="tssproAI API",
     description="AI Trainer backend: nutrition, Intervals.icu, orchestrator",
     version="0.2.1-alpha2",
     lifespan=lifespan,

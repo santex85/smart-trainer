@@ -15,7 +15,7 @@ from app.models.user import User
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-DEV_SEED_EMAIL = "default@smarttrainer.local"
+DEV_SEED_EMAIL = "default@tssproai.local"
 DEV_SEED_PASSWORD = "dev"
 
 
@@ -72,7 +72,7 @@ async def update_my_premium(
     responses={404: {"description": "Only when debug=True"}},
 )
 async def seed_default_user(session: Annotated[AsyncSession, Depends(get_db)]):
-    """Create default@smarttrainer.local with password 'dev' only when debug=True and DB has no users."""
+    """Create default@tssproai.local with password 'dev' only when debug=True and DB has no users."""
     if not settings.debug:
         raise HTTPException(status_code=404, detail="Not found")
     r = await session.execute(select(User).where(User.email == DEV_SEED_EMAIL))

@@ -1907,7 +1907,14 @@ export function DashboardScreen({
           <>
             {lastAnalysisResult ? (
                 <View style={glassCardStyle}>
-                  <Text style={styles.cardTitle}>{t("dashboard.analysisResult")}</Text>
+                  <Text style={styles.cardTitle}>
+                    {t("dashboard.analysisResult")} • {new Date().toLocaleString(LOCALE_BCP47[locale] ?? "en-US", {
+                      day: "numeric",
+                      month: "long",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </Text>
                   <Text style={styles.analysisDecision}>{t("dashboard.decisionLabel")} {lastAnalysisResult.decision}</Text>
                   {lastAnalysisResult.reason != null && lastAnalysisResult.reason !== "" ? (
                     <Text style={styles.value}>{lastAnalysisResult.reason}</Text>

@@ -47,7 +47,7 @@ describe("DashboardScreen", () => {
       </ThemeProvider>
     );
     await waitFor(() => {
-      expect(getByText("tssAI")).toBeTruthy();
+      expect(getByText("tssproAI")).toBeTruthy();
     });
   });
 });

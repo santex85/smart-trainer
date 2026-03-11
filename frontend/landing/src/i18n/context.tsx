@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { en, ru, type Locale } from "./translations";
 
-const STORAGE_KEY = "tssai-landing-locale";
+const STORAGE_KEY = "tssproai-landing-locale";
 
 function get(obj: Record<string, unknown>, path: string): string | undefined {
   const parts = path.split(".");
@@ -57,8 +57,8 @@ export function LandingI18nProvider({ children }: { children: React.ReactNode })
     if (!mounted) return;
     document.documentElement.lang = locale === "ru" ? "ru" : "en";
     const title = locale === "ru"
-      ? "tssAI — ИИ-тренер для атлетов на выносливость"
-      : "tssAI — AI coach for endurance athletes";
+      ? "tssproAI — ИИ-тренер для атлетов на выносливость"
+      : "tssproAI — AI coach for endurance athletes";
     const desc = locale === "ru"
       ? "Питание, сон, нагрузка и дневная готовность в одном приложении. Конкретные рекомендации ИИ, а не только графики."
       : "Track nutrition, sleep, training load and daily readiness in one app. Get actionable AI guidance, not just charts.";

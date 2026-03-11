@@ -1,5 +1,5 @@
 [project]
-name = "smart-trainer-backend"
+name = "tssproai-backend"
 version = "0.2.1-alpha2"
 description = "AI Trainer backend - FastAPI, Intervals.icu, Gemini"
 requires-python = ">=3.11"

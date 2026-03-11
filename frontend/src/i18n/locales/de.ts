@@ -6,7 +6,7 @@ export const de = {
     loading: "Laden…",
     errorBoundary: "Etwas ist schiefgelaufen",
     errorBoundaryBack: "Zurück",
-    brandTitle: "tssAI",
+    brandTitle: "tssproAI",
     brandAlpha: "alpha",
     brandSubtitle: "Ernährung, Schlaf und Training an einem Ort",
     logout: "Abmelden",

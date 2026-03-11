@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { ThemeColors, ThemeMode } from "./colors";
 import { themes } from "./colors";
 
-const THEME_STORAGE_KEY = "@smart_trainer/theme";
+const THEME_STORAGE_KEY = "@tsspro_ai/theme";
 
 type ThemeContextValue = {
   mode: ThemeMode;

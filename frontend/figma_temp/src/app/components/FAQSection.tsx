@@ -5,20 +5,20 @@ import { ChevronDown } from 'lucide-react';
 
 const faqs = [
   {
-    question: 'Who is tssAI for?',
-    answer: 'tssAI is built for endurance athletes—runners, triathletes, cyclists, and anyone training with structured plans. Whether you\'re an amateur training for your first marathon or an age-group athlete chasing PRs, tssAI helps you make smarter training decisions by combining nutrition, recovery, and training load data.',
+    question: 'Who is tssproAI for?',
+    answer: 'tssproAI is built for endurance athletes—runners, triathletes, cyclists, and anyone training with structured plans. Whether you\'re an amateur training for your first marathon or an age-group athlete chasing PRs, tssproAI helps you make smarter training decisions by combining nutrition, recovery, and training load data.',
   },
   {
     question: 'Does it replace a coach?',
-    answer: 'No. tssAI is designed to complement your training, not replace human coaching. It provides daily guidance based on your data and helps you understand whether you\'re ready to train hard. Many athletes use tssAI alongside their coaches to make better day-to-day decisions between coaching sessions.',
+    answer: 'No. tssproAI is designed to complement your training, not replace human coaching. It provides daily guidance based on your data and helps you understand whether you\'re ready to train hard. Many athletes use tssproAI alongside their coaches to make better day-to-day decisions between coaching sessions.',
   },
   {
     question: 'Does it support Intervals.icu?',
-    answer: 'Yes! tssAI integrates seamlessly with Intervals.icu, allowing you to pull in your training data automatically. You can continue using Intervals.icu for training planning while tssAI adds the nutrition, recovery, and AI decision-making layer on top.',
+    answer: 'Yes! tssproAI integrates seamlessly with Intervals.icu, allowing you to pull in your training data automatically. You can continue using Intervals.icu for training planning while tssproAI adds the nutrition, recovery, and AI decision-making layer on top.',
   },
   {
     question: 'Can I use it on web and mobile?',
-    answer: 'Currently, tssAI is available as a web application that works on desktop and mobile browsers. A dedicated mobile app is in development and will be available soon.',
+    answer: 'Currently, tssproAI is available as a web application that works on desktop and mobile browsers. A dedicated mobile app is in development and will be available soon.',
   },
   {
     question: 'What is included in Pro?',
@@ -45,7 +45,7 @@ export function FAQSection() {
             Frequently asked questions
           </h2>
           <p className="text-xl text-white/60">
-            Everything you need to know about tssAI
+            Everything you need to know about tssproAI
           </p>
         </motion.div>
 
