@@ -24,17 +24,17 @@ export function Header({ appUrl }: { appUrl: string }) {
   const LangToggle = () => (
     <div className="flex items-center gap-1 text-sm text-white/60">
       <button
-        onClick={() => setLocale("ru")}
-        className={`px-2 py-1 rounded transition ${locale === "ru" ? "text-white font-medium" : "hover:text-white"}`}
-      >
-        RU
-      </button>
-      <span className="text-white/40">|</span>
-      <button
         onClick={() => setLocale("en")}
         className={`px-2 py-1 rounded transition ${locale === "en" ? "text-white font-medium" : "hover:text-white"}`}
       >
         EN
+      </button>
+      <span className="text-white/40">|</span>
+      <button
+        onClick={() => setLocale("ru")}
+        className={`px-2 py-1 rounded transition ${locale === "ru" ? "text-white font-medium" : "hover:text-white"}`}
+      >
+        RU
       </button>
     </div>
   );
