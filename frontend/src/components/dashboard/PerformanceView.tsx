@@ -178,8 +178,7 @@ export function PerformanceView({
                       hideRules
                       hideYAxisText
                       yAxisColor="transparent"
-                      xAxisColor={colors.surfaceBorder}
-                      xAxisLabelTextStyle={{ color: colors.textMuted, fontSize: 10 }}
+                      xAxisColor="transparent"
                       noOfSections={1}
                       yAxisLabelWidth={0}
                       spacing={Math.max(2, chartWidth / Math.max(ctlData.length, 1))}
@@ -212,8 +211,7 @@ export function PerformanceView({
                       hideRules
                       hideYAxisText
                       yAxisColor="transparent"
-                      xAxisColor={colors.surfaceBorder}
-                      xAxisLabelTextStyle={{ color: colors.textMuted, fontSize: 10 }}
+                      xAxisColor="transparent"
                       noOfSections={1}
                       yAxisLabelWidth={0}
                       spacing={Math.max(2, chartWidth / Math.max(atlData.length, 1))}
@@ -246,8 +244,7 @@ export function PerformanceView({
                       hideRules
                       hideYAxisText
                       yAxisColor="transparent"
-                      xAxisColor={colors.surfaceBorder}
-                      xAxisLabelTextStyle={{ color: colors.textMuted, fontSize: 10 }}
+                      xAxisColor="transparent"
                       noOfSections={1}
                       yAxisLabelWidth={0}
                       spacing={Math.max(2, chartWidth / Math.max(tsbData.length, 1))}
@@ -257,6 +254,12 @@ export function PerformanceView({
               </View>
             </View>
           </View>
+
+          {loadComplete.length > 0 && (
+            <Text style={[styles.periodCaption, { color: colors.textMuted }]}>
+              {formatShortDate(loadComplete[0].date)} — {formatShortDate(loadComplete[loadComplete.length - 1].date)}
+            </Text>
+          )}
 
           {dateLabel ? (
             <Text style={[styles.dateCaption, { color: colors.textMuted }]}>
@@ -354,9 +357,14 @@ const styles = StyleSheet.create({
     minWidth: 44,
   },
   sparklineWrap: {
-    height: SPARKLINE_HEIGHT + 14,
+    height: SPARKLINE_HEIGHT,
     overflow: "hidden",
     maxWidth: "100%",
+  },
+  periodCaption: {
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: "center",
   },
   sparklinePlaceholder: {
     height: SPARKLINE_HEIGHT - 8,
