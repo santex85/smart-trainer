@@ -12,11 +12,19 @@ DEV_DEPLOY_USER ?= root
 DEV_DEPLOY_PATH ?= /root/smart_trainer
 REPO_URL ?= $(shell git remote get-url origin 2>/dev/null || true)
 
-# Stack deploy compose files: add low-resources override for dev (1 vCPU) to avoid CPU overload
-ifeq ($(DEPLOY_HOST),$(DEV_DEPLOY_HOST))
+# Stack deploy compose files: 2gb override for prod (167.71.74.220), low-resources for dev
+ifeq ($(DEPLOY_HOST),167.71.74.220)
+STACK_DEPLOY_FILES = -c docker-compose.yml -c docker-compose.prod.yml -c docker-compose.2gb.yml
+else ifeq ($(DEPLOY_HOST),$(DEV_DEPLOY_HOST))
 STACK_DEPLOY_FILES = -c docker-compose.yml -c docker-compose.prod.yml -c docker-compose.low-resources.yml
 else
 STACK_DEPLOY_FILES = -c docker-compose.yml -c docker-compose.prod.yml
+endif
+
+# For prod (2GB server): use CI images by default (server can't build)
+ifeq ($(DEPLOY_HOST),167.71.74.220)
+USE_CI_IMAGES ?= 1
+CI_REGISTRY_OWNER ?= $(shell git remote get-url origin 2>/dev/null | sed -E 's|.*github.com[:/]([^/]+)/.*|\1|')
 endif
 
 # Версия для образов: из Git тега (v0.1.0-alpha.1) или коммита. В проде — только протегированные сборки.
