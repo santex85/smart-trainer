@@ -9,6 +9,7 @@ import {
   Platform,
   useWindowDimensions,
 } from "react-native";
+import { LineChart } from "react-native-gifted-charts";
 import { Ionicons } from "@expo/vector-icons";
 import {
   getAnalyticsWorkouts,
@@ -32,37 +33,6 @@ function daysAgoIso(days: number): string {
 function formatShortDate(iso: string): string {
   const d = new Date(iso + "T12:00:00");
   return `${d.getDate()}/${d.getMonth() + 1}`;
-}
-
-/**
- * Wrapper to defer loading react-native-gifted-charts until render.
- * Avoids "Cannot access 'M' before initialization" (module init order / circular deps).
- */
-function SparklineChart(props: {
-  data: Array<{ value: number; label?: string }>;
-  width: number;
-  height: number;
-  color: string;
-  thickness?: number;
-}) {
-  const { LineChart } = require("react-native-gifted-charts");
-  return (
-    <LineChart
-      data={props.data}
-      width={props.width}
-      height={props.height}
-      color={props.color}
-      thickness={props.thickness ?? 1.5}
-      hideDataPoints
-      hideRules
-      hideYAxisText
-      yAxisColor="transparent"
-      xAxisColor="transparent"
-      noOfSections={1}
-      yAxisLabelWidth={0}
-      spacing={Math.max(2, props.width / Math.max(props.data.length, 1))}
-    />
-  );
 }
 
 export function PerformanceView({
@@ -197,11 +167,20 @@ export function PerformanceView({
                   <View style={[styles.sparklinePlaceholder, { width: chartWidth }]} />
                 ) : ctlData.length > 0 ? (
                   <View style={[styles.sparklineWrap, { width: chartWidth, maxWidth: "100%" }]}>
-                    <SparklineChart
+                    <LineChart
                       data={ctlData}
                       width={chartWidth}
                       height={SPARKLINE_HEIGHT - 8}
                       color={colors.primary}
+                      thickness={1.5}
+                      hideDataPoints
+                      hideRules
+                      hideYAxisText
+                      yAxisColor="transparent"
+                      xAxisColor="transparent"
+                      noOfSections={1}
+                      yAxisLabelWidth={0}
+                      spacing={Math.max(2, chartWidth / Math.max(ctlData.length, 1))}
                     />
                   </View>
                 ) : null}
@@ -221,11 +200,20 @@ export function PerformanceView({
                   <View style={[styles.sparklinePlaceholder, { width: chartWidth }]} />
                 ) : atlData.length > 0 ? (
                   <View style={[styles.sparklineWrap, { width: chartWidth, maxWidth: "100%" }]}>
-                    <SparklineChart
+                    <LineChart
                       data={atlData}
                       width={chartWidth}
                       height={SPARKLINE_HEIGHT - 8}
                       color={colors.accent}
+                      thickness={1.5}
+                      hideDataPoints
+                      hideRules
+                      hideYAxisText
+                      yAxisColor="transparent"
+                      xAxisColor="transparent"
+                      noOfSections={1}
+                      yAxisLabelWidth={0}
+                      spacing={Math.max(2, chartWidth / Math.max(atlData.length, 1))}
                     />
                   </View>
                 ) : null}
@@ -245,11 +233,20 @@ export function PerformanceView({
                   <View style={[styles.sparklinePlaceholder, { width: chartWidth }]} />
                 ) : tsbData.length > 0 ? (
                   <View style={[styles.sparklineWrap, { width: chartWidth, maxWidth: "100%" }]}>
-                    <SparklineChart
+                    <LineChart
                       data={tsbData}
                       width={chartWidth}
                       height={SPARKLINE_HEIGHT - 8}
                       color={tsb != null && tsb >= 0 ? colors.success : colors.danger}
+                      thickness={1.5}
+                      hideDataPoints
+                      hideRules
+                      hideYAxisText
+                      yAxisColor="transparent"
+                      xAxisColor="transparent"
+                      noOfSections={1}
+                      yAxisLabelWidth={0}
+                      spacing={Math.max(2, chartWidth / Math.max(tsbData.length, 1))}
                     />
                   </View>
                 ) : null}
