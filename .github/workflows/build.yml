@@ -42,9 +42,9 @@ jobs:
         id: frontend-args
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "api_url=${EXPO_PUBLIC_API_URL:-https://tsspro.tech}" >> $GITHUB_OUTPUT
+            echo "api_url=${EXPO_PUBLIC_API_URL:-https://app.tsspro.tech}" >> $GITHUB_OUTPUT
           else
-            echo "api_url=${EXPO_PUBLIC_API_URL_DEV:-https://dev.tsspro.tech}" >> $GITHUB_OUTPUT
+            echo "api_url=${EXPO_PUBLIC_API_URL_DEV:-https://dev.app.tsspro.tech}" >> $GITHUB_OUTPUT
           fi
         env:
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || '' }}
