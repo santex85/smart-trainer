@@ -117,9 +117,10 @@ export function PerformanceView({
   const fromWellness = !workoutFitness && (effectiveWellnessToday?.ctl != null || effectiveWellnessToday?.atl != null || effectiveWellnessToday?.tsb != null);
 
   const loadArr = workoutsData?.load ?? [];
-  const ctlData = loadArr.filter((l) => l.ctl != null).map((l) => ({ value: l.ctl!, label: formatShortDate(l.date) }));
-  const atlData = loadArr.filter((l) => l.atl != null).map((l) => ({ value: l.atl!, label: formatShortDate(l.date) }));
-  const tsbData = loadArr.filter((l) => l.tsb != null).map((l) => ({ value: l.tsb!, label: formatShortDate(l.date) }));
+  const loadComplete = loadArr.filter((l) => l.ctl != null && l.atl != null && l.tsb != null);
+  const ctlData = loadComplete.map((l) => ({ value: l.ctl!, label: formatShortDate(l.date) }));
+  const atlData = loadComplete.map((l) => ({ value: l.atl!, label: formatShortDate(l.date) }));
+  const tsbData = loadComplete.map((l) => ({ value: l.tsb!, label: formatShortDate(l.date) }));
 
   const chartWidth = Math.max(SPARKLINE_WIDTH, Math.min(screenWidth - 200, (ctlData.length || 1) * 12));
 
@@ -177,7 +178,8 @@ export function PerformanceView({
                       hideRules
                       hideYAxisText
                       yAxisColor="transparent"
-                      xAxisColor="transparent"
+                      xAxisColor={colors.surfaceBorder}
+                      xAxisLabelTextStyle={{ color: colors.textMuted, fontSize: 10 }}
                       noOfSections={1}
                       yAxisLabelWidth={0}
                       spacing={Math.max(2, chartWidth / Math.max(ctlData.length, 1))}
@@ -210,7 +212,8 @@ export function PerformanceView({
                       hideRules
                       hideYAxisText
                       yAxisColor="transparent"
-                      xAxisColor="transparent"
+                      xAxisColor={colors.surfaceBorder}
+                      xAxisLabelTextStyle={{ color: colors.textMuted, fontSize: 10 }}
                       noOfSections={1}
                       yAxisLabelWidth={0}
                       spacing={Math.max(2, chartWidth / Math.max(atlData.length, 1))}
@@ -243,7 +246,8 @@ export function PerformanceView({
                       hideRules
                       hideYAxisText
                       yAxisColor="transparent"
-                      xAxisColor="transparent"
+                      xAxisColor={colors.surfaceBorder}
+                      xAxisLabelTextStyle={{ color: colors.textMuted, fontSize: 10 }}
                       noOfSections={1}
                       yAxisLabelWidth={0}
                       spacing={Math.max(2, chartWidth / Math.max(tsbData.length, 1))}
@@ -350,7 +354,7 @@ const styles = StyleSheet.create({
     minWidth: 44,
   },
   sparklineWrap: {
-    height: SPARKLINE_HEIGHT,
+    height: SPARKLINE_HEIGHT + 14,
     overflow: "hidden",
     maxWidth: "100%",
   },
