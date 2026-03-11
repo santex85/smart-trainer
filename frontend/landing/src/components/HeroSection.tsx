@@ -1,8 +1,10 @@
 import React from "react";
 import { Activity, Brain, TrendingUp, CheckCircle2 } from "lucide-react";
 import { DashboardPreview } from "./DashboardPreview";
+import { useLandingTranslation } from "../i18n";
 
 export function HeroSection({ appUrl }: { appUrl: string }) {
+  const { t } = useLandingTranslation();
   return (
     <section className="relative pt-32 pb-20 px-6 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/20 via-transparent to-transparent" />
@@ -11,12 +13,12 @@ export function HeroSection({ appUrl }: { appUrl: string }) {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="min-w-0">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
-              AI coach for{" "}
-              <span className="text-emerald-500">endurance athletes</span>
+              {t("hero.title")}{" "}
+              <span className="text-emerald-500">{t("hero.titleHighlight")}</span>
             </h1>
 
             <p className="text-xl text-white/70 mb-8 leading-relaxed">
-              Stop guessing your daily readiness. Let AI analyze your recovery, nutrition, and training load to tell you exactly how hard to push today.
+              {t("hero.subhead")}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-8 items-center sm:items-start">
@@ -24,28 +26,28 @@ export function HeroSection({ appUrl }: { appUrl: string }) {
                 href={appUrl}
                 className="inline-block px-8 py-4 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-semibold text-lg transition shadow-lg shadow-emerald-600/20 text-center w-full sm:w-auto"
               >
-                Start your 7-day trial
+                {t("hero.cta")}
               </a>
               <a
                 href={appUrl}
                 className="inline-block px-8 py-4 text-white/60 hover:text-white rounded-lg font-semibold text-lg transition text-center w-full sm:w-auto"
               >
-                Log in
+                {t("hero.login")}
               </a>
             </div>
 
             <div className="flex flex-wrap gap-6 text-sm text-white/60">
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-emerald-500" />
-                7-day free trial
+                {t("hero.bullet1")}
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-emerald-500" />
-                Photo, FIT and Intervals.icu support
+                {t("hero.bullet2")}
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-emerald-500" />
-                Built for endurance athletes
+                {t("hero.bullet3")}
               </div>
             </div>
           </div>
@@ -62,10 +64,10 @@ export function HeroSection({ appUrl }: { appUrl: string }) {
                 <div className="w-6 h-6 rounded-md bg-emerald-600/20 flex items-center justify-center">
                   <Activity size={12} className="text-emerald-500" />
                 </div>
-                <span className="text-[10px] font-semibold">Meal Analysis</span>
+                <span className="text-[10px] font-semibold">{t("hero.overlayMeal")}</span>
               </div>
-              <div className="text-lg font-bold mb-0.5">2,450 kcal</div>
-              <div className="text-[10px] text-white/60">Logged from photo</div>
+              <div className="text-lg font-bold mb-0.5">{t("hero.overlayKcal")}</div>
+              <div className="text-[10px] text-white/60">{t("hero.overlayLogged")}</div>
             </div>
 
             <div className="absolute bottom-2 right-2 lg:bottom-4 lg:-right-8 bg-[#0f0f0f]/95 border border-white/20 rounded-lg p-3 shadow-2xl max-w-[160px] backdrop-blur">
@@ -73,10 +75,10 @@ export function HeroSection({ appUrl }: { appUrl: string }) {
                 <div className="w-6 h-6 rounded-md bg-blue-600/20 flex items-center justify-center">
                   <Brain size={12} className="text-blue-500" />
                 </div>
-                <span className="text-[10px] font-semibold">Today&apos;s Decision</span>
+                <span className="text-[10px] font-semibold">{t("hero.overlayDecision")}</span>
               </div>
-              <div className="text-base font-bold mb-0.5 text-emerald-500">GO</div>
-              <div className="text-[10px] text-white/60">Ready for hard training</div>
+              <div className="text-base font-bold mb-0.5 text-emerald-500">{t("hero.overlayGo")}</div>
+              <div className="text-[10px] text-white/60">{t("hero.overlayReady")}</div>
             </div>
 
             <div className="absolute top-2 right-2 lg:top-4 lg:-right-8 bg-[#0f0f0f]/95 border border-white/20 rounded-lg p-3 shadow-2xl max-w-[150px] backdrop-blur">
@@ -84,9 +86,9 @@ export function HeroSection({ appUrl }: { appUrl: string }) {
                 <div className="w-6 h-6 rounded-md bg-purple-600/20 flex items-center justify-center">
                   <TrendingUp size={12} className="text-purple-500" />
                 </div>
-                <span className="text-[10px] font-semibold">AI Insight</span>
+                <span className="text-[10px] font-semibold">{t("hero.overlayInsight")}</span>
               </div>
-              <div className="text-[10px] text-white/80">Your recovery trend is improving this week</div>
+              <div className="text-[10px] text-white/80">{t("hero.overlayTrend")}</div>
             </div>
           </div>
         </div>

@@ -1,24 +1,14 @@
 import React from "react";
 import { Camera, Zap, Beaker } from "lucide-react";
 import { PhotoAnalysisPreview } from "./PhotoAnalysisPreview";
+import { useLandingTranslation } from "../i18n";
 
 export function PhotoAnalysisSection() {
+  const { t } = useLandingTranslation();
   const points = [
-    {
-      icon: Camera,
-      title: "AI identifies the dish",
-      desc: "Snap a photo of your meal. AI recognizes the food and suggests a name.",
-    },
-    {
-      icon: Zap,
-      title: "Macros calculated instantly",
-      desc: "Calories, protein, fat, carbs — all in one tap. Adjust portion size to recalculate.",
-    },
-    {
-      icon: Beaker,
-      title: "Micronutrients included",
-      desc: "Fiber, sodium, zinc, iron and more. Full nutrition breakdown for every meal.",
-    },
+    { icon: Camera, titleKey: "photoAnalysis.step1Title", descKey: "photoAnalysis.step1Desc" },
+    { icon: Zap, titleKey: "photoAnalysis.step2Title", descKey: "photoAnalysis.step2Desc" },
+    { icon: Beaker, titleKey: "photoAnalysis.step3Title", descKey: "photoAnalysis.step3Desc" },
   ];
 
   return (
@@ -27,21 +17,21 @@ export function PhotoAnalysisSection() {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="min-w-0">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              Snap a photo.{" "}
-              <span className="text-emerald-500">Get instant nutrition.</span>
+              {t("photoAnalysis.title")}{" "}
+              <span className="text-emerald-500">{t("photoAnalysis.titleHighlight")}</span>
             </h2>
             <p className="text-xl text-white/60 mb-10 leading-relaxed">
-              No manual input, no calorie counting stress. Point your camera at the plate — AI analyzes the dish, estimates macros and micronutrients, and logs it to your day.
+              {t("photoAnalysis.subtitle")}
             </p>
             <ul className="space-y-6">
               {points.map((p) => (
-                <li key={p.title} className="flex gap-4">
+                <li key={p.titleKey} className="flex gap-4">
                   <div className="w-12 h-12 rounded-lg bg-emerald-600/20 flex items-center justify-center shrink-0">
                     <p.icon size={24} className="text-emerald-500" />
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-1">{p.title}</h3>
-                    <p className="text-white/60 text-sm">{p.desc}</p>
+                    <h3 className="font-semibold mb-1">{t(p.titleKey)}</h3>
+                    <p className="text-white/60 text-sm">{t(p.descKey)}</p>
                   </div>
                 </li>
               ))}

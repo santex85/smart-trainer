@@ -1,5 +1,6 @@
 import React from "react";
 import { Utensils } from "lucide-react";
+import { useLandingTranslation } from "../i18n";
 
 const COLORS = {
   background: "#0D0D0D",
@@ -16,20 +17,14 @@ const COLORS = {
 } as const;
 
 const DEMO_MACROS = [
-  { label: "Cal", current: 1567, goal: 2070, color: COLORS.cal },
-  { label: "Protein", current: 93, goal: 120, color: COLORS.protein },
-  { label: "Fat", current: 45, goal: 69, color: COLORS.fat },
-  { label: "Carbs", current: 180, goal: 215, color: COLORS.carbs },
+  { labelKey: "dashboard.cal", current: 1567, goal: 2070, color: COLORS.cal },
+  { labelKey: "dashboard.protein", current: 93, goal: 120, color: COLORS.protein },
+  { labelKey: "dashboard.fat", current: 45, goal: 69, color: COLORS.fat },
+  { labelKey: "dashboard.carbs", current: 180, goal: 215, color: COLORS.carbs },
 ];
 
-const DEMO_MEALS = [
-  { name: "Oatmeal with berries", kcal: 312 },
-  { name: "Chicken salad", kcal: 420 },
-  { name: "Protein shake", kcal: 180 },
-  { name: "Rice with vegetables", kcal: 380 },
-  { name: "Greek yogurt", kcal: 112 },
-  { name: "Banana", kcal: 105 },
-];
+const DEMO_MEAL_KEYS = ["dashboard.meal1", "dashboard.meal2", "dashboard.meal3", "dashboard.meal4", "dashboard.meal5", "dashboard.meal6"] as const;
+const DEMO_KCALS = [312, 420, 180, 380, 112, 105];
 
 function ProgressBar({ label, current, goal, color }: { label: string; current: number; goal: number; color: string }) {
   const percent = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
@@ -52,6 +47,9 @@ function ProgressBar({ label, current, goal, color }: { label: string; current: 
 }
 
 export function DashboardPreview() {
+  const { t } = useLandingTranslation();
+  const dateKeys = ["dashboard.date1", "dashboard.date2", "dashboard.date3"] as const;
+
   return (
     <div
       className="w-full aspect-[4/3] max-h-[360px] min-h-[280px] rounded-[24px] overflow-hidden flex flex-col p-4"
@@ -63,18 +61,18 @@ export function DashboardPreview() {
     >
       {/* Header row: title + date pills */}
       <div className="flex items-center justify-between shrink-0 mb-3">
-        <h3 className="text-sm font-semibold text-white">Nutrition (remaining vs goals)</h3>
+        <h3 className="text-sm font-semibold text-white">{t("dashboard.title")}</h3>
         <div className="flex gap-1.5">
-          {["Mar 5", "Mar 6", "Mar 7"].map((d, i) => (
+          {dateKeys.map((key, i) => (
             <span
-              key={d}
+              key={key}
               className="px-2.5 py-1.5 rounded-lg text-xs font-medium"
               style={{
                 backgroundColor: i === 1 ? COLORS.primary : "transparent",
                 color: i === 1 ? "#0f172a" : COLORS.textMuted,
               }}
             >
-              {d}
+              {t(key)}
             </span>
           ))}
         </div>
@@ -82,13 +80,13 @@ export function DashboardPreview() {
 
       {/* Remaining summary */}
       <p className="text-xs text-[#94a3b8] mb-2 shrink-0">
-        Left: 503 kcal · P 93g · F 0g · C 35g
+        {t("dashboard.remaining")}
       </p>
 
       {/* Progress bars */}
       <div className="shrink-0">
         {DEMO_MACROS.map((m) => (
-          <ProgressBar key={m.label} label={m.label} current={m.current} goal={m.goal} color={m.color} />
+          <ProgressBar key={m.labelKey} label={t(m.labelKey)} current={m.current} goal={m.goal} color={m.color} />
         ))}
       </div>
 
@@ -98,14 +96,14 @@ export function DashboardPreview() {
         style={{ backgroundColor: COLORS.glassBg, border: `1px solid ${COLORS.glassBorder}` }}
       >
         <ul className="divide-y divide-white/[0.06]">
-          {DEMO_MEALS.map((meal, i) => (
+          {DEMO_MEAL_KEYS.map((key, i) => (
             <li
-              key={i}
+              key={key}
               className="flex items-center gap-2.5 py-2.5 px-3"
             >
               <Utensils size={18} className="shrink-0" style={{ color: COLORS.mealIcon }} />
               <span className="text-sm text-[#e2e8f0] truncate">
-                {meal.name}: {meal.kcal} kcal
+                {t(key)}: {DEMO_KCALS[i]} kcal
               </span>
             </li>
           ))}
