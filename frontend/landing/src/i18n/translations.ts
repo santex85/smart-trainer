@@ -9,7 +9,7 @@ export const en = {
     cta: "Start your 7-day trial",
   },
   hero: {
-    title: "AI coach for",
+    title: "AI system for",
     titleHighlight: "endurance athletes",
     subhead: "Stop guessing your daily readiness. Let AI analyze your recovery, nutrition, and training load to tell you exactly how hard to push today.",
     cta: "Start your 7-day trial",
@@ -164,7 +164,7 @@ export const en = {
     cta: "Start your 7-day trial",
   },
   footer: {
-    tagline: "AI coach for endurance athletes",
+    tagline: "AI system for endurance athletes",
     product: "Product",
     features: "Features",
     pricing: "Pricing",
@@ -205,7 +205,7 @@ export const ru: typeof en = {
     cta: "Начать 7-дневный пробный период",
   },
   hero: {
-    title: "ИИ-тренер для",
+    title: "ИИ-система для",
     titleHighlight: "атлетов на выносливость",
     subhead: "Хватит гадать о готовности. ИИ анализирует восстановление, питание и нагрузку и подсказывает, насколько интенсивно тренироваться сегодня.",
     cta: "Начать 7-дневный пробный период",
@@ -360,7 +360,7 @@ export const ru: typeof en = {
     cta: "Начать 7-дневный пробный период",
   },
   footer: {
-    tagline: "ИИ-тренер для атлетов на выносливость",
+    tagline: "ИИ-система для атлетов на выносливость",
     product: "Продукт",
     features: "Возможности",
     pricing: "Тарифы",

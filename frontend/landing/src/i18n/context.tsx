@@ -57,8 +57,8 @@ export function LandingI18nProvider({ children }: { children: React.ReactNode })
     if (!mounted) return;
     document.documentElement.lang = locale === "ru" ? "ru" : "en";
     const title = locale === "ru"
-      ? "tssproAI — ИИ-тренер для атлетов на выносливость"
-      : "tssproAI — AI coach for endurance athletes";
+      ? "tssproAI — ИИ-система для атлетов на выносливость"
+      : "tssproAI — AI system for endurance athletes";
     const desc = locale === "ru"
       ? "Питание, сон, нагрузка и дневная готовность в одном приложении. Конкретные рекомендации ИИ, а не только графики."
       : "Track nutrition, sleep, training load and daily readiness in one app. Get actionable AI guidance, not just charts.";
