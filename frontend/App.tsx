@@ -40,19 +40,13 @@ import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { RegisterScreen } from "./src/screens/RegisterScreen";
 import { IntervalsLinkScreen } from "./src/screens/IntervalsLinkScreen";
+import { ChatScreen } from "./src/screens/ChatScreen";
+import { AnalyticsScreen } from "./src/screens/AnalyticsScreen";
+import { AthleteProfileScreen } from "./src/screens/AthleteProfileScreen";
 import type { AuthUser } from "./src/api/client";
 
 const CameraScreen = React.lazy(() =>
   import("./src/screens/CameraScreen").then((m) => ({ default: m.CameraScreen }))
-);
-const ChatScreen = React.lazy(() =>
-  import("./src/screens/ChatScreen").then((m) => ({ default: m.ChatScreen }))
-);
-const AnalyticsScreen = React.lazy(() =>
-  import("./src/screens/AnalyticsScreen").then((m) => ({ default: m.AnalyticsScreen }))
-);
-const AthleteProfileScreen = React.lazy(() =>
-  import("./src/screens/AthleteProfileScreen").then((m) => ({ default: m.AthleteProfileScreen }))
 );
 const PricingScreen = React.lazy(() =>
   import("./src/screens/PricingScreen").then((m) => ({ default: m.PricingScreen }))
@@ -271,13 +265,11 @@ function AppContent() {
               options={{ tabBarLabel: t("tabs.chat") }}
             >
               {({ navigation }) => (
-                <Suspense fallback={<View style={[styles.root, styles.centered]}><ActivityIndicator size="large" color={colors.primary} /></View>}>
-                  <ChatScreen
-                    user={user}
-                    onClose={() => navigation.navigate("Home")}
-                    onOpenPricing={() => setPricingVisible(true)}
-                  />
-                </Suspense>
+                <ChatScreen
+                  user={user}
+                  onClose={() => navigation.navigate("Home")}
+                  onOpenPricing={() => setPricingVisible(true)}
+                />
               )}
             </Tab.Screen>
             <Tab.Screen
@@ -285,9 +277,7 @@ function AppContent() {
               options={{ tabBarLabel: t("tabs.analytics") }}
             >
               {({ navigation }) => (
-                <Suspense fallback={<View style={[styles.root, styles.centered]}><ActivityIndicator size="large" color={colors.primary} /></View>}>
-                  <AnalyticsScreen onClose={() => navigation.navigate("Home")} onOpenPricing={() => setPricingVisible(true)} />
-                </Suspense>
+                <AnalyticsScreen onClose={() => navigation.navigate("Home")} onOpenPricing={() => setPricingVisible(true)} />
               )}
             </Tab.Screen>
             <Tab.Screen
@@ -295,13 +285,11 @@ function AppContent() {
               options={{ tabBarLabel: t("tabs.profile") }}
             >
               {({ navigation }) => (
-                <Suspense fallback={<View style={[styles.root, styles.centered]}><ActivityIndicator size="large" color={colors.primary} /></View>}>
-                  <AthleteProfileScreen
-                    onClose={() => navigation.navigate("Home")}
-                    onOpenPricing={() => setPricingVisible(true)}
-                    onOpenBilling={() => setBillingVisible(true)}
-                  />
-                </Suspense>
+                <AthleteProfileScreen
+                  onClose={() => navigation.navigate("Home")}
+                  onOpenPricing={() => setPricingVisible(true)}
+                  onOpenBilling={() => setBillingVisible(true)}
+                />
               )}
             </Tab.Screen>
           </Tab.Navigator>
