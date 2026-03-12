@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Check, Zap } from "lucide-react";
 import { useLandingTranslation } from "../i18n";
 
-const freeFeatureKeys = ["pricing.freeF1", "pricing.freeF2", "pricing.freeF3", "pricing.freeF4", "pricing.freeF5"] as const;
+const freeFeatureKeys = ["pricing.freeF1", "pricing.freeF2", "pricing.freeF3", "pricing.freeF4", "pricing.freeF5", "pricing.freeF6", "pricing.freeF7", "pricing.freeF8"] as const;
 const proFeatureKeys = ["pricing.proF1", "pricing.proF2", "pricing.proF3", "pricing.proF4", "pricing.proF5", "pricing.proF6", "pricing.proF7", "pricing.proF8"] as const;
 
 export function PricingSection() {
