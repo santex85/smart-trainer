@@ -23,6 +23,14 @@
       }
     }
   }
+  handle /admin* {
+    reverse_proxy st2_backend:8000 {
+      transport http {
+        read_timeout 300s
+        write_timeout 300s
+      }
+    }
+  }
   handle {
     reverse_proxy {$FRONTEND_UPSTREAM}:80 {
       transport http {
