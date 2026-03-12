@@ -69,7 +69,6 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
-          no-cache: true
           build-args: |
             EXPO_PUBLIC_API_URL=${{ steps.frontend-args.outputs.api_url }}
             EXPO_PUBLIC_SENTRY_DSN=${{ vars.EXPO_PUBLIC_SENTRY_DSN || '' }}
