@@ -14,6 +14,8 @@ import { useTheme, contentWrap } from "../theme";
 import { useTranslation } from "../i18n";
 import { createCheckoutSession, getSubscription, type BillingPlan } from "../api/client";
 
+const proFeatureKeys = ["pricing.proF1", "pricing.proF2", "pricing.proF3", "pricing.proF4", "pricing.proF5", "pricing.proF6"] as const;
+
 function getBaseUrl(): string {
   if (typeof window !== "undefined" && window.location?.origin) {
     return window.location.origin;
@@ -154,6 +156,16 @@ export function PricingScreen({
           </View>
         )}
 
+        <View style={[styles.featuresCard, { backgroundColor: colors.glassBg, borderColor: colors.glassBorder }]}>
+          <Text style={[styles.featuresTitle, { color: colors.text }]}>{t("pricing.proFeatures")}</Text>
+          {proFeatureKeys.map((key) => (
+            <View key={key} style={styles.featureRow}>
+              <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+              <Text style={[styles.featureText, { color: colors.textMuted }]}>{t(key)}</Text>
+            </View>
+          ))}
+        </View>
+
         {Platform.OS === "web" && !premium && (
           <Text style={[styles.hint, { color: colors.textMuted }]}>
             Оплата через Stripe. После подписки вы вернётесь в приложение.
@@ -212,5 +224,14 @@ const styles = StyleSheet.create({
   trialBadge: { fontSize: 12, marginTop: 4, opacity: 0.9 },
   errorBox: { padding: 12, borderRadius: 12, marginTop: 16 },
   errorText: { fontSize: 14 },
+  featuresCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+    marginTop: 8,
+  },
+  featuresTitle: { fontSize: 16, fontWeight: "600", marginBottom: 12 },
+  featureRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
+  featureText: { fontSize: 14, flex: 1 },
   hint: { fontSize: 12, marginTop: 24, textAlign: "center" },
 });

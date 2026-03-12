@@ -30,8 +30,7 @@ function getInitialLocale(): Locale {
   if (typeof window === "undefined") return "en";
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === "ru" || stored === "en") return stored;
-  const lang = navigator.language?.toLowerCase() ?? "";
-  return lang.startsWith("ru") ? "ru" : "en";
+  return "en";
 }
 
 export function LandingI18nProvider({ children }: { children: React.ReactNode }) {

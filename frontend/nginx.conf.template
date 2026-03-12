@@ -1,6 +1,12 @@
 # Rate limit for API: 30 req/s per IP, burst 50
 limit_req_zone $binary_remote_addr zone=api:10m rate=30r/s;
 
+# Preserve X-Forwarded-Proto from Caddy (HTTPS) when proxying to backend
+map $http_x_forwarded_proto $forwarded_proto {
+    ''      $scheme;
+    default $http_x_forwarded_proto;
+}
+
 server {
     listen 80;
     server_name localhost;
@@ -63,20 +69,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 300s;
-        proxy_read_timeout 300s;
-    }
-
-    location /admin {
-        set $backend_upstream $BACKEND_UPSTREAM;
-        proxy_pass http://$backend_upstream;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
         proxy_connect_timeout 60s;
         proxy_send_timeout 300s;
         proxy_read_timeout 300s;
