@@ -63,21 +63,13 @@ import { LifestyleView, type SleepHistoryEntry } from "../components/dashboard/L
 import { PerformanceView } from "../components/dashboard/PerformanceView";
 
 function Swipeable(props: { children: React.ReactNode; renderRightActions?: () => React.ReactNode }) {
-  const [Component, setComponent] = useState<React.ComponentType<any> | null>(null);
-  useEffect(() => {
-    import("react-native-gesture-handler").then((m) => setComponent(() => m.Swipeable));
-  }, []);
-  if (!Component) return <>{props.children}</>;
-  return <Component {...props} />;
+  const { Swipeable: SwipeableComponent } = require("react-native-gesture-handler");
+  return <SwipeableComponent {...props} />;
 }
 
 function LinearGradient(props: { colors: string[]; style?: unknown; children?: React.ReactNode }) {
-  const [Component, setComponent] = useState<React.ComponentType<any> | null>(null);
-  useEffect(() => {
-    import("expo-linear-gradient").then((m) => setComponent(() => m.LinearGradient));
-  }, []);
-  if (!Component) return <>{props.children}</>;
-  return <Component {...props} />;
+  const { LinearGradient: LinearGradientComponent } = require("expo-linear-gradient");
+  return <LinearGradientComponent {...props} />;
 }
 
 const CALORIE_GOAL = 2200;

@@ -16,12 +16,8 @@ import { getWellness, createOrUpdateWellness, deleteWellness, type WellnessDay }
 import { useTranslation } from "../i18n";
 
 function Calendar(props: Record<string, unknown>) {
-  const [Component, setComponent] = useState<React.ComponentType<any> | null>(null);
-  useEffect(() => {
-    import("react-native-calendars").then((m) => setComponent(() => m.Calendar));
-  }, []);
-  if (!Component) return null;
-  return <Component {...props} />;
+  const { Calendar: CalendarComponent } = require("react-native-calendars");
+  return <CalendarComponent {...props} />;
 }
 
 function getTodayLocal(): string {

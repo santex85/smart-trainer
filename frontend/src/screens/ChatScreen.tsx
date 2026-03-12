@@ -97,7 +97,7 @@ export function ChatScreen({
     }
     const openDocPicker = async () => {
       try {
-        const { getDocumentAsync } = await import("expo-document-picker");
+        const { getDocumentAsync } = require("expo-document-picker");
         const result = await getDocumentAsync({
           type: "*/*",
           copyToCacheDirectory: true,
@@ -127,7 +127,7 @@ export function ChatScreen({
     }
     const openImagePicker = async () => {
       try {
-        const { getDocumentAsync } = await import("expo-document-picker");
+        const { getDocumentAsync } = require("expo-document-picker");
         const result = await getDocumentAsync({
           type: "image/*",
           copyToCacheDirectory: true,
