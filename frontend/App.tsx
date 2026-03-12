@@ -38,9 +38,6 @@ import { ThemeProvider, useTheme } from "./src/theme";
 import { QueryProvider } from "./src/query/provider";
 import { useTranslation, I18nProvider } from "./src/i18n";
 import type { AuthUser } from "./src/api/client";
-import { CameraScreen } from "./src/screens/CameraScreen";
-import { PricingScreen } from "./src/screens/PricingScreen";
-import { BillingScreen } from "./src/screens/BillingScreen";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { RegisterScreen } from "./src/screens/RegisterScreen";
@@ -60,6 +57,37 @@ const navigationRef = createNavigationContainerRef();
 
 if (Platform.OS === "web") {
   LogBox.ignoreLogs(["useNativeDriver"]);
+}
+
+// Lazy-loaded screen wrappers to avoid circular dependency issues
+function LazyCameraScreen(props: React.ComponentProps<typeof import("./src/screens/CameraScreen").CameraScreen>) {
+  const [Screen, setScreen] = useState<React.ComponentType<typeof props> | null>(null);
+  const { colors } = useTheme();
+  useEffect(() => {
+    import("./src/screens/CameraScreen").then((m) => setScreen(() => m.CameraScreen));
+  }, []);
+  if (!Screen) return <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}><ActivityIndicator size="large" color={colors.primary} /></View>;
+  return <Screen {...props} />;
+}
+
+function LazyPricingScreen(props: { onClose: () => void }) {
+  const [Screen, setScreen] = useState<React.ComponentType<typeof props> | null>(null);
+  const { colors } = useTheme();
+  useEffect(() => {
+    import("./src/screens/PricingScreen").then((m) => setScreen(() => m.PricingScreen));
+  }, []);
+  if (!Screen) return <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}><ActivityIndicator size="large" color={colors.primary} /></View>;
+  return <Screen {...props} />;
+}
+
+function LazyBillingScreen(props: { onClose: () => void; onOpenPricing: () => void }) {
+  const [Screen, setScreen] = useState<React.ComponentType<typeof props> | null>(null);
+  const { colors } = useTheme();
+  useEffect(() => {
+    import("./src/screens/BillingScreen").then((m) => setScreen(() => m.BillingScreen));
+  }, []);
+  if (!Screen) return <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}><ActivityIndicator size="large" color={colors.primary} /></View>;
+  return <Screen {...props} />;
 }
 
 function AppContent() {
@@ -290,7 +318,7 @@ function AppContent() {
 
         {cameraVisible && (
           <View style={[styles.modal, { backgroundColor: colors.background }]}>
-            <CameraScreen
+            <LazyCameraScreen
               onClose={closeCamera}
               onOpenPricing={() => setPricingVisible(true)}
               onSaved={() => {
@@ -324,13 +352,13 @@ function AppContent() {
 
         {pricingVisible && (
           <View style={[styles.modal, { backgroundColor: colors.background }]}>
-            <PricingScreen onClose={() => setPricingVisible(false)} />
+            <LazyPricingScreen onClose={() => setPricingVisible(false)} />
           </View>
         )}
 
         {billingVisible && (
           <View style={[styles.modal, { backgroundColor: colors.background }]}>
-            <BillingScreen
+            <LazyBillingScreen
               onClose={() => setBillingVisible(false)}
               onOpenPricing={() => {
                 setBillingVisible(false);
