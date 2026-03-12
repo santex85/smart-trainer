@@ -22,12 +22,6 @@ else
 STACK_DEPLOY_FILES = -c docker-compose.yml -c docker-compose.prod.yml
 endif
 
-# For prod (2GB server): use CI images by default (server can't build)
-ifeq ($(DEPLOY_TARGET),prod)
-USE_CI_IMAGES ?= 1
-CI_REGISTRY_OWNER ?= $(shell git remote get-url origin 2>/dev/null | sed -E 's|.*github.com[:/]([^/]+)/.*|\1|')
-endif
-
 # Версия для образов: из Git тега (v0.1.0-alpha.1) или коммита. В проде — только протегированные сборки.
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "0.1.0-alpha.1")
 
@@ -112,7 +106,7 @@ USE_CI_IMAGES ?=
 CI_REGISTRY_OWNER ?=
 CI_IMAGE_TAG ?= latest
 
-# Деплой на production: пуш main, на сервере git pull (main), build, stack deploy, миграции.
+# Деплой на production: пуш main, сборка на сервере, stack deploy.
 # Переопределить: make deploy DEPLOY_HOST=1.2.3.4 DEPLOY_PATH=/home/app/smart_trainer
 deploy:
 	git push origin main
