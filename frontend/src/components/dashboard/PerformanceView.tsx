@@ -11,7 +11,11 @@ import {
 } from "react-native";
 // Defer gifted-charts load to avoid TDZ "Cannot access 'M' before initialization"
 function LineChart(props: Record<string, unknown>) {
-  const Chart = require("react-native-gifted-charts").LineChart;
+  const [Chart, setChart] = useState<React.ComponentType<any> | null>(null);
+  useEffect(() => {
+    import("react-native-gifted-charts").then((m) => setChart(() => m.LineChart));
+  }, []);
+  if (!Chart) return null;
   return <Chart {...props} />;
 }
 import { Ionicons } from "@expo/vector-icons";

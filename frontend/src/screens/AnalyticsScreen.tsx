@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -16,15 +16,27 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 // Defer gifted-charts load to avoid TDZ "Cannot access 'M' before initialization"
 function LineChart(props: Record<string, unknown>) {
-  const Chart = require("react-native-gifted-charts").LineChart;
+  const [Chart, setChart] = useState<React.ComponentType<any> | null>(null);
+  useEffect(() => {
+    import("react-native-gifted-charts").then((m) => setChart(() => m.LineChart));
+  }, []);
+  if (!Chart) return null;
   return <Chart {...props} />;
 }
 function BarChart(props: Record<string, unknown>) {
-  const Chart = require("react-native-gifted-charts").BarChart;
+  const [Chart, setChart] = useState<React.ComponentType<any> | null>(null);
+  useEffect(() => {
+    import("react-native-gifted-charts").then((m) => setChart(() => m.BarChart));
+  }, []);
+  if (!Chart) return null;
   return <Chart {...props} />;
 }
 function PieChart(props: Record<string, unknown>) {
-  const Chart = require("react-native-gifted-charts").PieChart;
+  const [Chart, setChart] = useState<React.ComponentType<any> | null>(null);
+  useEffect(() => {
+    import("react-native-gifted-charts").then((m) => setChart(() => m.PieChart));
+  }, []);
+  if (!Chart) return null;
   return <Chart {...props} />;
 }
 import {
