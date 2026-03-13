@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useLandingTranslation } from "../i18n";
+import { CONTACT_EMAIL } from "../constants";
 
 export function TermsPage() {
   const { t } = useLandingTranslation();
@@ -82,8 +83,8 @@ export function TermsPage() {
             <h2 className="text-xl font-semibold text-white mb-4">7. Contact</h2>
             <p>
               For questions about these Terms, contact us at{" "}
-              <a href="https://app.tsspro.tech" className="text-emerald-400 hover:text-emerald-300">
-                app.tsspro.tech
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-emerald-400 hover:text-emerald-300">
+                {CONTACT_EMAIL}
               </a>
               .
             </p>

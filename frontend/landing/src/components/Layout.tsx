@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Header } from "./Header";
 import { useLandingTranslation } from "../i18n";
+import { CONTACT_EMAIL } from "../constants";
 
 const APP_URL = import.meta.env.VITE_APP_URL || "https://app.tsspro.tech";
 
@@ -49,7 +50,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   </a>
                 </li>
                 <li>
-                  <a href={APP_URL} className="hover:text-white transition">
+                  <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-white transition">
                     {t("footer.contact")}
                   </a>
                 </li>

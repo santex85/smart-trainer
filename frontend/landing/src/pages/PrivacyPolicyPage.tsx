@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useLandingTranslation } from "../i18n";
+import { CONTACT_EMAIL } from "../constants";
 
 export function PrivacyPolicyPage() {
   const { t } = useLandingTranslation();
@@ -148,8 +149,8 @@ export function PrivacyPolicyPage() {
             <h2 className="text-xl font-semibold text-white mb-4">9. Contact</h2>
             <p>
               For questions about this Privacy Policy or your data, contact us at{" "}
-              <a href="https://app.tsspro.tech" className="text-emerald-400 hover:text-emerald-300">
-                app.tsspro.tech
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-emerald-400 hover:text-emerald-300">
+                {CONTACT_EMAIL}
               </a>
               .
             </p>
