@@ -95,6 +95,13 @@ up-prod:
 migrate-prod:
 	$(COMPOSE_PROD) exec -T backend alembic upgrade head
 
+# Добавить Resend (email) в .env на сервере и обновить backend. Пример: make add-resend-config RESEND_API_KEY=re_xxx MAIL_FROM=noreply@tsspro.tech
+add-resend-config:
+	@if [ -z "$(RESEND_API_KEY)" ]; then echo "Usage: make add-resend-config RESEND_API_KEY=re_xxx MAIL_FROM=noreply@domain.com"; exit 1; fi; \
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && (grep -q '^RESEND_API_KEY=' .env 2>/dev/null && sed -i.bak 's|^RESEND_API_KEY=.*|RESEND_API_KEY=$(RESEND_API_KEY)|' .env || echo 'RESEND_API_KEY=$(RESEND_API_KEY)' >> .env) && (grep -q '^MAIL_FROM=' .env 2>/dev/null && sed -i.bak 's|^MAIL_FROM=.*|MAIL_FROM=$(if $(MAIL_FROM),$(MAIL_FROM),noreply@tsspro.tech)|' .env || echo 'MAIL_FROM=$(if $(MAIL_FROM),$(MAIL_FROM),noreply@tsspro.tech)' >> .env)"; \
+	ssh $(DEPLOY_USER)@$(DEPLOY_HOST) "cd $(DEPLOY_PATH) && set -a && . ./.env && set +a && docker service update --env-add RESEND_API_KEY=\$$RESEND_API_KEY --env-add MAIL_FROM=\$$MAIL_FROM st2_backend"; \
+	echo "Resend config added to server and backend updated."
+
 # Выдать права суперпользователя на prod. EMAIL обязателен. Пример: make create-superuser EMAIL=santex85@gmail.com
 create-superuser:
 	@if [ -z "$(EMAIL)" ]; then echo "Usage: make create-superuser EMAIL=user@example.com"; exit 1; fi
