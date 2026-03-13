@@ -185,10 +185,80 @@ export const en = {
     metaDescription: "tssproAI Privacy Policy — how we collect, use, and protect your data.",
     backToHome: "Back to home",
   },
+  privacyPolicy: {
+    lastUpdated: "Last updated: March 2025",
+    s1Title: "1. Introduction",
+    s1Content:
+      "tssproAI (\"we\", \"our\", or \"us\") is an AI-powered system for endurance athletes. This Privacy Policy explains how we collect, use, store, and protect your information when you use our website, mobile app, and services at tsspro.tech and app.tsspro.tech.",
+    s2Title: "2. Information We Collect",
+    s2Intro: "We collect the following categories of data:",
+    s2Account: "Account data: Email address, password (stored as a secure hash), locale, and timezone.",
+    s2Profile:
+      "Athlete profile: Weight, height, birth year, FTP, calorie and macro goals (protein, fat, carbs), target race date and name.",
+    s2Nutrition:
+      "Nutrition: Food logs with meal names, portions, macros, micronutrients, and photos of meals (stored for AI analysis).",
+    s2Sleep:
+      "Sleep and wellness: Sleep hours, resting heart rate (RHR), HRV, CTL, ATL, TSB, weight, and photos of sleep/wellness data.",
+    s2Training:
+      "Training: Workouts (manual entry, FIT file imports, or Intervals.icu sync), including duration, distance, TSS, and activity metadata.",
+    s2Chat:
+      "Chat: Messages you send to our AI assistant and AI responses; we use your athlete context (nutrition, recovery, training load) to provide personalized guidance.",
+    s2Payments: "Payments: Stripe customer ID and subscription status for billing.",
+    s2Push:
+      "Push notifications: Device push token and platform (iOS/Android) when you enable notifications.",
+    s3Title: "3. How We Use Your Information",
+    s3Content:
+      "We use your data to provide and improve our services: to analyze nutrition, sleep, and training data; to generate AI recommendations (GO, MODIFY, SKIP); to sync with Intervals.icu; to process payments; to send push notifications; and to debug and improve our systems.",
+    s4Title: "4. Third-Party Services",
+    s4Intro: "We use the following third parties:",
+    s4Gemini:
+      "Google Gemini: AI analysis of meal photos, sleep/wellness photos, and chat. Your images and prompts are sent to Gemini for processing.",
+    s4Intervals: "Intervals.icu: OAuth integration to sync workouts and training load.",
+    s4Stripe: "Stripe: Payment processing and subscription management.",
+    s4Sentry: "Sentry: Error tracking and performance monitoring.",
+    s4S3: "Cloud storage (S3): Storage of meal, sleep, and wellness photos.",
+    s5Title: "5. Data Storage and Security",
+    s5Content:
+      "Your data is stored on secure servers. Passwords are hashed; we never store plain-text passwords. We use HTTPS for all communications and follow industry practices to protect your data.",
+    s6Title: "6. Your Rights",
+    s6Content:
+      "You have the right to access, correct, delete, or export your data. You can manage your account and data in the app. To request deletion or export, contact us. If you are in the EU/EEA, you also have rights under GDPR, including the right to object to processing and to lodge a complaint with a supervisory authority.",
+    s7Title: "7. Cookies and Analytics",
+    s7Content:
+      "We may use cookies and similar technologies for session management, authentication, and analytics. We use Sentry for error tracking. You can control cookies through your browser settings.",
+    s8Title: "8. Changes to This Policy",
+    s8Content:
+      "We may update this Privacy Policy from time to time. We will notify you of significant changes by posting the new policy on this page and updating the \"Last updated\" date.",
+    s9Title: "9. Contact",
+    s9Content: "For questions about this Privacy Policy or your data, contact us at",
+  },
   terms: {
     pageTitle: "Terms of Service",
     metaDescription: "tssproAI Terms of Service — terms and conditions for using our service.",
     backToHome: "Back to home",
+  },
+  termsOfService: {
+    lastUpdated: "Last updated: March 2025",
+    s1Title: "1. Acceptance of Terms",
+    s1Content:
+      "By accessing or using tssproAI (\"Service\"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.",
+    s2Title: "2. Description of Service",
+    s2Content:
+      "tssproAI is an AI-powered system for endurance athletes. It provides nutrition tracking, sleep and recovery monitoring, training load analysis, and AI recommendations for daily training decisions (GO, MODIFY, SKIP).",
+    s3Title: "3. Account and Registration",
+    s3Content:
+      "You must provide accurate information when registering. You are responsible for maintaining the confidentiality of your account credentials.",
+    s4Title: "4. Acceptable Use",
+    s4Content:
+      "You agree not to misuse the Service, including by attempting to reverse engineer, circumventing access controls, or using the Service for any illegal purpose. AI recommendations are for informational purposes only and do not replace professional medical or coaching advice.",
+    s5Title: "5. Subscriptions and Payments",
+    s5Content:
+      "Pro subscriptions are billed by Stripe. Free trials may be offered. You may cancel or change your subscription at any time. Refunds are handled according to our policies.",
+    s6Title: "6. Limitation of Liability",
+    s6Content:
+      "The Service is provided \"as is\". We are not liable for any indirect, incidental, or consequential damages arising from your use of the Service.",
+    s7Title: "7. Contact",
+    s7Content: "For questions about these Terms, contact us at",
   },
   dashboard: {
     title: "Nutrition (remaining vs goals)",
@@ -394,10 +464,80 @@ export const ru: typeof en = {
     metaDescription: "Политика конфиденциальности tssproAI — как мы собираем, используем и защищаем ваши данные.",
     backToHome: "На главную",
   },
+  privacyPolicy: {
+    lastUpdated: "Последнее обновление: март 2025",
+    s1Title: "1. Введение",
+    s1Content:
+      "tssproAI («мы», «наш») — ИИ-система для атлетов на выносливость. Настоящая Политика конфиденциальности объясняет, как мы собираем, используем, храним и защищаем вашу информацию при использовании нашего сайта, мобильного приложения и сервисов на tsspro.tech и app.tsspro.tech.",
+    s2Title: "2. Какие данные мы собираем",
+    s2Intro: "Мы собираем следующие категории данных:",
+    s2Account: "Данные аккаунта: email, пароль (хранится в виде хеша), язык и часовой пояс.",
+    s2Profile:
+      "Профиль атлета: вес, рост, год рождения, FTP, цели по калориям и БЖУ, целевая гонка.",
+    s2Nutrition:
+      "Питание: логи еды с названиями, порциями, макросами, микронутриентами и фото блюд (для анализа ИИ).",
+    s2Sleep:
+      "Сон и wellness: часы сна, RHR, HRV, CTL, ATL, TSB, вес и фото сна/wellness.",
+    s2Training:
+      "Тренировки: занятия (ручной ввод, FIT-файлы или синхронизация Intervals.icu), включая длительность, дистанцию, TSS и метаданные.",
+    s2Chat:
+      "Чат: сообщения к ИИ-ассистенту и ответы; мы используем контекст атлета (питание, восстановление, нагрузка) для персонализированных рекомендаций.",
+    s2Payments: "Платежи: Stripe customer ID и статус подписки.",
+    s2Push:
+      "Push-уведомления: токен устройства и платформа (iOS/Android) при включении уведомлений.",
+    s3Title: "3. Как мы используем ваши данные",
+    s3Content:
+      "Мы используем данные для предоставления и улучшения сервиса: анализ питания, сна и тренировок; генерация рекомендаций ИИ (ВПЕРЁД, ИЗМЕНИТЬ, ПРОПУСТИТЬ); синхронизация с Intervals.icu; обработка платежей; отправка push; отладка и улучшение систем.",
+    s4Title: "4. Сторонние сервисы",
+    s4Intro: "Мы используем следующих провайдеров:",
+    s4Gemini:
+      "Google Gemini: ИИ-анализ фото еды, сна/wellness и чата. Изображения и запросы отправляются в Gemini.",
+    s4Intervals: "Intervals.icu: OAuth для синхронизации тренировок и нагрузки.",
+    s4Stripe: "Stripe: обработка платежей и подписок.",
+    s4Sentry: "Sentry: отслеживание ошибок и мониторинг.",
+    s4S3: "Облачное хранилище (S3): хранение фото еды, сна и wellness.",
+    s5Title: "5. Хранение и безопасность данных",
+    s5Content:
+      "Данные хранятся на защищённых серверах. Пароли хешируются; мы не храним пароли в открытом виде. Используем HTTPS для всех соединений и соблюдаем отраслевые практики защиты данных.",
+    s6Title: "6. Ваши права",
+    s6Content:
+      "Вы имеете право на доступ, исправление, удаление или экспорт данных. Управление аккаунтом и данными — в приложении. Для запроса удаления или экспорта — свяжитесь с нами. В ЕС/ЕЭЗ действуют права по GDPR, включая право отозвать согласие и подать жалобу в надзорный орган.",
+    s7Title: "7. Cookies и аналитика",
+    s7Content:
+      "Мы можем использовать cookies и аналогичные технологии для сессий, аутентификации и аналитики. Sentry — для отслеживания ошибок. Управление cookies — в настройках браузера.",
+    s8Title: "8. Изменения политики",
+    s8Content:
+      "Мы можем обновлять политику. О значимых изменениях сообщим, разместив новую версию на этой странице и обновив дату «Последнее обновление».",
+    s9Title: "9. Контакты",
+    s9Content: "По вопросам политики или ваших данных — напишите нам:",
+  },
   terms: {
     pageTitle: "Условия использования",
     metaDescription: "Условия использования tssproAI — правила и условия сервиса.",
     backToHome: "На главную",
+  },
+  termsOfService: {
+    lastUpdated: "Последнее обновление: март 2025",
+    s1Title: "1. Принятие условий",
+    s1Content:
+      "Используя tssproAI («Сервис»), вы соглашаетесь с настоящими Условиями использования. Если не согласны — не используйте Сервис.",
+    s2Title: "2. Описание сервиса",
+    s2Content:
+      "tssproAI — ИИ-система для атлетов на выносливость. Предоставляет учёт питания, мониторинг сна и восстановления, анализ нагрузки и рекомендации ИИ для ежедневных решений (ВПЕРЁД, ИЗМЕНИТЬ, ПРОПУСТИТЬ).",
+    s3Title: "3. Аккаунт и регистрация",
+    s3Content:
+      "При регистрации указывайте точные данные. Вы несёте ответственность за сохранность учётных данных.",
+    s4Title: "4. Допустимое использование",
+    s4Content:
+      "Вы обязуетесь не злоупотреблять Сервисом: не реверсировать, не обходить ограничения, не использовать в незаконных целях. Рекомендации ИИ носят информационный характер и не заменяют медицинскую или тренерскую консультацию.",
+    s5Title: "5. Подписки и платежи",
+    s5Content:
+      "Подписки Pro оплачиваются через Stripe. Возможен пробный период. Подписку можно отменить или изменить в любое время. Возвраты — согласно нашим правилам.",
+    s6Title: "6. Ограничение ответственности",
+    s6Content:
+      "Сервис предоставляется «как есть». Мы не несём ответственности за косвенные, случайные или последующие убытки от использования Сервиса.",
+    s7Title: "7. Контакты",
+    s7Content: "По вопросам Условий — напишите нам:",
   },
   dashboard: {
     title: "Питание (остаток vs цели)",

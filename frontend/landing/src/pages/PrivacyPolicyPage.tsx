@@ -25,130 +25,70 @@ export function PrivacyPolicyPage() {
         </Link>
 
         <h1 className="text-3xl font-bold mb-2">{t("privacy.pageTitle")}</h1>
-        <p className="text-white/60 text-sm mb-12">Last updated: March 2025</p>
+        <p className="text-white/60 text-sm mb-12">{t("privacyPolicy.lastUpdated")}</p>
 
         <div className="prose prose-invert prose-sm max-w-none space-y-8 text-white/80">
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">1. Introduction</h2>
-            <p>
-              tssproAI (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is an AI-powered system for endurance athletes. This Privacy
-              Policy explains how we collect, use, store, and protect your information when you use our
-              website, mobile app, and services at tsspro.tech and app.tsspro.tech.
-            </p>
+            <h2 className="text-xl font-semibold text-white mb-4">{t("privacyPolicy.s1Title")}</h2>
+            <p>{t("privacyPolicy.s1Content")}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">2. Information We Collect</h2>
-            <p className="mb-4">We collect the following categories of data:</p>
+            <h2 className="text-xl font-semibold text-white mb-4">{t("privacyPolicy.s2Title")}</h2>
+            <p className="mb-4">{t("privacyPolicy.s2Intro")}</p>
             <ul className="list-disc pl-6 space-y-2">
-              <li>
-                <strong>Account data:</strong> Email address, password (stored as a secure hash), locale,
-                and timezone.
-              </li>
-              <li>
-                <strong>Athlete profile:</strong> Weight, height, birth year, FTP, calorie and macro
-                goals (protein, fat, carbs), target race date and name.
-              </li>
-              <li>
-                <strong>Nutrition:</strong> Food logs with meal names, portions, macros, micronutrients,
-                and photos of meals (stored for AI analysis).
-              </li>
-              <li>
-                <strong>Sleep and wellness:</strong> Sleep hours, resting heart rate (RHR), HRV, CTL,
-                ATL, TSB, weight, and photos of sleep/wellness data.
-              </li>
-              <li>
-                <strong>Training:</strong> Workouts (manual entry, FIT file imports, or Intervals.icu
-                sync), including duration, distance, TSS, and activity metadata.
-              </li>
-              <li>
-                <strong>Chat:</strong> Messages you send to our AI assistant and AI responses; we use
-                your athlete context (nutrition, recovery, training load) to provide personalized
-                guidance.
-              </li>
-              <li>
-                <strong>Payments:</strong> Stripe customer ID and subscription status for billing.
-              </li>
-              <li>
-                <strong>Push notifications:</strong> Device push token and platform (iOS/Android) when
-                you enable notifications.
-              </li>
+              <li>{t("privacyPolicy.s2Account")}</li>
+              <li>{t("privacyPolicy.s2Profile")}</li>
+              <li>{t("privacyPolicy.s2Nutrition")}</li>
+              <li>{t("privacyPolicy.s2Sleep")}</li>
+              <li>{t("privacyPolicy.s2Training")}</li>
+              <li>{t("privacyPolicy.s2Chat")}</li>
+              <li>{t("privacyPolicy.s2Payments")}</li>
+              <li>{t("privacyPolicy.s2Push")}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">3. How We Use Your Information</h2>
-            <p>
-              We use your data to provide and improve our services: to analyze nutrition, sleep, and
-              training data; to generate AI recommendations (GO, MODIFY, SKIP); to sync with
-              Intervals.icu; to process payments; to send push notifications; and to debug and
-              improve our systems.
-            </p>
+            <h2 className="text-xl font-semibold text-white mb-4">{t("privacyPolicy.s3Title")}</h2>
+            <p>{t("privacyPolicy.s3Content")}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">4. Third-Party Services</h2>
-            <p className="mb-4">We use the following third parties:</p>
+            <h2 className="text-xl font-semibold text-white mb-4">{t("privacyPolicy.s4Title")}</h2>
+            <p className="mb-4">{t("privacyPolicy.s4Intro")}</p>
             <ul className="list-disc pl-6 space-y-2">
-              <li>
-                <strong>Google Gemini:</strong> AI analysis of meal photos, sleep/wellness photos, and
-                chat. Your images and prompts are sent to Gemini for processing.
-              </li>
-              <li>
-                <strong>Intervals.icu:</strong> OAuth integration to sync workouts and training load.
-              </li>
-              <li>
-                <strong>Stripe:</strong> Payment processing and subscription management.
-              </li>
-              <li>
-                <strong>Sentry:</strong> Error tracking and performance monitoring.
-              </li>
-              <li>
-                <strong>Cloud storage (S3):</strong> Storage of meal, sleep, and wellness photos.
-              </li>
+              <li>{t("privacyPolicy.s4Gemini")}</li>
+              <li>{t("privacyPolicy.s4Intervals")}</li>
+              <li>{t("privacyPolicy.s4Stripe")}</li>
+              <li>{t("privacyPolicy.s4Sentry")}</li>
+              <li>{t("privacyPolicy.s4S3")}</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">5. Data Storage and Security</h2>
-            <p>
-              Your data is stored on secure servers. Passwords are hashed; we never store plain-text
-              passwords. We use HTTPS for all communications and follow industry practices to protect
-              your data.
-            </p>
+            <h2 className="text-xl font-semibold text-white mb-4">{t("privacyPolicy.s5Title")}</h2>
+            <p>{t("privacyPolicy.s5Content")}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">6. Your Rights</h2>
-            <p>
-              You have the right to access, correct, delete, or export your data. You can manage your
-              account and data in the app. To request deletion or export, contact us. If you are in the
-              EU/EEA, you also have rights under GDPR, including the right to object to processing and
-              to lodge a complaint with a supervisory authority.
-            </p>
+            <h2 className="text-xl font-semibold text-white mb-4">{t("privacyPolicy.s6Title")}</h2>
+            <p>{t("privacyPolicy.s6Content")}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">7. Cookies and Analytics</h2>
-            <p>
-              We may use cookies and similar technologies for session management, authentication, and
-              analytics. We use Sentry for error tracking. You can control cookies through your
-              browser settings.
-            </p>
+            <h2 className="text-xl font-semibold text-white mb-4">{t("privacyPolicy.s7Title")}</h2>
+            <p>{t("privacyPolicy.s7Content")}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">8. Changes to This Policy</h2>
-            <p>
-              We may update this Privacy Policy from time to time. We will notify you of significant
-              changes by posting the new policy on this page and updating the &quot;Last updated&quot; date.
-            </p>
+            <h2 className="text-xl font-semibold text-white mb-4">{t("privacyPolicy.s8Title")}</h2>
+            <p>{t("privacyPolicy.s8Content")}</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">9. Contact</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">{t("privacyPolicy.s9Title")}</h2>
             <p>
-              For questions about this Privacy Policy or your data, contact us at{" "}
+              {t("privacyPolicy.s9Content")}{" "}
               <a href={`mailto:${CONTACT_EMAIL}`} className="text-emerald-400 hover:text-emerald-300">
                 {CONTACT_EMAIL}
               </a>
