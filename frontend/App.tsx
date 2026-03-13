@@ -132,6 +132,8 @@ function AppContent() {
     }
   }, [isWeb]);
 
+  const ready = isReady && (fontsLoaded || !isWeb);
+
   useEffect(() => {
     if (!ready || user) return;
     const parseUrl = (url: string | null) => {
@@ -200,7 +202,6 @@ function AppContent() {
     setUser(null);
   };
 
-  const ready = isReady && (fontsLoaded || !isWeb);
   if (!ready) {
     return (
       <SafeAreaProvider>

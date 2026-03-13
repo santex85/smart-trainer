@@ -997,13 +997,4 @@ export const en = {
 
 export type TranslationKey = keyof typeof ru;
 export type Locale = "ru" | "en" | "de" | "fr" | "es" | "it" | "pt" | "th";
-export const messages = {
-  get ru() { return ru; },
-  get en() { return en; },
-  get de() { return de; },
-  get fr() { return fr; },
-  get es() { return es; },
-  get it() { return it; },
-  get pt() { return pt; },
-  get th() { return th; },
-} as const;
+export const messages = { ru, en, de, fr, es, it, pt, th } as const;
