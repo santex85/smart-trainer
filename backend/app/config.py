@@ -68,6 +68,11 @@ class Settings(BaseSettings):
     rate_limit_photo_ai_enabled: bool = True
     premium_photo_analyses_per_day: int = 0  # 0 = unlimited for premium
 
+    # Resend (email: password reset, service notifications)
+    resend_api_key: str = ""
+    mail_from: str = "noreply@yourdomain.com"
+    password_reset_token_expire_minutes: int = 60
+
     @property
     def sync_database_url(self) -> str:
         """PostgreSQL URL for sync drivers (Alembic)."""

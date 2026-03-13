@@ -40,8 +40,10 @@ import { QueryProvider } from "./src/query/provider";
 import { useTranslation, I18nProvider } from "./src/i18n";
 import type { AuthUser } from "./src/api/client";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
+import { ForgotPasswordScreen } from "./src/screens/ForgotPasswordScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { RegisterScreen } from "./src/screens/RegisterScreen";
+import { ResetPasswordScreen } from "./src/screens/ResetPasswordScreen";
 import { IntervalsCompleteScreen } from "./src/screens/IntervalsCompleteScreen";
 import { IntervalsLinkScreen } from "./src/screens/IntervalsLinkScreen";
 import { ChatScreen } from "./src/screens/ChatScreen";
@@ -96,6 +98,7 @@ function AppContent() {
   const [lastSavedSleep, setLastSavedSleep] = useState<SleepExtractionResponse | null>(null);
   const [lastSavedWellness, setLastSavedWellness] = useState<{ date: string } & WellnessPhotoResult | null>(null);
   const [intervalsPendingKey, setIntervalsPendingKey] = useState<string | null>(null);
+  const [resetPasswordToken, setResetPasswordToken] = useState<string | null>(null);
 
   useEffect(() => {
     setOnUnauthorized(() => {
@@ -131,28 +134,48 @@ function AppContent() {
 
   useEffect(() => {
     if (!ready || user) return;
-    const parsePending = (url: string | null) => {
+    const parseUrl = (url: string | null) => {
       try {
         if (Platform.OS === "web" && typeof window !== "undefined") {
           const params = new URLSearchParams(window.location.search);
+          const pathname = window.location.pathname || "";
           const key = params.get("intervals_pending");
           if (key) {
             setIntervalsPendingKey(key);
+            setResetPasswordToken(null);
             window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+            return;
+          }
+          const token = params.get("token");
+          if ((pathname === "/reset-password" || pathname.endsWith("/reset-password")) && token) {
+            setResetPasswordToken(token);
+            setIntervalsPendingKey(null);
+            window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+            return;
           }
         } else if (url) {
-          const match = url.match(/[?&]pending=([^&]+)/);
-          if (match) setIntervalsPendingKey(decodeURIComponent(match[1]));
+          const pendingMatch = url.match(/[?&]pending=([^&]+)/);
+          if (pendingMatch) {
+            setIntervalsPendingKey(decodeURIComponent(pendingMatch[1]));
+            setResetPasswordToken(null);
+            return;
+          }
+          const resetMatch = url.match(/reset-password[?&]token=([^&]+)/);
+
+          if (resetMatch) {
+            setResetPasswordToken(decodeURIComponent(resetMatch[1]));
+            setIntervalsPendingKey(null);
+          }
         }
       } catch {
         /* ignore */
       }
     };
     if (Platform.OS === "web" && typeof window !== "undefined") {
-      parsePending(null);
+      parseUrl(null);
     } else {
-      Linking.getInitialURL().then(parsePending);
-      const sub = Linking.addEventListener("url", ({ url }) => parsePending(url));
+      Linking.getInitialURL().then(parseUrl);
+      const sub = Linking.addEventListener("url", ({ url }) => parseUrl(url));
       return () => sub.remove();
     }
   }, [ready, user]);
@@ -207,6 +230,23 @@ function AppContent() {
         </SafeAreaProvider>
       );
     }
+    if (resetPasswordToken) {
+      return (
+        <SafeAreaProvider>
+          <StatusBar style={mode === "dark" ? "light" : "dark"} />
+          <View style={[styles.root, { backgroundColor: colors.background }]}>
+            <ResetPasswordScreen
+              token={resetPasswordToken}
+              onSuccess={(u) => {
+                setResetPasswordToken(null);
+                setUser(u);
+              }}
+              onGoToLogin={() => setResetPasswordToken(null)}
+            />
+          </View>
+        </SafeAreaProvider>
+      );
+    }
     return (
       <SafeAreaProvider>
         <StatusBar style={mode === "dark" ? "light" : "dark"} />
@@ -225,6 +265,7 @@ function AppContent() {
                   <LoginScreen
                     onSuccess={setUser}
                     onGoToRegister={() => navigation.navigate("Register")}
+                    onGoToForgotPassword={() => navigation.navigate("ForgotPassword")}
                   />
                 )}
               </Stack.Screen>
@@ -232,6 +273,13 @@ function AppContent() {
                 {({ navigation }) => (
                   <RegisterScreen
                     onSuccess={setUser}
+                    onGoToLogin={() => navigation.goBack()}
+                  />
+                )}
+              </Stack.Screen>
+              <Stack.Screen name="ForgotPassword">
+                {({ navigation }) => (
+                  <ForgotPasswordScreen
                     onGoToLogin={() => navigation.goBack()}
                   />
                 )}

@@ -25,9 +25,11 @@ const EMAIL_FORMAT_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 export function LoginScreen({
   onSuccess,
   onGoToRegister,
+  onGoToForgotPassword,
 }: {
   onSuccess: (user: AuthUser) => void;
   onGoToRegister: () => void;
+  onGoToForgotPassword?: () => void;
 }) {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -110,7 +112,19 @@ export function LoginScreen({
               keyboardType="email-address"
               editable={!loading}
             />
-            <Text style={[styles.hint, { color: colors.textMuted }]}>{t("auth.password")}</Text>
+            <View style={styles.passwordRow}>
+              <Text style={[styles.hint, { color: colors.textMuted }]}>{t("auth.password")}</Text>
+              {onGoToForgotPassword ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={t("auth.forgotPassword")}
+                  onPress={onGoToForgotPassword}
+                  disabled={loading}
+                >
+                  <Text style={[styles.forgotLink, { color: colors.primary }]}>{t("auth.forgotPassword")}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
             <TextInput
               style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text }]}
               value={password}
@@ -182,6 +196,8 @@ const styles = StyleSheet.create({
   cardForm: { maxWidth: 400, width: "100%" },
   title: { fontSize: 22, fontWeight: "700", color: "#eee", marginBottom: 20 },
   hint: { fontSize: 14, color: "#94a3b8", marginBottom: 6 },
+  passwordRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  forgotLink: { fontSize: 13 },
   input: {
     backgroundColor: "#1a1a2e",
     borderRadius: 8,

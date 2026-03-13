@@ -17,16 +17,21 @@ from app.config import settings
 from app.core.auth import (
     create_access_token,
     create_oauth_state_token_login,
+    create_password_reset_token,
     create_refresh_token,
     hash_password,
+    hash_password_reset_token,
     hash_refresh_token,
     verify_password,
 )
+from app.core.rate_limit import get_redis
 from app.db.session import get_db
 from app.models.intervals_credentials import IntervalsCredentials
+from app.models.password_reset_token import PasswordResetToken
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.services.audit import log_action
+from app.services.email import send_password_reset
 from app.services.intervals_pending import get_and_delete_pending, get_pending
 from sqlalchemy.exc import ProgrammingError
 
@@ -81,6 +86,15 @@ class TokenResponse(BaseModel):
 
 class RefreshBody(BaseModel):
     refresh_token: str
+
+
+class ForgotPasswordBody(BaseModel):
+    email: str
+
+
+class ResetPasswordBody(BaseModel):
+    token: str
+    new_password: str
 
 
 @router.post(
@@ -246,6 +260,135 @@ async def refresh_tokens(
 )
 async def me(user: Annotated[User, Depends(get_current_user)]) -> UserOut:
     return UserOut(id=user.id, email=user.email, is_premium=user.is_premium)
+
+
+FORGOT_PASSWORD_RATE_LIMIT_SECONDS = 5 * 60  # 5 minutes
+
+
+@router.post(
+    "/forgot-password",
+    summary="Request password reset email",
+    responses={
+        200: {"description": "If email is valid format, always return 200 (do not reveal if account exists)"},
+        400: {"description": "Invalid email format"},
+        429: {"description": "Too many requests for this email, try again later"},
+    },
+)
+async def forgot_password(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    body: ForgotPasswordBody,
+) -> dict:
+    """Send password reset link to email. Always returns 200 for valid email format (security)."""
+    email = (body.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email required")
+    if not EMAIL_FORMAT_RE.match(email):
+        raise HTTPException(status_code=400, detail="Invalid email format")
+
+    redis_client = get_redis()
+    if redis_client:
+        rate_key = f"rate_limit:forgot_password:{email}"
+        try:
+            if await redis_client.exists(rate_key):
+                raise HTTPException(
+                    status_code=429,
+                    detail="Too many requests. Please try again later.",
+                    headers={"Retry-After": str(FORGOT_PASSWORD_RATE_LIMIT_SECONDS)},
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning("Forgot-password rate limit check failed: %s", e)
+
+    r = await session.execute(select(User).where(User.email == email))
+    user = r.scalar_one_or_none()
+    if user and user.password_hash:
+        expires_at = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.password_reset_token_expire_minutes
+        )
+        token_plain = create_password_reset_token()
+        token_hash = hash_password_reset_token(token_plain)
+        session.add(
+            PasswordResetToken(
+                user_id=user.id,
+                token_hash=token_hash,
+                expires_at=expires_at,
+            )
+        )
+        await session.flush()
+        reset_link = f"{settings.frontend_base_url.rstrip('/')}/reset-password?token={token_plain}"
+        await send_password_reset(email, reset_link)
+
+        if redis_client:
+            try:
+                await redis_client.setex(rate_key, FORGOT_PASSWORD_RATE_LIMIT_SECONDS, "1")
+            except Exception as e:
+                logger.warning("Forgot-password rate limit set failed: %s", e)
+
+    return {"message": "If an account exists with this email, you will receive a reset link."}
+
+
+@router.post(
+    "/reset-password",
+    response_model=TokenResponse,
+    summary="Reset password with token from email",
+    responses={
+        400: {"description": "Token or password invalid, token expired"},
+    },
+)
+async def reset_password(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+    body: ResetPasswordBody,
+) -> TokenResponse:
+    """Reset password using token from forgot-password email. Returns tokens on success."""
+    token = (body.token or "").strip()
+    new_password = body.new_password or ""
+    if not token:
+        raise HTTPException(status_code=400, detail="Token required")
+    if not new_password or len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    token_hash = hash_password_reset_token(token)
+    r = await session.execute(
+        select(PasswordResetToken).where(
+            PasswordResetToken.token_hash == token_hash,
+            PasswordResetToken.expires_at > datetime.now(timezone.utc),
+        )
+    )
+    row = r.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    user_id = row.user_id
+    await session.delete(row)
+    await session.flush()
+
+    r_user = await session.execute(select(User).where(User.id == user_id))
+    user = r_user.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    user.password_hash = hash_password(new_password)
+    await session.flush()
+
+    await log_action(
+        session,
+        user_id=user.id,
+        action="reset_password",
+        resource="auth",
+        resource_id=str(user.id),
+        ip_address=request.client.host if request.client else None,
+    )
+
+    access_str, refresh_str, expires_in = _issue_tokens(session, user)
+    await session.flush()
+    return TokenResponse(
+        access_token=access_str,
+        refresh_token=refresh_str,
+        expires_in=expires_in,
+        user=UserOut(id=user.id, email=user.email, is_premium=user.is_premium),
+    )
 
 
 INTERVALS_OAUTH_SCOPES = "ACTIVITY:READ,WELLNESS:READ"

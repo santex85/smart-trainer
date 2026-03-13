@@ -53,6 +53,16 @@ def hash_refresh_token(token: str) -> str:
     return _refresh_token_hash(token)
 
 
+def create_password_reset_token() -> str:
+    """Generate a new password reset token (plain string; caller must hash and store)."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_password_reset_token(token: str) -> str:
+    """SHA256 hash of password reset token for storage."""
+    return _refresh_token_hash(token)
+
+
 def _get_jwt_verification_key_and_algorithms() -> tuple[str, list[str]]:
     """Return (key, algorithms) for verifying access tokens."""
     if settings.use_rs256:

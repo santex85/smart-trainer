@@ -1219,6 +1219,20 @@ export async function register(email: string, password: string): Promise<AuthRes
   });
 }
 
+export async function forgotPassword(email: string): Promise<void> {
+  await api<{ message: string }>("/api/v1/auth/forgot-password", {
+    method: "POST",
+    body: { email },
+  });
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<AuthResponse> {
+  return api<AuthResponse>("/api/v1/auth/reset-password", {
+    method: "POST",
+    body: { token, new_password: newPassword },
+  });
+}
+
 export async function getMe(): Promise<AuthUser> {
   return api<AuthUser>("/api/v1/auth/me");
 }

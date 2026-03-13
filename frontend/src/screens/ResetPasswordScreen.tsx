@@ -1,0 +1,169 @@
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { resetPassword, type AuthUser } from "../api/client";
+import { useTranslation } from "../i18n";
+import { setAccessToken, setRefreshToken } from "../storage/authStorage";
+import { useTheme, contentWrap } from "../theme";
+import { getAuthErrorMessage } from "../utils/authError";
+
+export function ResetPasswordScreen({
+  token,
+  onSuccess,
+  onGoToLogin,
+}: {
+  token: string;
+  onSuccess: (user: AuthUser) => void;
+  onGoToLogin: () => void;
+}) {
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleReset = async () => {
+    if (!password || !confirmPassword) {
+      setError(t("auth.passwordRequired"));
+      return;
+    }
+    if (password.length < 6) {
+      setError(t("auth.passwordMinLength"));
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError(t("auth.passwordsMismatch"));
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await resetPassword(token, password);
+      await setAccessToken(res.access_token);
+      await setRefreshToken(res.refresh_token);
+      onSuccess(res.user);
+    } catch (err) {
+      setError(getAuthErrorMessage(err, t));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={["top"]}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={20}
+      >
+        <View style={[styles.flex, contentWrap]}>
+          <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+            <View style={styles.cardWrapper}>
+              <View
+                style={[
+                  styles.cardBase,
+                  styles.cardForm,
+                  {
+                    backgroundColor: colors.glassBg,
+                    borderColor: colors.glassBorder,
+                    borderWidth: 1,
+                    borderRadius: colors.borderRadiusLg,
+                    padding: 20,
+                  },
+                  Platform.OS === "web" && { backdropFilter: "blur(20px)" },
+                ]}
+              >
+                <Text style={[styles.title, { color: colors.text }]}>{t("auth.resetPassword")}</Text>
+                <Text style={[styles.hint, { color: colors.textMuted }]}>{t("auth.newPassword")}</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text }]}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry
+                  editable={!loading}
+                />
+                <Text style={[styles.hint, { color: colors.textMuted }]}>{t("auth.confirmPassword")}</Text>
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text }]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.textMuted}
+                  secureTextEntry
+                  editable={!loading}
+                />
+                {error ? <Text style={styles.error}>{error}</Text> : null}
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={t("auth.resetPassword")}
+                  style={[styles.buttonPrimary, { backgroundColor: colors.primary }, loading && styles.buttonDisabled]}
+                  onPress={handleReset}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color={colors.primaryText} />
+                  ) : (
+                    <Text style={[styles.buttonPrimaryText, { color: colors.primaryText }]}>{t("auth.resetPassword")}</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={t("auth.backToLogin")}
+                  style={styles.link}
+                  onPress={onGoToLogin}
+                  disabled={loading}
+                >
+                  <Text style={[styles.linkText, { color: colors.primary }]}>{t("auth.backToLogin")}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#1a1a2e", padding: 20 },
+  flex: { flex: 1 },
+  scrollContent: { flexGrow: 1, paddingTop: 40, paddingBottom: 24 },
+  cardWrapper: { width: "100%", alignItems: "center" },
+  cardBase: { borderRadius: 24, marginBottom: 24 },
+  cardForm: { maxWidth: 400, width: "100%" },
+  title: { fontSize: 22, fontWeight: "700", color: "#eee", marginBottom: 20 },
+  hint: { fontSize: 14, color: "#94a3b8", marginBottom: 6 },
+  input: {
+    backgroundColor: "#1a1a2e",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: "#e2e8f0",
+    marginBottom: 16,
+  },
+  error: { fontSize: 14, color: "#f87171", marginBottom: 12 },
+  buttonPrimary: {
+    backgroundColor: "#38bdf8",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  buttonPrimaryText: { fontSize: 16, color: "#0f172a", fontWeight: "600" },
+  buttonDisabled: { opacity: 0.7 },
+  link: { alignItems: "center", marginTop: 20 },
+  linkText: { fontSize: 14, color: "#38bdf8" },
+});
