@@ -180,6 +180,16 @@ export const en = {
     terms: "Terms of Service",
     copyright: "© {year} tssproAI. All rights reserved.",
   },
+  privacy: {
+    pageTitle: "Privacy Policy",
+    metaDescription: "tssproAI Privacy Policy — how we collect, use, and protect your data.",
+    backToHome: "Back to home",
+  },
+  terms: {
+    pageTitle: "Terms of Service",
+    metaDescription: "tssproAI Terms of Service — terms and conditions for using our service.",
+    backToHome: "Back to home",
+  },
   dashboard: {
     title: "Nutrition (remaining vs goals)",
     date1: "Mar 5",
@@ -378,6 +388,16 @@ export const ru: typeof en = {
     privacy: "Политика конфиденциальности",
     terms: "Условия использования",
     copyright: "© {year} tssproAI. Все права защищены.",
+  },
+  privacy: {
+    pageTitle: "Политика конфиденциальности",
+    metaDescription: "Политика конфиденциальности tssproAI — как мы собираем, используем и защищаем ваши данные.",
+    backToHome: "На главную",
+  },
+  terms: {
+    pageTitle: "Условия использования",
+    metaDescription: "Условия использования tssproAI — правила и условия сервиса.",
+    backToHome: "На главную",
   },
   dashboard: {
     title: "Питание (остаток vs цели)",

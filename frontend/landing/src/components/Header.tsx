@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { useLandingTranslation } from "../i18n";
 
 export function Header({ appUrl }: { appUrl: string }) {
   const { t, locale, setLocale } = useLandingTranslation();
+  const location = useLocation();
+  const isHome = location.pathname === "/";
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -20,6 +23,22 @@ export function Header({ appUrl }: { appUrl: string }) {
       setIsMobileMenuOpen(false);
     }
   };
+
+  const navLinkClass = "text-sm text-white/70 hover:text-white transition";
+  const NavLink = ({ id, label }: { id: string; label: string }) =>
+    isHome ? (
+      <button onClick={() => scrollToSection(id)} className={navLinkClass}>
+        {label}
+      </button>
+    ) : (
+      <Link
+        to={`/#${id}`}
+        onClick={() => setIsMobileMenuOpen(false)}
+        className={`${navLinkClass} block md:inline text-left`}
+      >
+        {label}
+      </Link>
+    );
 
   const LangToggle = () => (
     <div className="flex items-center gap-1 text-sm text-white/60">
@@ -47,23 +66,15 @@ export function Header({ appUrl }: { appUrl: string }) {
     >
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="text-2xl font-bold tracking-tight">
+          <Link to="/" className="text-2xl font-bold tracking-tight hover:opacity-90 transition">
             tsspro<span className="text-emerald-500">AI</span>
-          </div>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            <button onClick={() => scrollToSection("features")} className="text-sm text-white/70 hover:text-white transition">
-              {t("header.features")}
-            </button>
-            <button onClick={() => scrollToSection("how-it-works")} className="text-sm text-white/70 hover:text-white transition">
-              {t("header.howItWorks")}
-            </button>
-            <button onClick={() => scrollToSection("pricing")} className="text-sm text-white/70 hover:text-white transition">
-              {t("header.pricing")}
-            </button>
-            <button onClick={() => scrollToSection("faq")} className="text-sm text-white/70 hover:text-white transition">
-              {t("header.faq")}
-            </button>
+            <NavLink id="features" label={t("header.features")} />
+            <NavLink id="how-it-works" label={t("header.howItWorks")} />
+            <NavLink id="pricing" label={t("header.pricing")} />
+            <NavLink id="faq" label={t("header.faq")} />
           </nav>
 
           <div className="hidden md:flex items-center gap-6">
@@ -87,18 +98,10 @@ export function Header({ appUrl }: { appUrl: string }) {
         {isMobileMenuOpen && (
           <div className="md:hidden mt-4 pb-4 pt-4 border-t border-white/10 bg-[#0a0a0a] -mx-6 px-6 rounded-b-xl shadow-xl">
             <nav className="flex flex-col gap-4">
-              <button onClick={() => scrollToSection("features")} className="text-left text-white/70 hover:text-white transition">
-                {t("header.features")}
-              </button>
-              <button onClick={() => scrollToSection("how-it-works")} className="text-left text-white/70 hover:text-white transition">
-                {t("header.howItWorks")}
-              </button>
-              <button onClick={() => scrollToSection("pricing")} className="text-left text-white/70 hover:text-white transition">
-                {t("header.pricing")}
-              </button>
-              <button onClick={() => scrollToSection("faq")} className="text-left text-white/70 hover:text-white transition">
-                {t("header.faq")}
-              </button>
+              <NavLink id="features" label={t("header.features")} />
+              <NavLink id="how-it-works" label={t("header.howItWorks")} />
+              <NavLink id="pricing" label={t("header.pricing")} />
+              <NavLink id="faq" label={t("header.faq")} />
               <a href={appUrl} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-medium text-sm transition w-full mt-2 text-center block">
                 {t("header.cta")}
               </a>
