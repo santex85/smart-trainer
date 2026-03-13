@@ -749,6 +749,25 @@ export async function getIntervalsOAuthRedirectUrl(returnApp?: boolean): Promise
   return api<{ redirect_url: string }>(`/api/v1/intervals/oauth/authorize${params}`);
 }
 
+/** Auth flow (login/register) - no token required. */
+export async function getAuthIntervalsAuthorizeUrl(returnApp?: boolean): Promise<{ redirect_url: string }> {
+  const params = returnApp ? "?return_app=1" : "";
+  return api<{ redirect_url: string }>(`/api/v1/auth/intervals/authorize${params}`);
+}
+
+export async function getIntervalsPending(key: string): Promise<{ athlete_id: string; athlete_name: string; has_user: boolean }> {
+  return api<{ athlete_id: string; athlete_name: string; has_user: boolean }>(
+    `/api/v1/auth/intervals/pending?key=${encodeURIComponent(key)}`
+  );
+}
+
+export async function completeIntervalsAuth(pendingKey: string, email?: string): Promise<AuthResponse> {
+  return api<AuthResponse>("/api/v1/auth/intervals/complete", {
+    method: "POST",
+    body: { pending_key: pendingKey, ...(email ? { email } : {}) },
+  });
+}
+
 export async function linkIntervals(athleteId: string, apiKey: string): Promise<{ status: string; athlete_id: string }> {
   return api<{ status: string; athlete_id: string }>("/api/v1/intervals/link", {
     method: "POST",

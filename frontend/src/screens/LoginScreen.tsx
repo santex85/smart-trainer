@@ -9,9 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { login, type AuthUser } from "../api/client";
+import { getAuthIntervalsAuthorizeUrl, login, type AuthUser } from "../api/client";
+import { IntervalsIcon } from "../components/IntervalsIcon";
 import { useTranslation } from "../i18n";
 import { setAccessToken, setRefreshToken } from "../storage/authStorage";
 import { useTheme, contentWrap } from "../theme";
@@ -32,6 +35,32 @@ export function LoginScreen({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [intervalsLoading, setIntervalsLoading] = useState(false);
+
+  const handleIntervalsLogin = async () => {
+    setIntervalsLoading(true);
+    try {
+      const returnApp = Platform.OS !== "web";
+      const { redirect_url } = await getAuthIntervalsAuthorizeUrl(returnApp);
+      const opened = await Linking.canOpenURL(redirect_url);
+      if (opened) {
+        await Linking.openURL(redirect_url);
+      } else if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.location.href = redirect_url;
+      } else {
+        Alert.alert(t("common.error"), t("intervals.oauthNotConfigured"));
+      }
+    } catch (err) {
+      const msg = getAuthErrorMessage(err, t);
+      if (msg.includes("not configured") || msg.includes("503")) {
+        Alert.alert(t("common.error"), t("intervals.oauthNotConfigured"));
+      } else {
+        Alert.alert(t("common.error"), msg);
+      }
+    } finally {
+      setIntervalsLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     const e = email.trim().toLowerCase();
@@ -105,6 +134,27 @@ export function LoginScreen({
                 <Text style={[styles.buttonPrimaryText, { color: colors.primaryText }]}>{t("auth.login")}</Text>
               )}
             </TouchableOpacity>
+            <View style={styles.dividerRow}>
+              <View style={[styles.dividerLine, { backgroundColor: colors.glassBorder }]} />
+              <Text style={[styles.dividerText, { color: colors.textMuted }]}>{t("auth.or")}</Text>
+              <View style={[styles.dividerLine, { backgroundColor: colors.glassBorder }]} />
+            </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t("auth.loginWithIntervals")}
+              style={[styles.buttonSecondary, { borderColor: colors.glassBorder }, (loading || intervalsLoading) && styles.buttonDisabled]}
+              onPress={handleIntervalsLogin}
+              disabled={loading || intervalsLoading}
+            >
+              {intervalsLoading ? (
+                <ActivityIndicator size="small" color={colors.text} />
+              ) : (
+                <>
+                  <IntervalsIcon size={20} />
+                  <Text style={[styles.buttonSecondaryText, { color: colors.text }]}>{t("auth.loginWithIntervals")}</Text>
+                </>
+              )}
+            </TouchableOpacity>
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel={t("auth.createAccount")}
@@ -150,6 +200,19 @@ const styles = StyleSheet.create({
   },
   buttonPrimaryText: { fontSize: 16, color: "#0f172a", fontWeight: "600" },
   buttonDisabled: { opacity: 0.7 },
+  dividerRow: { flexDirection: "row", alignItems: "center", marginVertical: 20, gap: 12 },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: 13, color: "#94a3b8" },
+  buttonSecondary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  buttonSecondaryText: { fontSize: 16, fontWeight: "600" },
   link: { alignItems: "center", marginTop: 20 },
   linkText: { fontSize: 14, color: "#38bdf8" },
 });

@@ -1,9 +1,10 @@
-"""Auth: register, login, me, refresh."""
+"""Auth: register, login, me, refresh, Intervals OAuth login."""
 
 import logging
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -15,15 +16,18 @@ from app.api.deps import get_current_user
 from app.config import settings
 from app.core.auth import (
     create_access_token,
+    create_oauth_state_token_login,
     create_refresh_token,
     hash_password,
     hash_refresh_token,
     verify_password,
 )
 from app.db.session import get_db
+from app.models.intervals_credentials import IntervalsCredentials
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.services.audit import log_action
+from app.services.intervals_pending import get_and_delete_pending, get_pending
 from sqlalchemy.exc import ProgrammingError
 
 logger = logging.getLogger(__name__)
@@ -242,3 +246,163 @@ async def refresh_tokens(
 )
 async def me(user: Annotated[User, Depends(get_current_user)]) -> UserOut:
     return UserOut(id=user.id, email=user.email, is_premium=user.is_premium)
+
+
+INTERVALS_OAUTH_SCOPES = "ACTIVITY:READ,WELLNESS:READ"
+
+
+@router.get(
+    "/intervals/authorize",
+    summary="Get Intervals.icu OAuth redirect URL for login/register (no auth)",
+    responses={503: {"description": "OAuth not configured"}},
+)
+async def auth_intervals_authorize(return_app: bool = False) -> dict:
+    """Return redirect_url for Intervals.icu OAuth login/register flow.
+    No auth required. Frontend opens this URL in browser.
+    return_app: when True, callback redirects to smarttrainer:// for mobile deep link."""
+    if not settings.intervals_client_id or not settings.intervals_oauth_redirect_uri:
+        raise HTTPException(
+            status_code=503,
+            detail="Intervals.icu OAuth is not configured. Set INTERVALS_CLIENT_ID and INTERVALS_OAUTH_REDIRECT_URI.",
+        )
+    state = create_oauth_state_token_login(return_app=return_app)
+    params = {
+        "client_id": settings.intervals_client_id,
+        "redirect_uri": settings.intervals_oauth_redirect_uri,
+        "scope": INTERVALS_OAUTH_SCOPES,
+        "state": state,
+    }
+    redirect_url = f"https://intervals.icu/oauth/authorize?{urlencode(params)}"
+    return {"redirect_url": redirect_url}
+
+
+class IntervalsPendingOut(BaseModel):
+    athlete_id: str
+    athlete_name: str
+    has_user: bool
+
+
+class IntervalsCompleteBody(BaseModel):
+    pending_key: str
+    email: str | None = None
+
+
+@router.get(
+    "/intervals/pending",
+    response_model=IntervalsPendingOut,
+    summary="Get Intervals OAuth pending data (for login/register completion)",
+    responses={404: {"description": "Pending key not found or expired"}},
+)
+async def auth_intervals_pending(key: str) -> IntervalsPendingOut:
+    """Return athlete_id, athlete_name, has_user for the given pending key.
+    Frontend uses this to decide: if has_user, call complete immediately; else show email form then complete."""
+    data = await get_pending(key)
+    if not data:
+        raise HTTPException(status_code=404, detail="Pending key not found or expired")
+    return IntervalsPendingOut(
+        athlete_id=data["athlete_id"],
+        athlete_name=data["athlete_name"],
+        has_user=data["has_user"],
+    )
+
+
+@router.post(
+    "/intervals/complete",
+    response_model=TokenResponse,
+    summary="Complete Intervals OAuth login/register",
+    responses={
+        400: {"description": "Email required for new user"},
+        404: {"description": "Pending key not found or expired"},
+    },
+)
+async def auth_intervals_complete(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+    body: IntervalsCompleteBody,
+) -> TokenResponse:
+    """Complete Intervals login: consume pending key, create User if new, return tokens."""
+    data = await get_and_delete_pending(body.pending_key)
+    if not data:
+        raise HTTPException(status_code=404, detail="Pending key not found or expired")
+    has_user = data["has_user"]
+    encrypted_token = data["encrypted_token"]
+    athlete_id = data["athlete_id"]
+
+    if has_user:
+        user_id = data["user_id"]
+        if not user_id:
+            raise HTTPException(status_code=400, detail="Invalid pending data")
+        r = await session.execute(select(User).where(User.id == user_id))
+        user = r.scalar_one_or_none()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        r_creds = await session.execute(
+            select(IntervalsCredentials).where(IntervalsCredentials.user_id == user_id)
+        )
+        creds = r_creds.scalar_one_or_none()
+        if creds:
+            creds.encrypted_token_or_key = encrypted_token
+            creds.athlete_id = athlete_id
+            creds.auth_type = "oauth"
+        else:
+            session.add(
+                IntervalsCredentials(
+                    user_id=user_id,
+                    encrypted_token_or_key=encrypted_token,
+                    athlete_id=athlete_id,
+                    auth_type="oauth",
+                )
+            )
+        await log_action(
+            session,
+            user_id=user.id,
+            action="login",
+            resource="auth",
+            resource_id=str(user.id),
+            ip_address=request.client.host if request.client else None,
+            details={"method": "intervals_oauth"},
+        )
+    else:
+        email = (body.email or "").strip().lower()
+        if not email:
+            raise HTTPException(status_code=400, detail="Email required for new user registration")
+        if not EMAIL_FORMAT_RE.match(email):
+            raise HTTPException(status_code=400, detail="Invalid email format")
+        r = await session.execute(select(User).where(User.email == email))
+        if r.scalar_one_or_none() is not None:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        try:
+            user = User(email=email, password_hash=None)
+            session.add(user)
+            await session.flush()
+            await session.refresh(user)
+            session.add(
+                IntervalsCredentials(
+                    user_id=user.id,
+                    encrypted_token_or_key=encrypted_token,
+                    athlete_id=athlete_id,
+                    auth_type="oauth",
+                )
+            )
+            await log_action(
+                session,
+                user_id=user.id,
+                action="register",
+                resource="auth",
+                resource_id=str(user.id),
+                ip_address=request.client.host if request.client else None,
+                details={"method": "intervals_oauth"},
+            )
+        except IntegrityError as e:
+            logger.warning("Intervals complete register IntegrityError: %s", e)
+            raise HTTPException(status_code=400, detail="Email already registered") from e
+
+    await session.commit()
+    access_str, refresh_str, expires_in = _issue_tokens(session, user)
+    await session.flush()
+    return TokenResponse(
+        access_token=access_str,
+        refresh_token=refresh_str,
+        expires_in=expires_in,
+        user=UserOut(id=user.id, email=user.email, is_premium=user.is_premium),
+    )

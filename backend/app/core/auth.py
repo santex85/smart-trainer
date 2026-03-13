@@ -66,9 +66,19 @@ def decode_token(token: str) -> dict[str, Any]:
 
 
 def create_oauth_state_token(user_id: int, return_app: bool = False) -> str:
-    """Create short-lived JWT for OAuth state (CSRF protection). Expires in 10 minutes."""
+    """Create short-lived JWT for OAuth state (CSRF protection). Expires in 10 minutes.
+    Used for link flow (user already logged in)."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=10)
-    payload = {"sub": str(user_id), "exp": expire, "type": "intervals_oauth", "return_app": return_app}
+    payload = {"sub": str(user_id), "exp": expire, "type": "intervals_oauth", "intent": "link", "return_app": return_app}
+    key, algorithm = _get_jwt_signing_key_and_algorithm()
+    result = jwt.encode(payload, key, algorithm=algorithm)
+    return result if isinstance(result, str) else result.decode("utf-8")
+
+
+def create_oauth_state_token_login(return_app: bool = False) -> str:
+    """Create short-lived JWT for OAuth state (login/register flow, no user)."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=10)
+    payload = {"exp": expire, "type": "intervals_oauth", "intent": "login", "return_app": return_app}
     key, algorithm = _get_jwt_signing_key_and_algorithm()
     result = jwt.encode(payload, key, algorithm=algorithm)
     return result if isinstance(result, str) else result.decode("utf-8")

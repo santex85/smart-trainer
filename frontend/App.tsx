@@ -17,6 +17,7 @@ import {
   Pressable,
   LogBox,
   useWindowDimensions,
+  Linking,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -41,6 +42,7 @@ import type { AuthUser } from "./src/api/client";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { RegisterScreen } from "./src/screens/RegisterScreen";
+import { IntervalsCompleteScreen } from "./src/screens/IntervalsCompleteScreen";
 import { IntervalsLinkScreen } from "./src/screens/IntervalsLinkScreen";
 import { ChatScreen } from "./src/screens/ChatScreen";
 import { AnalyticsScreen } from "./src/screens/AnalyticsScreen";
@@ -93,6 +95,7 @@ function AppContent() {
   const [refreshWellnessTrigger, setRefreshWellnessTrigger] = useState(0);
   const [lastSavedSleep, setLastSavedSleep] = useState<SleepExtractionResponse | null>(null);
   const [lastSavedWellness, setLastSavedWellness] = useState<{ date: string } & WellnessPhotoResult | null>(null);
+  const [intervalsPendingKey, setIntervalsPendingKey] = useState<string | null>(null);
 
   useEffect(() => {
     setOnUnauthorized(() => {
@@ -127,6 +130,34 @@ function AppContent() {
   }, [isWeb]);
 
   useEffect(() => {
+    if (!ready || user) return;
+    const parsePending = (url: string | null) => {
+      try {
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          const params = new URLSearchParams(window.location.search);
+          const key = params.get("intervals_pending");
+          if (key) {
+            setIntervalsPendingKey(key);
+            window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+          }
+        } else if (url) {
+          const match = url.match(/[?&]pending=([^&]+)/);
+          if (match) setIntervalsPendingKey(decodeURIComponent(match[1]));
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      parsePending(null);
+    } else {
+      Linking.getInitialURL().then(parsePending);
+      const sub = Linking.addEventListener("url", ({ url }) => parsePending(url));
+      return () => sub.remove();
+    }
+  }, [ready, user]);
+
+  useEffect(() => {
     if (!user) return;
     flushOfflineMutations().catch(() => {});
     registerForPushTokenAsync()
@@ -159,6 +190,23 @@ function AppContent() {
   }
 
   if (!user) {
+    if (intervalsPendingKey) {
+      return (
+        <SafeAreaProvider>
+          <StatusBar style={mode === "dark" ? "light" : "dark"} />
+          <View style={[styles.root, { backgroundColor: colors.background }]}>
+            <IntervalsCompleteScreen
+              pendingKey={intervalsPendingKey}
+              onSuccess={(u) => {
+                setIntervalsPendingKey(null);
+                setUser(u);
+              }}
+              onError={() => setIntervalsPendingKey(null)}
+            />
+          </View>
+        </SafeAreaProvider>
+      );
+    }
     return (
       <SafeAreaProvider>
         <StatusBar style={mode === "dark" ? "light" : "dark"} />
