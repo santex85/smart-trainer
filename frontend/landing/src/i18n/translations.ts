@@ -212,11 +212,11 @@ export const en = {
     s4Title: "4. Third-Party Services",
     s4Intro: "We use the following third parties:",
     s4Gemini:
-      "Google Gemini: AI analysis of meal photos, sleep/wellness photos, and chat. Your images and prompts are sent to Gemini for processing.",
+      "AI service providers: AI analysis of meal photos, sleep/wellness photos, and chat. Your images and prompts are sent to third-party AI services for processing.",
     s4Intervals: "Intervals.icu: OAuth integration to sync workouts and training load.",
     s4Stripe: "Stripe: Payment processing and subscription management.",
-    s4Sentry: "Sentry: Error tracking and performance monitoring.",
-    s4S3: "Cloud storage (S3): Storage of meal, sleep, and wellness photos.",
+    s4Sentry: "Monitoring and analytics services: Error tracking and performance monitoring.",
+    s4S3: "Cloud storage: Storage of meal, sleep, and wellness photos.",
     s5Title: "5. Data Storage and Security",
     s5Content:
       "Your data is stored on secure servers. Passwords are hashed; we never store plain-text passwords. We use HTTPS for all communications and follow industry practices to protect your data.",
@@ -225,7 +225,7 @@ export const en = {
       "You have the right to access, correct, delete, or export your data. You can manage your account and data in the app. To request deletion or export, contact us. If you are in the EU/EEA, you also have rights under GDPR, including the right to object to processing and to lodge a complaint with a supervisory authority.",
     s7Title: "7. Cookies and Analytics",
     s7Content:
-      "We may use cookies and similar technologies for session management, authentication, and analytics. We use Sentry for error tracking. You can control cookies through your browser settings.",
+      "We may use cookies and similar technologies for session management, authentication, and analytics. We use third-party services for error tracking. You can control cookies through your browser settings.",
     s8Title: "8. Changes to This Policy",
     s8Content:
       "We may update this Privacy Policy from time to time. We will notify you of significant changes by posting the new policy on this page and updating the \"Last updated\" date.",
@@ -491,11 +491,11 @@ export const ru: typeof en = {
     s4Title: "4. Сторонние сервисы",
     s4Intro: "Мы используем следующих провайдеров:",
     s4Gemini:
-      "Google Gemini: ИИ-анализ фото еды, сна/wellness и чата. Изображения и запросы отправляются в Gemini.",
+      "Провайдеры ИИ-сервисов: ИИ-анализ фото еды, сна/wellness и чата. Изображения и запросы отправляются сторонним ИИ-сервисам.",
     s4Intervals: "Intervals.icu: OAuth для синхронизации тренировок и нагрузки.",
     s4Stripe: "Stripe: обработка платежей и подписок.",
-    s4Sentry: "Sentry: отслеживание ошибок и мониторинг.",
-    s4S3: "Облачное хранилище (S3): хранение фото еды, сна и wellness.",
+    s4Sentry: "Сервисы мониторинга и аналитики: отслеживание ошибок и мониторинг.",
+    s4S3: "Облачное хранилище: хранение фото еды, сна и wellness.",
     s5Title: "5. Хранение и безопасность данных",
     s5Content:
       "Данные хранятся на защищённых серверах. Пароли хешируются; мы не храним пароли в открытом виде. Используем HTTPS для всех соединений и соблюдаем отраслевые практики защиты данных.",
@@ -504,7 +504,7 @@ export const ru: typeof en = {
       "Вы имеете право на доступ, исправление, удаление или экспорт данных. Управление аккаунтом и данными — в приложении. Для запроса удаления или экспорта — свяжитесь с нами. В ЕС/ЕЭЗ действуют права по GDPR, включая право отозвать согласие и подать жалобу в надзорный орган.",
     s7Title: "7. Cookies и аналитика",
     s7Content:
-      "Мы можем использовать cookies и аналогичные технологии для сессий, аутентификации и аналитики. Sentry — для отслеживания ошибок. Управление cookies — в настройках браузера.",
+      "Мы можем использовать cookies и аналогичные технологии для сессий, аутентификации и аналитики. Сервисы мониторинга — для отслеживания ошибок. Управление cookies — в настройках браузера.",
     s8Title: "8. Изменения политики",
     s8Content:
       "Мы можем обновлять политику. О значимых изменениях сообщим, разместив новую версию на этой странице и обновив дату «Последнее обновление».",
