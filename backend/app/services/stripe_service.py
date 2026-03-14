@@ -113,7 +113,29 @@ async def sync_subscription_status(
         )
     )
     db_sub = r.scalar_one_or_none()
+
+    if not db_sub:
+        raw_customer = sub.get("customer")
+        customer_id = raw_customer if isinstance(raw_customer, str) else (raw_customer.get("id") if isinstance(raw_customer, dict) else getattr(raw_customer, "id", None) if raw_customer else None)
+        if not customer_id:
+            return None
+        ru = await session.execute(
+            select(User).where(User.stripe_customer_id == customer_id)
+        )
+        u = ru.scalar_one_or_none()
+        if not u:
+            return None
+        r2 = await session.execute(
+            select(Subscription).where(Subscription.user_id == u.id)
+        )
+        db_sub = r2.scalar_one_or_none()
+
     if db_sub:
+        db_sub.stripe_subscription_id = stripe_subscription_id
+        raw_cust = sub.get("customer")
+        cust_id = raw_cust if isinstance(raw_cust, str) else (raw_cust.get("id") if isinstance(raw_cust, dict) else getattr(raw_cust, "id", None) if raw_cust else None)
+        if cust_id:
+            db_sub.stripe_customer_id = cust_id
         db_sub.status = status
         db_sub.plan = plan
         db_sub.current_period_start = current_start
