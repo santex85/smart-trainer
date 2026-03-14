@@ -87,6 +87,10 @@ async def sync_subscription_status(
     )
     status = (sub.get("status") or "").lower()
     is_active = status in ACTIVE_STATUSES
+    logger.info(
+        "sync_subscription_status sub_id=%s status=%s is_active=%s",
+        stripe_subscription_id, status, is_active,
+    )
 
     # Resolve plan from price id (use sub.get("items") to avoid dict.items collision)
     plan = "monthly"
@@ -113,22 +117,27 @@ async def sync_subscription_status(
         )
     )
     db_sub = r.scalar_one_or_none()
+    if db_sub:
+        logger.info("sync_subscription_status sub_id=%s: db_sub found by stripe_subscription_id", stripe_subscription_id)
 
     if not db_sub:
         raw_customer = sub.get("customer")
         customer_id = raw_customer if isinstance(raw_customer, str) else (raw_customer.get("id") if isinstance(raw_customer, dict) else getattr(raw_customer, "id", None) if raw_customer else None)
         if not customer_id:
+            logger.info("sync_subscription_status sub_id=%s: no customer_id", stripe_subscription_id)
             return None
         ru = await session.execute(
             select(User).where(User.stripe_customer_id == customer_id)
         )
         u = ru.scalar_one_or_none()
         if not u:
+            logger.info("sync_subscription_status sub_id=%s: user not found for customer_id=%s", stripe_subscription_id, customer_id)
             return None
         r2 = await session.execute(
             select(Subscription).where(Subscription.user_id == u.id)
         )
         db_sub = r2.scalar_one_or_none()
+        logger.info("sync_subscription_status sub_id=%s: db_sub by user_id=%s", stripe_subscription_id, "found" if db_sub else "not found")
 
     if db_sub:
         db_sub.stripe_subscription_id = stripe_subscription_id
@@ -147,14 +156,17 @@ async def sync_subscription_status(
         raw_customer = sub.get("customer")
         customer_id = raw_customer if isinstance(raw_customer, str) else (raw_customer.get("id") if isinstance(raw_customer, dict) else getattr(raw_customer, "id", None) if raw_customer else None)
         if not customer_id:
+            logger.info("sync_subscription_status sub_id=%s: no customer_id (create path)", stripe_subscription_id)
             return None
         ru = await session.execute(
             select(User).where(User.stripe_customer_id == customer_id)
         )
         u = ru.scalar_one_or_none()
         if not u:
+            logger.info("sync_subscription_status sub_id=%s: user not found for customer_id=%s (create path)", stripe_subscription_id, customer_id)
             return None
         user_id = u.id
+        logger.info("sync_subscription_status sub_id=%s: creating new subscription for user_id=%s", stripe_subscription_id, user_id)
         db_sub = Subscription(
             user_id=user_id,
             stripe_customer_id=customer_id,
@@ -257,10 +269,23 @@ async def sync_user_subscriptions_from_stripe(
             status="all",
             limit=100,
         )
-        for sub in (subs.data or []):
+        sub_list = subs.data or []
+        logger.info("sync_user_subscriptions_from_stripe user_id=%s: found %d Stripe subscriptions", user.id, len(sub_list))
+        for sub in sub_list:
             sub_id = sub.id if hasattr(sub, "id") else sub.get("id")
             if sub_id:
                 await sync_subscription_status(session, sub_id)
+
+        # Set is_premium based on whether any active subscription exists (fixes multiple-subs order bug)
+        r = await session.execute(
+            select(Subscription).where(
+                Subscription.user_id == user.id,
+                Subscription.status.in_(ACTIVE_STATUSES),
+            )
+        )
+        user.is_premium = r.scalar_one_or_none() is not None
+        await session.flush()
+        logger.info("sync_user_subscriptions_from_stripe user_id=%s: is_premium=%s", user.id, user.is_premium)
         return True
     except Exception as e:
         logger.warning("sync_user_subscriptions_from_stripe failed: %s", e)
