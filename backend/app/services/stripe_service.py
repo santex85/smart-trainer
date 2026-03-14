@@ -196,8 +196,27 @@ async def sync_user_subscriptions_from_stripe(
     session: AsyncSession, user: User
 ) -> bool:
     """Sync all subscriptions for user's Stripe customer. Returns True on success."""
-    if not settings.stripe_secret_key or not user.stripe_customer_id:
+    if not settings.stripe_secret_key:
         return False
+
+    # Fallback: resolve stripe_customer_id from email when webhook never ran
+    if not user.stripe_customer_id and user.email:
+        try:
+            customers = stripe.Customer.list(email=user.email, limit=1)
+            if customers.data:
+                user.stripe_customer_id = customers.data[0].id
+                await session.flush()
+                logger.info("Resolved stripe_customer_id from email for user_id=%s", user.id)
+            else:
+                logger.info("No Stripe customer found for email=%s, user_id=%s", user.email, user.id)
+                return False
+        except Exception as e:
+            logger.warning("Stripe Customer.list by email failed: %s", e)
+            return False
+
+    if not user.stripe_customer_id:
+        return False
+
     try:
         subs = stripe.Subscription.list(
             customer=user.stripe_customer_id,
