@@ -30,6 +30,7 @@ from app.services.intervals_client import create_event
 from app.services.crypto import decrypt_value
 from app.models.intervals_credentials import IntervalsCredentials
 from app.models.sleep_extraction import SleepExtraction
+from app.services.user_type import resolve_is_athlete
 
 
 # Gemini protobuf Schema does not support these JSON Schema fields.
@@ -197,6 +198,26 @@ Example (Skip):
 
 No metaphors, no long text. Output only a single JSON object, no markdown code fences."""
 
+SYSTEM_PROMPT_ADVICE = """You are a health and activity consultant. Your task is to give recommendations based on the user's data: sleep, nutrition, general wellbeing. Do NOT give Go/Modify/Skip decisions — only advice.
+
+Output format (strict JSON). Use decision "Advice", put main advice in reason, modified_plan always null:
+{
+  "decision": "Advice",
+  "reason": "main advice text (sleep, nutrition, activity recommendations)",
+  "modified_plan": null,
+  "suggestions_next_days": "optional text for next days" or null,
+  "evening_tips": "food and sleep advice for the rest of the evening" or null,
+  "plan_tomorrow": "activity recommendation for tomorrow" or null
+}
+
+Keep language simple. No TSS, CTL, ATL, polarisation or training-plan jargon. Focus on: sleep quality, nutrition balance, light activity when appropriate."""
+
+
+def _build_advice_system_prompt(locale: str) -> str:
+    lang = language_for_locale(locale)
+    return f"{SYSTEM_PROMPT_ADVICE}\n\nYou must respond only in {lang}. All text fields must be in this language."
+
+
 def _build_system_prompt(
     locale: str,
     had_workout_today: bool,
@@ -257,6 +278,8 @@ def _normalize_decision(raw: Any) -> Decision:
         return Decision.MODIFY
     if s == "skip":
         return Decision.SKIP
+    if s == "advice":
+        return Decision.ADVICE
     return Decision.GO
 
 
@@ -390,6 +413,7 @@ def _build_context(
     current_local_hour: int | None = None,
     today_date: date | None = None,
     timezone_name: str | None = None,
+    for_advice: bool = False,
 ) -> str:
     if today_date:
         weekday = today_date.strftime("%A")
@@ -401,12 +425,13 @@ def _build_context(
     profile_str = ", ".join(f"{k}={v}" for k, v in (athlete_profile or {}).items()) or "(none)"
     wellness_str = ", ".join(f"{k}={v}" for k, v in (wellness_today or {}).items() if v is not None) or "(none)"
     load_str = ", ".join(f"{k}={v}" for k, v in (ctl_atl_tsb or {}).items() if v is not None) or "(none)"
+    label = "user's" if for_advice else "athlete's"
     parts = [
-        "## Current date and time (athlete's local)",
+        f"## Current date and time ({label} local)",
         f"Date: {date_str}",
         f"Hour: {hour_str}",
         f"Timezone: {tz_str}",
-        "## Athlete profile (weight, height, age, FTP, name, sex)",
+        ("## User profile (weight, height, age)" if for_advice else "## Athlete profile (weight, height, age, FTP, name, sex)"),
         profile_str,
         "## Food today (sum)",
         f"Calories: {food_sum.get('calories', 0):.0f}, Protein: {food_sum.get('protein_g', 0):.0f}g, Fat: {food_sum.get('fat_g', 0):.0f}g, Carbs: {food_sum.get('carbs_g', 0):.0f}g",
@@ -414,15 +439,23 @@ def _build_context(
         _format_food_entries(food_entries or []),
         "## Wellness today",
         wellness_str,
-        "## Load (CTL/ATL/TSB)",
-        load_str,
+    ]
+    if not for_advice:
+        parts.extend([
+            "## Load (CTL/ATL/TSB)",
+            load_str,
+        ])
+    parts.extend([
         "## Wellness history (last 7 days)",
         _format_wellness_history(wellness_history or [], today_iso=today_date.isoformat() if today_date else None),
-        "## Planned workouts today (Intervals)",
-        _format_planned_workouts(events_today),
-        "## Recent workouts (manual/FIT, if any)",
-        _format_recent_workouts(recent_workouts or []),
-    ]
+    ])
+    if not for_advice:
+        parts.extend([
+            "## Planned workouts today (Intervals)",
+            _format_planned_workouts(events_today),
+            "## Recent workouts (manual/FIT, if any)",
+            _format_recent_workouts(recent_workouts or []),
+        ])
     if had_workout_today is not None:
         parts.append("## Workout already done today (yes/no)")
         parts.append("yes" if had_workout_today else "no")
@@ -462,6 +495,7 @@ async def run_daily_decision(
     today: date | None = None,
     locale: str = "ru",
     client_local_hour: int | None = None,
+    is_athlete: bool | None = None,
 ) -> OrchestratorResponse:
     """
     Aggregate context from food_log, wellness_cache, and Intervals events;
@@ -564,6 +598,9 @@ async def run_daily_decision(
     email = user_row[0] if user_row else None
     is_premium = bool(user_row[1]) if user_row and len(user_row) > 1 else False
     profile = r_prof.scalar_one_or_none()
+    if is_athlete is None:
+        is_athlete = await resolve_is_athlete(session, user_id, profile)
+
     athlete_profile: dict[str, Any] = {}
     if profile:
         if profile.weight_kg is not None:
@@ -573,14 +610,15 @@ async def run_daily_decision(
         if profile.birth_year is not None:
             athlete_profile["birth_year"] = profile.birth_year
             athlete_profile["age_years"] = today.year - profile.birth_year
-        if profile.ftp is not None:
-            athlete_profile["ftp"] = profile.ftp
-        if profile.target_race_date is not None:
-            athlete_profile["target_race_date"] = profile.target_race_date.isoformat()
-        if profile.target_race_name:
-            athlete_profile["target_race_name"] = profile.target_race_name
-        if profile.target_race_date is not None and profile.target_race_date >= today:
-            athlete_profile["days_to_race"] = (profile.target_race_date - today).days
+        if is_athlete:
+            if profile.ftp is not None:
+                athlete_profile["ftp"] = profile.ftp
+            if profile.target_race_date is not None:
+                athlete_profile["target_race_date"] = profile.target_race_date.isoformat()
+            if profile.target_race_name:
+                athlete_profile["target_race_name"] = profile.target_race_name
+            if profile.target_race_date is not None and profile.target_race_date >= today:
+                athlete_profile["days_to_race"] = (profile.target_race_date - today).days
     if not athlete_profile.get("display_name") and email:
         athlete_profile["display_name"] = email
 
@@ -668,6 +706,7 @@ async def run_daily_decision(
                     exc_info=True,
                 )
 
+    for_advice = not is_athlete
     context = _build_context(
         food_sum,
         wellness_today,
@@ -681,11 +720,15 @@ async def run_daily_decision(
         current_local_hour=client_local_hour,
         today_date=today,
         timezone_name=user_tz,
+        for_advice=for_advice,
     )
 
-    system_prompt = _build_system_prompt(
-        locale, had_workout_today, is_evening=is_evening, client_local_hour=client_local_hour
-    )
+    if for_advice:
+        system_prompt = _build_advice_system_prompt(locale)
+    else:
+        system_prompt = _build_system_prompt(
+            locale, had_workout_today, is_evening=is_evening, client_local_hour=client_local_hour
+        )
     try:
         model = genai.GenerativeModel(
             settings.gemini_model,
@@ -715,9 +758,9 @@ async def run_daily_decision(
         )
         return OrchestratorResponse(decision=Decision.SKIP, reason="Parse error; defaulting to Skip.")
 
-    # On Modify/Skip or when we have evening/plan tips: write to chat
+    # On Modify/Skip/Advice or when we have evening/plan tips: write to chat
     write_chat = (
-        result.decision in (Decision.MODIFY, Decision.SKIP) and result.reason
+        result.decision in (Decision.MODIFY, Decision.SKIP, Decision.ADVICE) and result.reason
     ) or result.evening_tips or result.plan_tomorrow
     if write_chat:
         parts = []

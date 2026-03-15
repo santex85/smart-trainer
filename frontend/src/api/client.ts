@@ -796,6 +796,7 @@ export interface AthleteProfileResponse {
   target_race_date?: string | null;
   target_race_name?: string | null;
   days_to_race?: number | null;
+  is_athlete?: boolean | null;
   is_premium?: boolean;
   dev_can_toggle_premium?: boolean;
   locale?: string;
@@ -816,6 +817,7 @@ export async function updateAthleteProfile(body: {
   carbs_goal?: number | null;
   target_race_date?: string | null;
   target_race_name?: string | null;
+  is_athlete?: boolean | null;
   locale?: string | null;
 }): Promise<AthleteProfileResponse> {
   return api<AthleteProfileResponse>("/api/v1/athlete-profile", {
