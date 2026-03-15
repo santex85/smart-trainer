@@ -23,6 +23,7 @@ from app.models.user_weekly_summary import UserWeeklySummary
 from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
 from app.schemas.pagination import PaginatedResponse
+from app.services.datetime_prompt import format_current_datetime_for_prompt, parse_client_now
 from app.services.fit_parser import parse_fit_session
 from app.services.workout_processor import fit_data_to_summary, save_workout_from_fit
 from app.services.gemini_photo_analyzer import classify_and_analyze_image
@@ -185,41 +186,6 @@ def _day_bounds_utc(d: date, tz_name: str) -> tuple[datetime, datetime]:
     start_local = datetime.combine(d, time.min, tzinfo=tz)
     end_local = datetime.combine(d + timedelta(days=1), time.min, tzinfo=tz)
     return start_local.astimezone(timezone.utc), end_local.astimezone(timezone.utc)
-
-
-def _parse_and_validate_client_now(client_now_str: str | None) -> datetime | None:
-    """Parse client_now (ISO 8601 UTC). Return None if missing, invalid, or outside [-24h, +5min] from server UTC."""
-    if not client_now_str or not client_now_str.strip():
-        return None
-    try:
-        dt = datetime.fromisoformat(client_now_str.strip().replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        else:
-            dt = dt.astimezone(timezone.utc)
-        server_now = datetime.now(timezone.utc)
-        delta = dt - server_now
-        if delta < timedelta(hours=-24) or delta > timedelta(minutes=5):
-            return None
-        return dt
-    except (ValueError, TypeError):
-        return None
-
-
-def _format_current_datetime_for_prompt(client_now_utc: datetime | None, user_tz: str | None) -> str:
-    """Format 'Current date and time (athlete's local)' block for the prompt. Uses client_now if valid, else server now."""
-    tz_str = (user_tz or "").strip() or "UTC"
-    try:
-        tz = ZoneInfo(tz_str)
-    except Exception:
-        tz = timezone.utc
-    if client_now_utc is not None:
-        now_local = client_now_utc.astimezone(tz)
-    else:
-        now_local = datetime.now(tz)
-    date_str = now_local.strftime("%Y-%m-%d")
-    time_str = now_local.strftime("%H:%M")
-    return f"## Current date and time (athlete's local)\n{date_str}, {time_str}. Timezone: {tz_str}."
 
 
 async def _build_athlete_context(session: AsyncSession, user_id: int, is_premium: bool = False, user_tz: str | None = None, is_athlete: bool = True) -> str:
@@ -519,7 +485,8 @@ class CreateThreadBody(BaseModel):
 class RunOrchestratorBody(BaseModel):
     locale: str = "ru"
     for_date: date | None = None
-    client_local_hour: int | None = None  # 0-23, local hour when user tapped "analysis"
+    client_local_hour: int | None = None  # deprecated: use client_now instead
+    client_now: str | None = None  # ISO 8601 UTC; used for datetime in prompt
 
 
 async def _get_or_create_default_thread(session: AsyncSession, user_id: int) -> ChatThread:
@@ -720,7 +687,6 @@ async def send_message(
     )
     await session.flush()
 
-    today_local = datetime.now(ZoneInfo((user.timezone or "UTC").strip() or "UTC")).date()
     reply = ""
     try:
         if body.run_orchestrator:
@@ -728,7 +694,7 @@ async def send_message(
             r_prof = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
             profile = r_prof.scalar_one_or_none()
             is_athlete = await resolve_is_athlete(session, uid, profile)
-            result = await run_daily_decision(session, uid, today_local, locale=locale, is_athlete=is_athlete)
+            result = await run_daily_decision(session, uid, locale=locale, client_now=body.client_now, is_athlete=is_athlete)
             label = "Recommendations" if result.decision.value == "Advice" else "Decision"
             reply = f"{label}: {result.reason}"
             if result.suggestions_next_days:
@@ -742,8 +708,8 @@ async def send_message(
             profile = r_prof.scalar_one_or_none()
             is_athlete = await resolve_is_athlete(session, uid, profile)
             context = await _build_athlete_context(session, uid, user.is_premium, user_tz=user.timezone, is_athlete=is_athlete)
-            client_now_utc = _parse_and_validate_client_now(body.client_now)
-            datetime_block = _format_current_datetime_for_prompt(client_now_utc, user.timezone)
+            client_now_utc = parse_client_now(body.client_now)
+            datetime_block = format_current_datetime_for_prompt(client_now_utc, user.timezone)
             context = f"{datetime_block}\n\n{context}"
             model = genai.GenerativeModel(settings.gemini_model)
             chat_system = _chat_system_with_locale(locale, user.is_premium, is_athlete=is_athlete)
@@ -829,7 +795,6 @@ async def send_message_with_file(
     )
     await session.flush()
 
-    today_local = datetime.now(ZoneInfo((user.timezone or "UTC").strip() or "UTC")).date()
     reply = ""
     try:
         if run_orch:
@@ -837,7 +802,7 @@ async def send_message_with_file(
             r_prof = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
             profile = r_prof.scalar_one_or_none()
             is_athlete = await resolve_is_athlete(session, uid, profile)
-            result = await run_daily_decision(session, uid, today_local, locale=locale, is_athlete=is_athlete)
+            result = await run_daily_decision(session, uid, locale=locale, client_now=client_now, is_athlete=is_athlete)
             label = "Recommendations" if result.decision.value == "Advice" else "Decision"
             reply = f"{label}: {result.reason}"
             if result.suggestions_next_days:
@@ -852,8 +817,8 @@ async def send_message_with_file(
             profile = r_prof.scalar_one_or_none()
             is_athlete = await resolve_is_athlete(session, uid, profile)
             context = await _build_athlete_context(session, uid, user.is_premium, user_tz=user.timezone, is_athlete=is_athlete)
-            client_now_utc = _parse_and_validate_client_now(client_now)
-            datetime_block = _format_current_datetime_for_prompt(client_now_utc, user.timezone)
+            client_now_utc = parse_client_now(client_now)
+            datetime_block = format_current_datetime_for_prompt(client_now_utc, user.timezone)
             context = f"{datetime_block}\n\n{context}"
             if fit_summary:
                 context += "\n\n## Uploaded workout (this message)\n" + fit_summary
@@ -944,8 +909,8 @@ async def send_message_with_image(
         from app.config import settings
         from app.services.gemini_common import run_generate_content
         context = await _build_athlete_context(session, uid, user.is_premium, user_tz=user.timezone, is_athlete=is_athlete)
-        client_now_utc = _parse_and_validate_client_now(client_now)
-        datetime_block = _format_current_datetime_for_prompt(client_now_utc, user.timezone)
+        client_now_utc = parse_client_now(client_now)
+        datetime_block = format_current_datetime_for_prompt(client_now_utc, user.timezone)
         context = f"{datetime_block}\n\n{context}"
         context += "\n\n## Photo in this message\n" + image_description
         model = genai.GenerativeModel(settings.gemini_model)
@@ -981,14 +946,12 @@ async def run_orchestrator(
     uid = user.id
     body = body or RunOrchestratorBody()
     locale = body.locale
-    for_date = body.for_date or date.today()
-    client_local_hour = body.client_local_hour
     from app.services.user_type import resolve_is_athlete
     r_prof = await session.execute(select(AthleteProfile).where(AthleteProfile.user_id == uid))
     profile = r_prof.scalar_one_or_none()
     is_athlete = await resolve_is_athlete(session, uid, profile)
     result = await run_daily_decision(
-        session, uid, today=for_date, locale=locale, client_local_hour=client_local_hour, is_athlete=is_athlete
+        session, uid, locale=locale, client_now=body.client_now, is_athlete=is_athlete
     )
     if user.is_premium:
         return {

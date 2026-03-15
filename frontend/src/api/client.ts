@@ -1028,7 +1028,7 @@ export async function sendChatMessageWithImage(
 
 export async function runOrchestrator(
   locale?: string,
-  clientLocalHour?: number
+  _clientLocalHour?: number
 ): Promise<{
   decision: string;
   reason?: string;
@@ -1038,13 +1038,9 @@ export async function runOrchestrator(
   plan_tomorrow?: string;
   is_teaser?: boolean;
 }> {
-  const hour =
-    clientLocalHour !== undefined && clientLocalHour !== null
-      ? clientLocalHour
-      : new Date().getHours();
   return api("/api/v1/chat/orchestrator/run", {
     method: "POST",
-    body: { locale: locale ?? "en", client_local_hour: hour },
+    body: { locale: locale ?? "en", client_now: new Date().toISOString() },
   });
 }
 

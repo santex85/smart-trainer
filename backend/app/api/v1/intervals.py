@@ -268,10 +268,13 @@ async def intervals_webhook(
             select(IntervalsCredentials).where(IntervalsCredentials.athlete_id == athlete_id)
         )
         creds = r.scalar_one_or_none()
-    if not creds:
-        logging.warning("Intervals webhook: no credentials for athlete_id=%s", athlete_id)
-        return {"ok": True}
-    user_id = creds.user_id
+        if not creds:
+            logging.warning("Intervals webhook: no credentials for athlete_id=%s", athlete_id)
+            return {"ok": True}
+        user_id = creds.user_id
+        r_user = await session.execute(select(User.timezone).where(User.id == user_id))
+        user_tz_row = r_user.scalar_one_or_none()
+        user_timezone = (user_tz_row[0] or "UTC").strip() or "UTC" if user_tz_row else "UTC"
     api_key = decrypt_value(creds.encrypted_token_or_key)
     if not api_key:
         logging.warning("Intervals webhook: decryption failed for user_id=%s", user_id)
@@ -281,7 +284,10 @@ async def intervals_webhook(
     async def run_sync() -> None:
         async with async_session_maker() as session:
             try:
-                await sync_intervals_to_db(session, user_id, athlete_id, api_key, use_bearer=use_bearer)
+                await sync_intervals_to_db(
+                    session, user_id, athlete_id, api_key,
+                    user_timezone=user_timezone, use_bearer=use_bearer
+                )
                 await session.commit()
                 await send_push_to_user(session, user_id, "Intervals sync", "Sync completed (webhook).")
             except Exception as e:
@@ -354,10 +360,13 @@ async def trigger_sync(
                 status_code=400,
                 detail="client_today must be within yesterday and tomorrow (server UTC).",
             )
+    user_tz = (user.timezone or "UTC").strip() or "UTC"
     use_bearer = getattr(creds, "auth_type", "api_key") == "oauth"
     try:
         activities_count, wellness_count = await sync_intervals_to_db(
-            session, uid, creds.athlete_id, api_key, client_today=client_today, use_bearer=use_bearer
+            session, uid, creds.athlete_id, api_key,
+            client_today=client_today, user_timezone=user_tz if not client_today else None,
+            use_bearer=use_bearer
         )
     except httpx.TimeoutException as e:
         logging.exception("Intervals sync failed for user_id=%s: %s", uid, e)

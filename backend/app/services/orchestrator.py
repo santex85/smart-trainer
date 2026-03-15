@@ -24,6 +24,7 @@ from app.models.user import User
 from app.models.wellness_cache import WellnessCache
 from app.models.workout import Workout
 from app.schemas.orchestrator import Decision, ModifiedPlanItem, OrchestratorResponse
+from app.services.datetime_prompt import format_current_datetime_for_prompt, parse_client_now
 from app.services.gemini_common import run_generate_content
 from app.services.load_metrics import compute_fitness_from_workouts
 from app.services.intervals_client import create_event
@@ -410,27 +411,19 @@ def _build_context(
     wellness_history: list[dict] | None = None,
     recent_workouts: list[dict] | None = None,
     had_workout_today: bool | None = None,
-    current_local_hour: int | None = None,
+    client_now_utc: datetime | None = None,
     today_date: date | None = None,
     timezone_name: str | None = None,
     for_advice: bool = False,
 ) -> str:
-    if today_date:
-        weekday = today_date.strftime("%A")
-        date_str = f"{today_date.isoformat()} ({weekday})"
-    else:
-        date_str = "not provided"
-    hour_str = str(current_local_hour) if current_local_hour is not None else "not provided"
     tz_str = timezone_name or "UTC"
+    label = f"{'user' if for_advice else 'athlete'}'s local"
+    datetime_block = format_current_datetime_for_prompt(client_now_utc, tz_str, label=label)
     profile_str = ", ".join(f"{k}={v}" for k, v in (athlete_profile or {}).items()) or "(none)"
     wellness_str = ", ".join(f"{k}={v}" for k, v in (wellness_today or {}).items() if v is not None) or "(none)"
     load_str = ", ".join(f"{k}={v}" for k, v in (ctl_atl_tsb or {}).items() if v is not None) or "(none)"
-    label = "user's" if for_advice else "athlete's"
     parts = [
-        f"## Current date and time ({label} local)",
-        f"Date: {date_str}",
-        f"Hour: {hour_str}",
-        f"Timezone: {tz_str}",
+        datetime_block,
         ("## User profile (weight, height, age)" if for_advice else "## Athlete profile (weight, height, age, FTP, name, sex)"),
         profile_str,
         "## Food today (sum)",
@@ -495,6 +488,7 @@ async def run_daily_decision(
     today: date | None = None,
     locale: str = "ru",
     client_local_hour: int | None = None,
+    client_now: str | None = None,
     is_athlete: bool | None = None,
 ) -> OrchestratorResponse:
     """
@@ -502,19 +496,29 @@ async def run_daily_decision(
     call Gemini; return validated decision; on Modify/Skip optionally update
     Intervals and write to chat.
     When client_local_hour is evening (e.g. >= 18), prompt asks for plan_tomorrow and evening_tips instead of Skip.
+    client_now: optional ISO 8601 UTC; when provided, used for datetime in prompt and to derive today/client_local_hour.
     """
-    today = today or date.today()
     if not settings.google_gemini_api_key or not settings.google_gemini_api_key.strip():
         logger.warning("Orchestrator skipped for user_id=%s: GOOGLE_GEMINI_API_KEY not set", user_id)
         return OrchestratorResponse(decision=Decision.SKIP, reason="AI unavailable; defaulting to Skip.")
-    is_evening = _is_evening(client_local_hour)
-    wellness_from = today - timedelta(days=7)
-    from_date = today - timedelta(days=14)
 
     # Fetch user first to get timezone for correct daily bounds (UTC vs user local)
     r_user = await session.execute(select(User.email, User.is_premium, User.timezone).where(User.id == user_id))
     user_row = r_user.one_or_none()
     user_tz = (user_row[2] or "UTC").strip() or "UTC" if user_row and len(user_row) > 2 else "UTC"
+
+    # Derive now_local, today, client_local_hour from client_now or server time in user TZ
+    client_now_utc = parse_client_now(client_now)
+    if client_now_utc is not None:
+        now_local = client_now_utc.astimezone(ZoneInfo(user_tz))
+    else:
+        now_local = datetime.now(ZoneInfo(user_tz))
+    today = now_local.date()
+    client_local_hour = now_local.hour
+
+    is_evening = _is_evening(client_local_hour)
+    wellness_from = today - timedelta(days=7)
+    from_date = today - timedelta(days=14)
     today_start_utc, today_end_utc = _day_bounds_utc(today, user_tz)
     from_start_utc, _ = _day_bounds_utc(from_date, user_tz)
     _, to_start_utc = _day_bounds_utc(today + timedelta(days=1), user_tz)
@@ -717,7 +721,7 @@ async def run_daily_decision(
         wellness_history=wellness_history,
         recent_workouts=recent_workouts,
         had_workout_today=had_workout_today,
-        current_local_hour=client_local_hour,
+        client_now_utc=client_now_utc,
         today_date=today,
         timezone_name=user_tz,
         for_advice=for_advice,
