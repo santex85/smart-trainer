@@ -522,67 +522,6 @@ export function CameraScreen({
           />
         )}
 
-        {photoResult?.type === "workout" && !loading && (
-          <View style={[styles.result, Platform.OS === "web" && { backdropFilter: "blur(20px)" }]}>
-            {selectedPhotoUri ? (
-              <View style={styles.photoThumbnailWrap}>
-                {!imageLoaded && (
-                  <View style={styles.photoPlaceholder}>
-                    <ActivityIndicator size="small" color="#64748b" />
-                  </View>
-                )}
-                <Image
-                  source={{ uri: selectedPhotoUri }}
-                  style={styles.photoThumbnail}
-                  resizeMode="cover"
-                  onLoadEnd={() => setImageLoaded(true)}
-                />
-              </View>
-            ) : null}
-            <Text style={styles.resultName}>{t("camera.workoutRecognized")}</Text>
-            <View style={styles.sleepLines}>
-              {photoResult.workout.name != null && photoResult.workout.name.trim() !== "" && (
-                <Text style={styles.sleepLine}>{t("dashboard.workoutDetailNameType")}: {photoResult.workout.name}</Text>
-              )}
-              {photoResult.workout.date != null && (
-                <Text style={styles.sleepLine}>{t("dashboard.workoutDetailDateTime")}: {photoResult.workout.date}</Text>
-              )}
-              {photoResult.workout.sport_type != null && (
-                <Text style={styles.sleepLine}>{t("camera.workoutSportType")}: {photoResult.workout.sport_type}</Text>
-              )}
-              {photoResult.workout.duration_sec != null && (
-                <Text style={styles.sleepLine}>
-                  {t("dashboard.workoutDetailDuration")}: {Math.floor(photoResult.workout.duration_sec / 60)} min
-                </Text>
-              )}
-              {photoResult.workout.distance_m != null && (
-                <Text style={styles.sleepLine}>
-                  {t("dashboard.workoutDetailDistance")}: {(photoResult.workout.distance_m / 1000).toFixed(2)} km
-                </Text>
-              )}
-              {photoResult.workout.tss != null && (
-                <Text style={styles.sleepLine}>TSS: {Math.round(photoResult.workout.tss)}</Text>
-              )}
-              {photoResult.workout.notes != null && photoResult.workout.notes.trim() !== "" && (
-                <Text style={styles.sleepLine}>{photoResult.workout.notes}</Text>
-              )}
-            </View>
-            <Text style={styles.resultWhere}>{t("camera.checkAndSave")}</Text>
-            <View style={styles.previewActions}>
-              <TouchableOpacity
-                style={[styles.doneBtn, styles.saveBtn]}
-                onPress={handleSave}
-                disabled={saving}
-              >
-                <Text style={styles.doneBtnText}>{saving ? "…" : t("common.save")}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={handleCancel} disabled={saving}>
-                <Text style={styles.cancelBtnText}>{t("common.cancel")}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
         {!photoResult && !loading && (
           <>
             <Text style={styles.flowHint}>
