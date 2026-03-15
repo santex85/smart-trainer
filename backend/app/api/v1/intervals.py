@@ -115,113 +115,119 @@ async def intervals_oauth_callback(
         raise HTTPException(status_code=400, detail="Missing code or state")
 
     try:
-        payload = decode_oauth_state_token(state)
-        return_app = payload.get("return_app") is True
-        intent = payload.get("intent", "link")
-        user_id = int(payload["sub"]) if "sub" in payload else None
-    except (JWTError, ValueError, KeyError) as e:
-        logging.warning("Intervals OAuth invalid state: %s", e)
-        return RedirectResponse(url=error_url, status_code=302)
-
-    if return_app:
-        success_url = success_app_url
-        error_url = error_app_url
-
-    if intent == "link" and user_id is None:
-        logging.warning("Intervals OAuth link intent requires sub in state")
-        return RedirectResponse(url=error_url, status_code=302)
-
-    if not settings.intervals_client_id or not settings.intervals_client_secret or not settings.intervals_oauth_redirect_uri:
-        logging.error("Intervals OAuth not configured")
-        return RedirectResponse(url=error_url, status_code=302)
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
         try:
-            resp = await client.post(
-                "https://intervals.icu/api/oauth/token",
-                data={
-                    "client_id": settings.intervals_client_id,
-                    "client_secret": settings.intervals_client_secret,
-                    "code": code,
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        except httpx.RequestError as e:
-            logging.exception("Intervals OAuth token exchange failed: %s", e)
-            return RedirectResponse(url=error_url, status_code=302)
-        except httpx.HTTPStatusError as e:
-            logging.warning("Intervals OAuth token exchange HTTP error: %s %s", e.response.status_code, e.response.text)
+            payload = decode_oauth_state_token(state)
+            return_app = payload.get("return_app") is True
+            intent = payload.get("intent", "link")
+            user_id = int(payload["sub"]) if "sub" in payload else None
+        except (JWTError, ValueError, KeyError) as e:
+            logging.warning("Intervals OAuth invalid state: %s", e)
             return RedirectResponse(url=error_url, status_code=302)
 
-    access_token = data.get("access_token")
-    athlete = data.get("athlete") or {}
-    athlete_id = str(athlete.get("id", "")) if athlete else ""
-    athlete_name = str(athlete.get("name", "")) if athlete else ""
-
-    if not access_token or not athlete_id:
-        logging.warning("Intervals OAuth response missing access_token or athlete.id: %s", data)
-        return RedirectResponse(url=error_url, status_code=302)
-
-    intent = payload.get("intent", "link")
-    if intent == "login":
-        # Login/register flow: create pending, redirect to frontend
-        encrypted = encrypt_value(access_token)
-        async with async_session_maker() as session:
-            r = await session.execute(
-                select(IntervalsCredentials).where(IntervalsCredentials.athlete_id == athlete_id)
-            )
-            creds = r.scalar_one_or_none()
-            has_user = creds is not None
-            user_id_for_pending = creds.user_id if creds else None
-        try:
-            pending_key = await create_pending(
-                athlete_id=athlete_id,
-                athlete_name=athlete_name,
-                encrypted_token=encrypted,
-                has_user=has_user,
-                user_id=user_id_for_pending,
-            )
-        except RuntimeError as e:
-            logging.exception("Intervals pending storage failed: %s", e)
-            return RedirectResponse(url=error_url, status_code=302)
-        frontend_base = (settings.frontend_base_url or "").rstrip("/")
-        redirect_url = f"{frontend_base}/?intervals_pending={pending_key}" if frontend_base else f"/?intervals_pending={pending_key}"
         if return_app:
-            redirect_url = f"smarttrainer://intervals-login?pending={pending_key}"
-        return RedirectResponse(url=redirect_url, status_code=302)
+            success_url = success_app_url
+            error_url = error_app_url
 
-    # Link flow: user already logged in
-    user_id = int(payload["sub"])
-    async with async_session_maker() as session:
-        encrypted = encrypt_value(access_token)
-        r = await session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == user_id))
-        existing = r.scalar_one_or_none()
-        if existing:
-            existing.encrypted_token_or_key = encrypted
-            existing.athlete_id = athlete_id
-            existing.auth_type = "oauth"
-        else:
-            session.add(
-                IntervalsCredentials(
-                    user_id=user_id,
-                    encrypted_token_or_key=encrypted,
-                    athlete_id=athlete_id,
-                    auth_type="oauth",
+        if intent == "link" and user_id is None:
+            logging.warning("Intervals OAuth link intent requires sub in state")
+            return RedirectResponse(url=error_url, status_code=302)
+
+        if not settings.intervals_client_id or not settings.intervals_client_secret or not settings.intervals_oauth_redirect_uri:
+            logging.error("Intervals OAuth not configured")
+            return RedirectResponse(url=error_url, status_code=302)
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                resp = await client.post(
+                    "https://intervals.icu/api/oauth/token",
+                    data={
+                        "client_id": settings.intervals_client_id,
+                        "client_secret": settings.intervals_client_secret,
+                        "code": code,
+                    },
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
                 )
-            )
-        await log_action(
-            session,
-            user_id=user_id,
-            action="link",
-            resource="intervals",
-            resource_id=athlete_id,
-            details={"method": "oauth"},
-        )
-        await session.commit()
+                resp.raise_for_status()
+                data = resp.json()
+            except httpx.RequestError as e:
+                logging.exception("Intervals OAuth token exchange failed: %s", e)
+                return RedirectResponse(url=error_url, status_code=302)
+            except httpx.HTTPStatusError as e:
+                logging.warning("Intervals OAuth token exchange HTTP error: %s %s", e.response.status_code, e.response.text)
+                return RedirectResponse(url=error_url, status_code=302)
 
-    return RedirectResponse(url=success_url, status_code=302)
+        access_token = data.get("access_token")
+        athlete = data.get("athlete") or {}
+        athlete_id = str(athlete.get("id", "")) if athlete else ""
+        athlete_name = str(athlete.get("name", "")) if athlete else ""
+
+        if not access_token or not athlete_id:
+            logging.warning("Intervals OAuth response missing access_token or athlete.id: %s", data)
+            return RedirectResponse(url=error_url, status_code=302)
+
+        intent = payload.get("intent", "link")
+        if intent == "login":
+            # Login/register flow: create pending, redirect to frontend
+            encrypted = encrypt_value(access_token)
+            async with async_session_maker() as session:
+                r = await session.execute(
+                    select(IntervalsCredentials).where(IntervalsCredentials.athlete_id == athlete_id)
+                )
+                creds = r.scalar_one_or_none()
+                has_user = creds is not None
+                user_id_for_pending = creds.user_id if creds else None
+            try:
+                pending_key = await create_pending(
+                    athlete_id=athlete_id,
+                    athlete_name=athlete_name,
+                    encrypted_token=encrypted,
+                    has_user=has_user,
+                    user_id=user_id_for_pending,
+                )
+            except RuntimeError as e:
+                logging.exception("Intervals pending storage failed: %s", e)
+                return RedirectResponse(url=error_url, status_code=302)
+            frontend_base = (settings.frontend_base_url or "").rstrip("/")
+            redirect_url = f"{frontend_base}/?intervals_pending={pending_key}" if frontend_base else f"/?intervals_pending={pending_key}"
+            if return_app:
+                redirect_url = f"smarttrainer://intervals-login?pending={pending_key}"
+            return RedirectResponse(url=redirect_url, status_code=302)
+
+        # Link flow: user already logged in
+        user_id = int(payload["sub"])
+        async with async_session_maker() as session:
+            encrypted = encrypt_value(access_token)
+            r = await session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == user_id))
+            existing = r.scalar_one_or_none()
+            if existing:
+                existing.encrypted_token_or_key = encrypted
+                existing.athlete_id = athlete_id
+                existing.auth_type = "oauth"
+            else:
+                session.add(
+                    IntervalsCredentials(
+                        user_id=user_id,
+                        encrypted_token_or_key=encrypted,
+                        athlete_id=athlete_id,
+                        auth_type="oauth",
+                    )
+                )
+            await log_action(
+                session,
+                user_id=user_id,
+                action="link",
+                resource="intervals",
+                resource_id=athlete_id,
+                details={"method": "oauth"},
+            )
+            await session.commit()
+
+        return RedirectResponse(url=success_url, status_code=302)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.exception("Intervals OAuth callback failed: %s", e)
+        return RedirectResponse(url=error_url, status_code=302)
 
 
 @router.post(
