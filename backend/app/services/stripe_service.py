@@ -140,16 +140,6 @@ async def sync_subscription_status(
         logger.info("sync_subscription_status sub_id=%s: db_sub by user_id=%s", stripe_subscription_id, "found" if db_sub else "not found")
 
     if db_sub:
-        # Don't overwrite active subscription with canceled one
-        current_is_active = db_sub.status in ACTIVE_STATUSES
-        new_is_active = status in ACTIVE_STATUSES
-        if current_is_active and not new_is_active:
-            logger.info(
-                "sync_subscription_status sub_id=%s: skipping update, keeping active (current=%s, new=%s)",
-                stripe_subscription_id, db_sub.status, status,
-            )
-            return db_sub
-
         db_sub.stripe_subscription_id = stripe_subscription_id
         raw_cust = sub.get("customer")
         cust_id = raw_cust if isinstance(raw_cust, str) else (raw_cust.get("id") if isinstance(raw_cust, dict) else getattr(raw_cust, "id", None) if raw_cust else None)
@@ -281,10 +271,24 @@ async def sync_user_subscriptions_from_stripe(
         )
         sub_list = subs.data or []
         logger.info("sync_user_subscriptions_from_stripe user_id=%s: found %d Stripe subscriptions", user.id, len(sub_list))
+
+        # Pick the best subscription: prefer active/trialing over others
+        best_sub = None
         for sub in sub_list:
+            sub_status = (sub.get("status") or "").lower() if hasattr(sub, "get") else (getattr(sub, "status", "") or "").lower()
             sub_id = sub.id if hasattr(sub, "id") else sub.get("id")
-            if sub_id:
-                await sync_subscription_status(session, sub_id)
+            if not sub_id:
+                continue
+            if sub_status in ACTIVE_STATUSES:
+                best_sub = sub
+                break  # active/trialing is the best, no need to look further
+            if best_sub is None:
+                best_sub = sub  # fallback to first available
+
+        if best_sub:
+            best_id = best_sub.id if hasattr(best_sub, "id") else best_sub.get("id")
+            logger.info("sync_user_subscriptions_from_stripe user_id=%s: syncing best sub %s", user.id, best_id)
+            await sync_subscription_status(session, best_id)
 
         # Set is_premium based on whether any active subscription exists (fixes multiple-subs order bug)
         r = await session.execute(
