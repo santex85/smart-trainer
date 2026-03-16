@@ -1750,6 +1750,34 @@ export function DashboardScreen({
                     <Text style={styles.menuCloseIcon}>✕</Text>
                   </TouchableOpacity>
                 </View>
+                {onOpenAthleteProfile ? (
+                  <Pressable
+                    style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                    onPress={() => { onOpenAthleteProfile(); setMenuVisible(false); }}
+                  >
+                    <Ionicons name="person-outline" size={22} color={colors.textMuted} style={styles.menuItemIcon} />
+                    <Text style={styles.menuItemText}>{t("athleteProfile.title")}</Text>
+                    <Ionicons name="chevron-forward" size={20} color={colors.textMuted} style={styles.menuItemChevron} />
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                  onPress={() => { onOpenChat(); setMenuVisible(false); }}
+                >
+                  <Ionicons name="chatbubble-outline" size={22} color={colors.textMuted} style={styles.menuItemIcon} />
+                  <Text style={styles.menuItemText}>{t("chat.openCoachChat")}</Text>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} style={styles.menuItemChevron} />
+                </Pressable>
+                {onOpenPricing ? (
+                  <Pressable
+                    style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                    onPress={() => { onOpenPricing(); setMenuVisible(false); }}
+                  >
+                    <Ionicons name="card-outline" size={22} color={colors.textMuted} style={styles.menuItemIcon} />
+                    <Text style={styles.menuItemText}>{t("pricing.title")}</Text>
+                    <Ionicons name="chevron-forward" size={20} color={colors.textMuted} style={styles.menuItemChevron} />
+                  </Pressable>
+                ) : null}
                 <Pressable
                   style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setMenuView("settings"); }}
@@ -1759,42 +1787,14 @@ export function DashboardScreen({
                   <Ionicons name="chevron-forward" size={20} color={colors.textMuted} style={styles.menuItemChevron} />
                 </Pressable>
                 {onLogout ? (
-              <Pressable
-                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
-                onPress={() => { onLogout(); setMenuVisible(false); }}
-              >
-                <Ionicons name="power-outline" size={22} color={colors.textMuted} style={styles.menuItemIcon} />
-                <Text style={styles.menuItemText}>{t("app.logout")}</Text>
-              </Pressable>
-            ) : null}
-            {onOpenAthleteProfile ? (
-              <Pressable
-                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
-                onPress={() => { onOpenAthleteProfile(); setMenuVisible(false); }}
-              >
-                <Ionicons name="person-outline" size={22} color={colors.textMuted} style={styles.menuItemIcon} />
-                <Text style={styles.menuItemText}>{t("athleteProfile.title")}</Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} style={styles.menuItemChevron} />
-              </Pressable>
-            ) : null}
-            <Pressable
-              style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
-              onPress={() => { onOpenChat(); setMenuVisible(false); }}
-            >
-              <Ionicons name="chatbubble-outline" size={22} color={colors.textMuted} style={styles.menuItemIcon} />
-              <Text style={styles.menuItemText}>{t("chat.openCoachChat")}</Text>
-              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} style={styles.menuItemChevron} />
-            </Pressable>
-            {onOpenPricing ? (
-              <Pressable
-                style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
-                onPress={() => { onOpenPricing(); setMenuVisible(false); }}
-              >
-                <Ionicons name="card-outline" size={22} color={colors.textMuted} style={styles.menuItemIcon} />
-                <Text style={styles.menuItemText}>{t("pricing.title")}</Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} style={styles.menuItemChevron} />
-              </Pressable>
-            ) : null}
+                  <Pressable
+                    style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                    onPress={() => { onLogout(); setMenuVisible(false); }}
+                  >
+                    <Ionicons name="power-outline" size={22} color={colors.textMuted} style={styles.menuItemIcon} />
+                    <Text style={styles.menuItemText}>{t("app.logout")}</Text>
+                  </Pressable>
+                ) : null}
               </>
             ) : (
               <>
