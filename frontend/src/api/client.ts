@@ -749,6 +749,10 @@ export async function getIntervalsStatus(): Promise<{ linked: boolean; athlete_i
   return api<{ linked: boolean; athlete_id?: string }>("/api/v1/intervals/status");
 }
 
+export async function validateIntervalsConnection(): Promise<{ valid: boolean }> {
+  return api<{ valid: boolean }>("/api/v1/intervals/validate", { method: "POST" });
+}
+
 export async function getIntervalsOAuthRedirectUrl(returnApp?: boolean): Promise<{ redirect_url: string }> {
   const params = returnApp ? "?return_app=1" : "";
   return api<{ redirect_url: string }>(`/api/v1/intervals/oauth/authorize${params}`);

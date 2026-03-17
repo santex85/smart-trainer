@@ -13,7 +13,7 @@ import {
   AppState,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { getIntervalsOAuthRedirectUrl, getIntervalsStatus, linkIntervals, syncIntervals, unlinkIntervals } from "../api/client";
+import { getIntervalsOAuthRedirectUrl, getIntervalsStatus, linkIntervals, syncIntervals, unlinkIntervals, validateIntervalsConnection } from "../api/client";
 import { IntervalsIcon } from "../components/IntervalsIcon";
 import { useTranslation } from "../i18n";
 
@@ -46,6 +46,7 @@ export function IntervalsLinkScreen({ onClose, onSynced }: { onClose: () => void
   const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
   const [unlinkLoading, setUnlinkLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
+  const [checkLoading, setCheckLoading] = useState(false);
   const oauthInProgress = useRef(false);
 
   const loadStatus = useCallback(async () => {
@@ -126,6 +127,18 @@ export function IntervalsLinkScreen({ onClose, onSynced }: { onClose: () => void
     }
   };
 
+  const handleCheckConnection = async () => {
+    setCheckLoading(true);
+    try {
+      await validateIntervalsConnection();
+      Alert.alert(t("common.alerts.done"), t("intervals.checkSuccess"));
+    } catch (e) {
+      Alert.alert(t("common.error"), getErrorMessage(e, t));
+    } finally {
+      setCheckLoading(false);
+    }
+  };
+
   const handleSync = async () => {
     setSyncLoading(true);
     try {
@@ -197,6 +210,17 @@ export function IntervalsLinkScreen({ onClose, onSynced }: { onClose: () => void
                 <ActivityIndicator size="small" color="#0f172a" />
               ) : (
                 <Text style={styles.buttonPrimaryText}>{t("intervals.sync")}</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.buttonSecondary, checkLoading && styles.buttonDisabled]}
+              onPress={handleCheckConnection}
+              disabled={checkLoading}
+            >
+              {checkLoading ? (
+                <ActivityIndicator size="small" color="#38bdf8" />
+              ) : (
+                <Text style={styles.buttonSecondaryText}>{t("intervals.checkConnection")}</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.buttonSecondary} onPress={() => setShowForm(true)}>

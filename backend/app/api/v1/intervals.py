@@ -23,7 +23,7 @@ from app.models.user import User
 from app.services.crypto import decrypt_value, encrypt_value
 from app.services.intervals_pending import create_pending
 from app.services.audit import log_action
-from app.services.intervals_client import get_activities, get_activity_single, get_events, validate_credentials
+from app.services.intervals_client import IntervalsScopeUpgradeRequired, get_activities, get_activity_single, get_events, validate_credentials
 from app.services.intervals_sync import sync_intervals_to_db
 from app.services.push_notifications import send_push_to_user
 
@@ -59,6 +59,45 @@ async def get_intervals_status(
     if not creds:
         return {"linked": False}
     return {"linked": True, "athlete_id": creds.athlete_id}
+
+
+@router.post(
+    "/validate",
+    summary="Validate Intervals.icu connection",
+    responses={400: {"description": "Not linked or invalid credentials"}, 403: {"description": "Re-authorization required"}},
+)
+async def validate_intervals_connection(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> dict:
+    """Validate stored Intervals.icu credentials by making a minimal API call."""
+    uid = user.id
+    r = await session.execute(select(IntervalsCredentials).where(IntervalsCredentials.user_id == uid))
+    creds = r.scalar_one_or_none()
+    if not creds:
+        raise HTTPException(status_code=400, detail="Intervals.icu is not linked.")
+    api_key = decrypt_value(creds.encrypted_token_or_key)
+    if not api_key:
+        logging.warning("Intervals.icu: API key decryption failed for user_id=%s", uid)
+        raise HTTPException(status_code=500, detail="Invalid stored credentials.")
+    use_bearer = getattr(creds, "auth_type", "api_key") == "oauth"
+    try:
+        valid = await validate_credentials(creds.athlete_id, api_key, use_bearer=use_bearer)
+        if valid:
+            return {"valid": True}
+        raise HTTPException(status_code=400, detail="Intervals.icu credentials invalid or expired.")
+    except IntervalsScopeUpgradeRequired as e:
+        raise HTTPException(
+            status_code=403,
+            detail="Reconnect Intervals.icu to grant calendar access. Disconnect and connect again in Settings.",
+        ) from e
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=503, detail="Intervals.icu is slow or unreachable. Try again later.")
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=400,
+            detail="Intervals.icu credentials invalid or expired.",
+        ) from e
 
 
 @router.get(

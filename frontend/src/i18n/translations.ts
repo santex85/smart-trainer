@@ -23,6 +23,7 @@ export const ru = {
   },
   settings: {
     title: "Настройки",
+    connectors: "Коннекторы",
     theme: "Тема",
     language: "Смена языка",
     back: "Назад",
@@ -382,6 +383,9 @@ export const ru = {
     loginWithOAuth: "Войти через Intervals.icu",
     orManual: "или ввести вручную",
     oauthNotConfigured: "OAuth Intervals.icu не настроен. Используйте ручной ввод API ключа.",
+    checkConnection: "Проверить соединение",
+    checkSuccess: "Соединение с Intervals.icu работает.",
+    checkFailed: "Ошибка проверки соединения.",
   },
   fitness: {
     title: "Фитнес (CTL / ATL / TSB)",
@@ -552,6 +556,7 @@ export const en = {
   },
   settings: {
     title: "Settings",
+    connectors: "Connectors",
     theme: "Theme",
     language: "Language",
     back: "Back",
@@ -911,6 +916,9 @@ export const en = {
     loginWithOAuth: "Login with Intervals.icu",
     orManual: "or enter manually",
     oauthNotConfigured: "Intervals.icu OAuth is not configured. Use manual API key entry.",
+    checkConnection: "Check connection",
+    checkSuccess: "Connection to Intervals.icu is working.",
+    checkFailed: "Connection check failed.",
   },
   fitness: {
     title: "Fitness (CTL / ATL / TSB)",

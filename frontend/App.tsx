@@ -482,11 +482,13 @@ function AppContent() {
         )}
 
         {intervalsVisible && (
-          <View style={[styles.modal, { backgroundColor: colors.background }]}>
-            <IntervalsLinkScreen
-              onClose={() => setIntervalsVisible(false)}
-              onSynced={() => setRefreshWellnessTrigger((t) => t + 1)}
-            />
+          <View style={[styles.modal, styles.modalCentered, { backgroundColor: colors.background }]}>
+            <View style={[styles.modalContent, Platform.OS === "web" && styles.modalContentWeb]}>
+              <IntervalsLinkScreen
+                onClose={() => setIntervalsVisible(false)}
+                onSynced={() => setRefreshWellnessTrigger((t) => t + 1)}
+              />
+            </View>
           </View>
         )}
 
@@ -574,5 +576,16 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 10,
     ...(Platform.OS === "web" ? { width: "100%", height: "100%" } : {}),
+  },
+  modalCentered: {
+    alignItems: "center",
+  },
+  modalContent: {
+    flex: 1,
+    width: "100%",
+  },
+  modalContentWeb: {
+    maxWidth: 520,
+    alignSelf: "center",
   },
 });

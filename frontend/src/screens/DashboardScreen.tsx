@@ -62,6 +62,7 @@ import { PremiumGateModal } from "../components/PremiumGateModal";
 import { WorkoutChart } from "../components/WorkoutChart";
 import { LifestyleView, type SleepHistoryEntry } from "../components/dashboard/LifestyleView";
 import { PerformanceView } from "../components/dashboard/PerformanceView";
+import { IntervalsIcon } from "../components/IntervalsIcon";
 
 function Swipeable(props: { children: React.ReactNode; renderRightActions?: () => React.ReactNode }) {
   const { Swipeable: SwipeableComponent } = require("react-native-gesture-handler");
@@ -1457,7 +1458,7 @@ export function DashboardScreen({
   const [sleepReanalyzeExtId, setSleepReanalyzeExtId] = useState<number | null>(null);
   const [sleepReanalyzeCorrection, setSleepReanalyzeCorrection] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
-  const [menuView, setMenuView] = useState<"main" | "settings">("main");
+  const [menuView, setMenuView] = useState<"main" | "settings" | "connectors">("main");
   const [languagePickerVisible, setLanguagePickerVisible] = useState(false);
   const [premiumGateVisible, setPremiumGateVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<"today" | "analysis">("today");
@@ -1796,6 +1797,31 @@ export function DashboardScreen({
                   </Pressable>
                 ) : null}
               </>
+            ) : menuView === "connectors" ? (
+              <>
+                <View style={styles.menuHeader}>
+                  <TouchableOpacity
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setMenuView("settings"); }}
+                    style={styles.menuBackBtn}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <Ionicons name="arrow-back" size={22} color={colors.textMuted} style={styles.menuItemIcon} />
+                    <Text style={styles.menuItemText}>{t("settings.back")}</Text>
+                  </TouchableOpacity>
+                </View>
+                {onOpenIntervals ? (
+                  <Pressable
+                    style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); onOpenIntervals(); setMenuVisible(false); }}
+                  >
+                    <View style={styles.menuItemIcon}>
+                      <IntervalsIcon size={22} />
+                    </View>
+                    <Text style={styles.menuItemText}>Intervals.icu</Text>
+                    <Ionicons name="chevron-forward" size={20} color={colors.textMuted} style={styles.menuItemChevron} />
+                  </Pressable>
+                ) : null}
+              </>
             ) : (
               <>
                 <View style={styles.menuHeader}>
@@ -1808,6 +1834,14 @@ export function DashboardScreen({
                     <Text style={styles.menuItemText}>{t("settings.back")}</Text>
                   </TouchableOpacity>
                 </View>
+                <Pressable
+                  style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); setMenuView("connectors"); }}
+                >
+                  <Ionicons name="link-outline" size={22} color={colors.textMuted} style={styles.menuItemIcon} />
+                  <Text style={styles.menuItemText}>{t("settings.connectors")}</Text>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textMuted} style={styles.menuItemChevron} />
+                </Pressable>
                 <Pressable
                   style={({ pressed }) => [styles.menuItem, pressed && { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); toggleTheme(); }}

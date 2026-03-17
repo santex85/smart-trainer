@@ -15,6 +15,7 @@ export const th = {
   },
   settings: {
     title: "การตั้งค่า",
+    connectors: "ตัวเชื่อมต่อ",
     theme: "ธีม",
     language: "ภาษา",
     back: "กลับ",
@@ -369,6 +370,9 @@ export const th = {
     loginWithOAuth: "เข้าสู่ระบบด้วย Intervals.icu",
     orManual: "หรือป้อนด้วยตนเอง",
     oauthNotConfigured: "OAuth Intervals.icu ยังไม่ได้กำหนดค่า ใช้การป้อนคีย์ API แบบมือ",
+    checkConnection: "ตรวจสอบการเชื่อมต่อ",
+    checkSuccess: "การเชื่อมต่อกับ Intervals.icu ทำงานได้",
+    checkFailed: "การตรวจสอบการเชื่อมต่อล้มเหลว",
   },
   fitness: {
     title: "ฟิตเนส (CTL / ATL / TSB)",

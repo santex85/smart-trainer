@@ -15,6 +15,7 @@ export const es = {
   },
   settings: {
     title: "Ajustes",
+    connectors: "Conectores",
     theme: "Tema",
     language: "Idioma",
     back: "Atrás",
@@ -369,6 +370,9 @@ export const es = {
     loginWithOAuth: "Iniciar sesión con Intervals.icu",
     orManual: "o introducir manualmente",
     oauthNotConfigured: "OAuth de Intervals.icu no está configurado. Use la entrada manual de clave API.",
+    checkConnection: "Comprobar conexión",
+    checkSuccess: "La conexión con Intervals.icu funciona.",
+    checkFailed: "Error al comprobar la conexión.",
   },
   fitness: {
     title: "Fitness (CTL / ATL / TSB)",
