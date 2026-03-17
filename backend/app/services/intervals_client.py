@@ -17,6 +17,13 @@ BASE_URL = settings.intervals_icu_base_url.rstrip("/")
 logger = logging.getLogger(__name__)
 
 
+class IntervalsScopeUpgradeRequired(Exception):
+    """Raised when Intervals.icu returns 403 due to missing CALENDAR scopes.
+    User must re-authorize (disconnect + reconnect) to get new OAuth token with scopes."""
+
+    pass
+
+
 def _normalize_athlete_id(athlete_id: str) -> str:
     """Use athlete id as-is (Intervals.icu accepts both i471411 and 471411 in URL)."""
     return (athlete_id or "").strip()
@@ -74,6 +81,70 @@ def _log_response_error(method: str, url: str, response: httpx.Response) -> None
         response.status_code,
         body,
     )
+
+
+def _is_calendar_scope_required(response: httpx.Response) -> bool:
+    """Check if 403 is due to missing CALENDAR scopes (user needs to re-authorize)."""
+    if response.status_code != 403:
+        return False
+    body = (response.text or "").lower()
+    return "calendar:read scope required" in body or "calendar:write scope required" in body
+
+
+def _to_intervals_event_body(payload: EventCreate | dict[str, Any]) -> dict[str, Any]:
+    """Build Intervals.icu API event payload: start_date_local, name, category, omit nulls."""
+    if isinstance(payload, EventCreate):
+        start_str = payload.start_date.isoformat()
+        end_str = payload.end_date.isoformat() if payload.end_date else None
+        body = {
+            "name": payload.title,
+            "start_date_local": _strip_tz_suffix(start_str),
+            "category": "WORKOUT",
+            "type": payload.type or "workout",
+        }
+        if end_str:
+            body["end_date_local"] = _strip_tz_suffix(end_str)
+        if payload.description:
+            body["description"] = payload.description
+        if payload.raw:
+            body.update(payload.raw)
+    else:
+        body = {}
+        title = payload.get("title") or payload.get("name")
+        start_raw = payload.get("start_date") or payload.get("start_date_local")
+        end_raw = payload.get("end_date") or payload.get("end_date_local")
+        desc = payload.get("description")
+        ev_type = payload.get("type") or "workout"
+        if title:
+            body["name"] = title
+        if start_raw:
+            body["start_date_local"] = _strip_tz_suffix(
+                start_raw.isoformat() if isinstance(start_raw, datetime) else str(start_raw)
+            )
+        body["category"] = "WORKOUT"
+        body["type"] = ev_type
+        if end_raw:
+            body["end_date_local"] = _strip_tz_suffix(
+                end_raw.isoformat() if isinstance(end_raw, datetime) else str(end_raw)
+            )
+        if desc:
+            body["description"] = desc
+        for k, v in payload.items():
+            if k not in ("title", "start_date", "end_date", "description", "type") and v is not None:
+                body[k] = v
+    return {k: v for k, v in body.items() if v is not None}
+
+
+def _strip_tz_suffix(s: str) -> str:
+    """Remove timezone suffix for Intervals.icu local format (YYYY-MM-DDTHH:mm:ss)."""
+    s = (s or "").strip()
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if dt.tzinfo:
+            dt = dt.replace(tzinfo=None)
+        return dt.strftime("%Y-%m-%dT%H:%M:%S")
+    except Exception:
+        return s
 
 
 async def validate_credentials(athlete_id: str, api_key: str, use_bearer: bool = False) -> bool:
@@ -270,6 +341,10 @@ async def get_events(
     r = await client.get(url, params=params, **_auth_kwargs(api_key, use_bearer))
     if r.status_code >= 400:
         _log_response_error("GET", url, r)
+        if _is_calendar_scope_required(r):
+            raise IntervalsScopeUpgradeRequired(
+                "Intervals.icu calendar access requires re-authorization. Please reconnect your Intervals account."
+            )
     r.raise_for_status()
     data = r.json() if r.content else []
     if not isinstance(data, list):
@@ -309,32 +384,27 @@ async def create_event(
     payload: EventCreate | dict[str, Any],
     use_bearer: bool = False,
 ) -> Event:
-    """POST new event (planned workout)."""
+    """POST new event (planned workout). Uses Intervals.icu format: start_date_local, name, category."""
     athlete_id = _normalize_athlete_id(athlete_id)
-    if isinstance(payload, EventCreate):
-        body = {
-            "title": payload.title,
-            "start_date": payload.start_date.isoformat(),
-            "type": payload.type,
-        }
-        if payload.end_date:
-            body["end_date"] = payload.end_date.isoformat()
-        if payload.description:
-            body["description"] = payload.description
-        if payload.raw:
-            body.update(payload.raw)
-    else:
-        body = payload
+    body = _to_intervals_event_body(payload)
     client = get_http_client()
     url = f"{BASE_URL}/athlete/{athlete_id}/events"
     r = await client.post(url, json=body, **_auth_kwargs(api_key, use_bearer))
+    if r.status_code >= 400:
+        _log_response_error("POST", url, r)
+        if _is_calendar_scope_required(r):
+            raise IntervalsScopeUpgradeRequired(
+                "Intervals.icu calendar access requires re-authorization. Please reconnect your Intervals account."
+            )
     r.raise_for_status()
     data = r.json() if r.content else {}
+    start_raw = data.get("start_date") or data.get("start_date_local")
+    end_raw = data.get("end_date") or data.get("end_date_local")
     return Event(
         id=str(data.get("id", "")),
-        start_date=datetime.fromisoformat(data["start_date"].replace("Z", "+00:00")) if data.get("start_date") else None,
-        end_date=datetime.fromisoformat(data["end_date"].replace("Z", "+00:00")) if data.get("end_date") else None,
-        title=data.get("title"),
+        start_date=datetime.fromisoformat(start_raw.replace("Z", "+00:00")) if start_raw else None,
+        end_date=datetime.fromisoformat(end_raw.replace("Z", "+00:00")) if end_raw else None,
+        title=data.get("title") or data.get("name"),
         type=data.get("type", "workout"),
         raw=data,
     )
@@ -347,32 +417,27 @@ async def update_event(
     payload: EventCreate | dict[str, Any],
     use_bearer: bool = False,
 ) -> Event:
-    """PUT update existing event."""
+    """PUT update existing event. Uses Intervals.icu format: start_date_local, name, category."""
     athlete_id = _normalize_athlete_id(athlete_id)
-    if isinstance(payload, EventCreate):
-        body = {
-            "title": payload.title,
-            "start_date": payload.start_date.isoformat(),
-            "type": payload.type,
-        }
-        if payload.end_date:
-            body["end_date"] = payload.end_date.isoformat()
-        if payload.description:
-            body["description"] = payload.description
-        if payload.raw:
-            body.update(payload.raw)
-    else:
-        body = payload
+    body = _to_intervals_event_body(payload)
     client = get_http_client()
     url = f"{BASE_URL}/athlete/{athlete_id}/events/{event_id}"
     r = await client.put(url, json=body, **_auth_kwargs(api_key, use_bearer))
+    if r.status_code >= 400:
+        _log_response_error("PUT", url, r)
+        if _is_calendar_scope_required(r):
+            raise IntervalsScopeUpgradeRequired(
+                "Intervals.icu calendar access requires re-authorization. Please reconnect your Intervals account."
+            )
     r.raise_for_status()
     data = r.json() if r.content else {}
+    start_raw = data.get("start_date") or data.get("start_date_local")
+    end_raw = data.get("end_date") or data.get("end_date_local")
     return Event(
         id=str(data.get("id", event_id)),
-        start_date=datetime.fromisoformat(data["start_date"].replace("Z", "+00:00")) if data.get("start_date") else None,
-        end_date=datetime.fromisoformat(data["end_date"].replace("Z", "+00:00")) if data.get("end_date") else None,
-        title=data.get("title"),
+        start_date=datetime.fromisoformat(start_raw.replace("Z", "+00:00")) if start_raw else None,
+        end_date=datetime.fromisoformat(end_raw.replace("Z", "+00:00")) if end_raw else None,
+        title=data.get("title") or data.get("name"),
         type=data.get("type", "workout"),
         raw=data,
     )

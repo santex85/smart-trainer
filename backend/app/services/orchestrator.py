@@ -27,7 +27,7 @@ from app.schemas.orchestrator import Decision, ModifiedPlanItem, OrchestratorRes
 from app.services.datetime_prompt import format_current_datetime_for_prompt, parse_client_now
 from app.services.gemini_common import run_generate_content
 from app.services.load_metrics import compute_fitness_from_workouts
-from app.services.intervals_client import create_event
+from app.services.intervals_client import IntervalsScopeUpgradeRequired, create_event
 from app.services.crypto import decrypt_value
 from app.models.intervals_credentials import IntervalsCredentials
 from app.models.sleep_extraction import SleepExtraction
@@ -776,32 +776,29 @@ async def run_daily_decision(
             parts.append(f"Evening: {result.evening_tips}")
         if result.plan_tomorrow:
             parts.append(f"Tomorrow: {result.plan_tomorrow}")
-        if parts:
-            session.add(
-                ChatMessage(
-                    user_id=user_id,
-                    role=MessageRole.assistant.value,
-                    content="\n\n".join(parts),
-                )
-            )
         api_key = decrypt_value(creds.encrypted_token_or_key) if creds else None
         if result.decision == Decision.MODIFY and result.modified_plan and creds and api_key:
             try:
-                start = datetime.fromisoformat(result.modified_plan.start_date.replace("Z", "+00:00"))
-                end = None
-                if result.modified_plan.end_date:
-                    end = datetime.fromisoformat(result.modified_plan.end_date.replace("Z", "+00:00"))
                 await create_event(
                     creds.athlete_id,
                     api_key,
                     {
                         "title": result.modified_plan.title,
-                        "start_date": start.isoformat(),
-                        "end_date": end.isoformat() if end else None,
+                        "start_date": result.modified_plan.start_date,
+                        "end_date": result.modified_plan.end_date,
                         "description": result.modified_plan.description,
                         "type": result.modified_plan.type,
                     },
                     use_bearer=use_bearer,
+                )
+            except IntervalsScopeUpgradeRequired:
+                parts.append(
+                    "To sync workouts to Intervals.icu, please reconnect your Intervals account in Settings."
+                )
+                logger.warning(
+                    "Intervals create_event: scope upgrade required for user_id=%s athlete_id=%s",
+                    user_id,
+                    creds.athlete_id,
                 )
             except Exception as e:
                 logger.error(
@@ -811,5 +808,13 @@ async def run_daily_decision(
                     e,
                     exc_info=True,
                 )
+        if parts:
+            session.add(
+                ChatMessage(
+                    user_id=user_id,
+                    role=MessageRole.assistant.value,
+                    content="\n\n".join(parts),
+                )
+            )
 
     return result
